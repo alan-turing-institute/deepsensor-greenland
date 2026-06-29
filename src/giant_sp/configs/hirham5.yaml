@@ -65,7 +65,7 @@ logging:
   tensorboard: true
   wandb:
     enabled: true  # Set to true to enable W&B logging
-    project: "giant-poc-refactored"  # W&B project name
+    project: "giant-sp"  # W&B project name
     entity: null  # Your W&B username/team (null = default)
     name: null  # Run name (null = auto-generated)
     tags: ["spatial-interpolation", "convgnp", "snmel", "hirham5"]  # Tags for organizing runs
