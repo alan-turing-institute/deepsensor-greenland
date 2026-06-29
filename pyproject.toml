@@ -1,0 +1,119 @@
+[build-system]
+requires = ["uv_build>=0.10.9,<0.11.0"]
+build-backend = "uv_build"
+
+[project]
+name = "giant-sp"
+version = "0.1.0"
+authors = [
+  { name = "Alejandro Coca-Castro", email = "acoca@turing.ac.uk" },
+]
+description = " Sensor placement to aid location planning in GIANT"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+  "Typing :: Typed",
+]
+dependencies = [
+    "cartopy>=0.25.0",
+    "colorcet>=3.2.1",
+    "deepsensor>=0.4.3",
+    "geopandas>=1.1.4",
+    "torch>=2.12.1",
+    "wandb>=0.28.0",
+]
+
+[dependency-groups]
+dev = [
+  { include-group = "test" },
+  { include-group = "lint" },
+  "pre-commit>=4.0",
+]
+test = [
+  "pytest>=8.0",
+  "pytest-cov>=6.0",
+]
+lint = [
+  "ruff>=0.15",
+  "ty>=0.0.1a7",
+]
+
+[project.urls]
+Homepage = "https://github.com/alan-turing-institute/giant-sp"
+"Bug Tracker" = "https://github.com/alan-turing-institute/giant-sp/issues"
+Discussions = "https://github.com/alan-turing-institute/giant-sp/discussions"
+Changelog = "https://github.com/alan-turing-institute/giant-sp/releases"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = [
+  "error",
+]
+log_cli_level = "INFO"
+testpaths = [
+  "tests",
+]
+
+[tool.coverage]
+run.source = ["giant_sp"]
+port.exclude_lines = [
+  'pragma: no cover',
+  '\.\.\.',
+  'if typing.TYPE_CHECKING:',
+]
+
+[tool.ty.environment]
+python-version = "3.11"
+
+[tool.ty.rules]
+unused-ignore-comment = "warn"
+
+[tool.ty.src]
+include = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle errors
+  "W",    # pycodestyle warnings
+  "F",    # Pyflakes
+  "I",    # isort
+  "UP",   # pyupgrade
+  "B",    # flake8-bugbear
+  "SIM",  # flake8-simplify
+  "C4",   # flake8-comprehensions
+  "PT",   # flake8-pytest-style
+  "G",    # flake8-logging-format
+  "PGH",  # pygrep-hooks
+  "RUF",  # Ruff-specific rules
+]
+ignore = ["E501"]
+unfixable = [
+  "F401",   # Would remove unused imports
+  "F841",   # Would remove unused variables
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["giant_sp"]
+
+[tool.ruff.format]
+docstring-code-format = true
