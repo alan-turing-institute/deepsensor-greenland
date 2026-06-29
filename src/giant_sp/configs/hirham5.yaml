@@ -1,0 +1,89 @@
+# DeepSensor Model Configuration for HIRHAM5
+
+# Data settings
+data:
+  source: "hirham5"
+  data_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/anemoi/datasets/processed/hirham5"
+  data_pattern: "hirham5-greenland_5p0km-2015-2016-24h-v1-xy-*.nc"
+  bedmachine_ancillary_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/reference/bedmachinev6/"
+  station_locations_file: "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations.csv"
+  context_var_IDs: [["snmel_abs"], ["ahfl_abs", "ahfs_abs", "dlwrad_abs", "dswrad_abs", "mrros_abs", "snfall_abs", "tas_abs"]]
+  target_var_IDs: "snmel_abs"
+  region: "greenland"
+  basin: null #SE, CE
+  train_start: "2015-01-01"
+  train_end: "2015-12-31"
+  val_start: "2016-01-01"
+  val_end: "2016-12-31"
+  test_start: "2016-01-01"
+  test_end: "2016-12-31"
+
+dataloader:
+  lsm_mask: true
+  train_sampling: "land_obs"
+  target_sampling: "all"
+  frequency: "D"
+  sampling: 30
+  change_dates_every_epoch: false
+
+# Model architecture
+model:
+  likelihood: "gnp"
+  unet_channels: [64, 64, 64, 64]
+  unet_kernels: 5
+  num_basis_functions: 64
+
+# Training parameters
+training:
+  num_epochs: 3
+  batch_size: 1
+  learning_rate: 0.0003
+  lr_scheduler: "reduce_on_plateau"
+  lr_patience: 10
+  lr_factor: 0.5
+
+  # Early stopping
+  early_stopping: true
+  patience: 20
+
+  # Checkpointing
+  save_checkpoint_every: 1
+  save_best_only: true
+
+  # Optimization
+  optimizer: "adam"  # Options: "adam", "adamw", "sgd"
+  weight_decay: 0.0001
+  gradient_clip: 1.0
+
+  # resume training
+  resume: false
+  wandb_run_id: "stwjm7cy"  # Run ID to resume(null = latest)
+
+# Logging
+logging:
+  log_level: "INFO"
+  tensorboard: true
+  wandb:
+    enabled: true  # Set to true to enable W&B logging
+    project: "giant-poc-refactored"  # W&B project name
+    entity: null  # Your W&B username/team (null = default)
+    name: null  # Run name (null = auto-generated)
+    tags: ["spatial-interpolation", "convgnp", "snmel", "hirham5"]  # Tags for organizing runs
+    notes: ""  # Optional docs about this run
+    log_frequency: 1  # Log metrics every N epochs
+    log_maps: true  # Log prediction maps
+    log_maps_frequency: 1  # Log maps every N epochs
+    log_charts: true  # Log charts every N epochs
+    log_charts_frequency: 1  # Log charts every N epochs
+    log_model: true  # Log model checkpoints as artifacts
+    watch_model: false  # Watch model gradients and parameters
+    watch_freq: 100  # Log gradients every N steps
+  log_stnval: true
+
+# Visualization
+visualization:
+  plot_dates: ["2016-01-01", "2016-07-01", "2016-10-01"]  # Specific dates to plot
+  res_factor_maps: 1
+  crs: north_polar
+  cmap: "viridis"
+  fig_size: 3

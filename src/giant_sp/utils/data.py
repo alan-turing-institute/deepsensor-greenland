@@ -1,0 +1,126 @@
+import datetime
+from random import randrange
+import os
+import json
+import wandb
+
+import numpy as np
+import xarray as xr
+import pandas as pd
+
+import torch
+
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import matplotlib.pyplot as plt
+
+from deepsensor.model.convnp import ConvNP
+
+
+class NumpyFloatValuesEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.float32):
+            return float(obj)
+        return json.JSONEncoder.default(self, obj)
+
+def sample_land_locations(n_obs, lsm=None, seed=None, invert_mask=False):
+    """
+    Arguments:
+        n_obs (int): number of points to sample
+        lsm (DataArray): land-sea mask in which sea==0
+        seed (int): random seed
+        invert_mask (bool): default False. If True, sample from sea instead of land
+    """
+    if lsm is None:
+        lsm = dl.load_aux_ds('global', 'lsm', resolution=0.25)['lsm']
+        lsm = lsm.where(lsm > 0.5, other=0)
+    lsm = lsm.astype(bool)
+    if invert_mask:
+        lsm = ~lsm
+
+    lat_weights = np.cos(np.radians(lsm['lat']))
+    lsm_weighted = lsm * lat_weights
+
+    lsm_stacked = lsm_weighted.stack(points=('lat', 'lon')).compute()
+    land_points = lsm_stacked.where(lsm_stacked, drop=True)
+
+    probs = np.abs(land_points) / np.abs(land_points).sum()
+
+    rng = np.random.default_rng(seed)
+    sampled_idx = rng.choice(land_points.points.size, n_obs, replace=True, p=probs.values)
+    sampled_points = land_points.isel(points=sampled_idx)
+
+    lats = sampled_points['lat'].values
+    lons = sampled_points['lon'].values
+    raw_locs = np.array(list(zip(lats, lons))).transpose()  # (2, n_obs)
+
+    return raw_locs
+
+def sample_station_locations(stn_locs_df, n_obs, seed=None):
+    rng = np.random.default_rng(seed)
+    sampled_idx = rng.choice(len(stn_locs_df), n_obs, replace=False)
+    sampled_stns = stn_locs_df.iloc[sampled_idx]
+
+    raw_locs = sampled_stns.to_numpy().transpose()
+
+    return raw_locs
+
+def mixed_sampling_strategy(stn_file, n_obs, frac_stn=0.5, frac_land=0.3, frac_sea=0.2, lsm=None, seed=None):
+    n_stn = int(frac_stn * n_obs)
+    n_land = int(frac_land * n_obs)
+    n_sea = int(frac_sea * n_obs)
+    stn_locs = sample_station_locations(stn_file, n_stn, seed=seed)
+    land_locs = sample_land_locations(n_land, lsm=lsm, seed=seed)
+    sea_locs = sample_land_locations(n_sea, lsm=lsm, seed=seed, invert_mask=True)
+
+    raw_locs = np.concatenate((stn_locs, land_locs, sea_locs), axis=1)
+    return raw_locs
+
+def construct_circ_and_linear_time_ds(dates, freq):
+    """
+    Return an :class:`xarray.Dataset` containing a circular variable for time.
+    The ``freq`` entry dictates the frequency of cycling of the circular
+    variable. E.g.:
+    Note: Can be applied after preprocessing since outputs are normalised.
+
+        - ``'H'``: cycles once per day at hourly intervals
+        - ``'D'``: cycles once per year at daily intervals
+        - ``'M'``: cycles once per year at monthly intervals
+
+    Args:
+        dates (...):
+            ...
+        freq (...):
+            ...
+
+    Returns:
+        :class:`xarray.Dataset`
+            ...
+    """
+    dates = pd.DatetimeIndex(dates)
+    if freq == "D":
+        time_var = dates.dayofyear
+        mod = 365.25
+    elif freq == "H":
+        time_var = dates.hour
+        mod = 24
+    elif freq == "MS" or freq == "ME":
+        time_var = dates.month
+        mod = 12
+    else:
+        raise ValueError("Circular time variable not implemented for this frequency.")
+
+    cos_time = np.cos(2 * np.pi * time_var / mod)
+    sin_time = np.sin(2 * np.pi * time_var / mod)
+    # normalised year
+    year_time = (((dates.year - dates.year.min()) / (dates.year.max() - dates.year.min()) * 2) - 1)
+
+    ds = xr.Dataset(
+        coords={"time": dates},
+        data_vars={
+            f"cos_{freq}": ("time", cos_time),
+            f"sin_{freq}": ("time", sin_time),
+            f"year": ("time", year_time),
+        },
+    )
+    return ds
