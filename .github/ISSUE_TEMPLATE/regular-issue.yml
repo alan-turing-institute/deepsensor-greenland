@@ -13,7 +13,7 @@ body:
       label: Problem / Goal
       description: What’s the issue, opportunity, or task? Why is it needed?
       placeholder: >
-        AMSR2 data loader fails on some files due to unexpected metadata structure.
+        CARRA-2 data loader fails on some files due to unexpected metadata structure.
     validations:
       required: true
   - type: textarea
