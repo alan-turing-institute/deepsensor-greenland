@@ -22,7 +22,7 @@ body:
       label: What does good look like?
       description: Describe the intended outcome. When will this be considered “done”? List acceptance criteria and deliverables.
       placeholder: |
-        - [ ] Loader passes on full AMSR2 subset (2022–2023)
+        - [ ] Loader passes on full CARRA-2 subset (2022–2023)
         - [ ] Notebook with sample outputs added
         - [ ] Test added for known failure case
     validations:
