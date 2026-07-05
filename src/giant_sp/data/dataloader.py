@@ -392,7 +392,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
 
         return aux_raw_ds, lsm_raw_ds
 
-    def get_dataproc_taskload(self, task=None, data_processor=None):
+    def get_dataproc_taskload(self, dates, task=None, data_processor=None):
         # Load all data
         raw_ds = self.load_ds()
         aux_raw_ds, lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
@@ -407,7 +407,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
         # ds_snmel_abs = data_processor(raw_ds[self.context_vars[0]].sel(time=slice(self.train_start, self.val_end)), method="mean_std")
         # ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=slice(self.train_start, self.val_end)))
         # ds = xr.concat([ds_snmel_abs, ds_others], dim='time')
-        _ = data_processor(raw_ds.sel(time=slice(self.train_start, self.val_end)))
+        _ = data_processor(raw_ds.sel(time=dates))
         ds_target = data_processor(raw_ds[self.context_vars[0]], method="positive_semidefinite")
         ds_others = data_processor(raw_ds[self.context_vars[1]])
         # ds = xr.concat([ds_snmel_abs, ds_others], dim='time')
