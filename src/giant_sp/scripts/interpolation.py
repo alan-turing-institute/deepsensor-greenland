@@ -127,8 +127,8 @@ def main(args):
         val_dates = list(np.sort(val_sampled_dates + td).astype('datetime64[ns]'))
     else:
         td = np.timedelta64(12, 'h') #offset 12hours
-        train_dates = pd.date_range(start=train_start, end=train_end, freq='D')[::every]
-        val_dates = pd.date_range(start=val_start, end=val_end, freq='D')[::every]
+        train_dates = pd.date_range(start=train_start, end=train_end, freq=frequency)[::every]
+        val_dates = pd.date_range(start=val_start, end=val_end, freq=frequency)[::every]
         train_dates = list(np.sort(train_dates + td).astype('datetime64[ns]'))
         val_dates = list(np.sort(val_dates + td).astype('datetime64[ns]'))
 
