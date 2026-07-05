@@ -4,17 +4,17 @@
 data:
   source: "hirham5"
   data_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/anemoi/datasets/processed/hirham5"
-  data_pattern: "hirham5-greenland_5p0km-2015-2016-24h-v1-xy-*.nc"
+  data_pattern: "hirham5-greenland_bmv6_5p5km-1990-2016-24h-v1-xy-*.nc"
   bedmachine_ancillary_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/reference/bedmachinev6/"
   station_locations_file: "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations.csv"
-  context_var_IDs: [["snmel_abs"], ["ahfl_abs", "ahfs_abs", "dlwrad_abs", "dswrad_abs", "mrros_abs", "snfall_abs", "tas_abs"]]
+  context_var_IDs: [["snmel_abs"], ["ahfl_abs", "ahfs_abs", "dlwrad_abs", "dswrad_abs", "rainfall_abs", "snfall_abs", "tas_abs"]]
   target_var_IDs: "snmel_abs"
   region: "greenland"
   basin: null #SE, CE
-  train_start: "2015-01-01"
-  train_end: "2015-12-31"
-  val_start: "2016-01-01"
-  val_end: "2016-12-31"
+  train_start: "1990-01-01"
+  train_end: "2013-12-31"
+  val_start: "2014-01-01"
+  val_end: "2014-12-31"
   test_start: "2016-01-01"
   test_end: "2016-12-31"
 
@@ -23,7 +23,7 @@ dataloader:
   train_sampling: "land_obs"
   target_sampling: "all"
   frequency: "D"
-  sampling: 30
+  sampling: 1
   change_dates_every_epoch: false
 
 # Model architecture
@@ -35,7 +35,7 @@ model:
 
 # Training parameters
 training:
-  num_epochs: 3
+  num_epochs: 100
   batch_size: 1
   learning_rate: 0.0003
   lr_scheduler: "reduce_on_plateau"
@@ -47,7 +47,7 @@ training:
   patience: 20
 
   # Checkpointing
-  save_checkpoint_every: 1
+  save_checkpoint_every: 3
   save_best_only: true
 
   # Optimization
@@ -72,9 +72,9 @@ logging:
     notes: ""  # Optional docs about this run
     log_frequency: 1  # Log metrics every N epochs
     log_maps: true  # Log prediction maps
-    log_maps_frequency: 1  # Log maps every N epochs
+    log_maps_frequency: 3  # Log maps every N epochs
     log_charts: true  # Log charts every N epochs
-    log_charts_frequency: 1  # Log charts every N epochs
+    log_charts_frequency: 3  # Log charts every N epochs
     log_model: true  # Log model checkpoints as artifacts
     watch_model: false  # Watch model gradients and parameters
     watch_freq: 100  # Log gradients every N steps
@@ -82,7 +82,7 @@ logging:
 
 # Visualization
 visualization:
-  plot_dates: ["2016-01-01", "2016-07-01", "2016-10-01"]  # Specific dates to plot
+  plot_dates: null  # Specific dates to plot
   res_factor_maps: 1
   crs: north_polar
   cmap: "viridis"
