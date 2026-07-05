@@ -89,25 +89,6 @@ def main(args):
     else:
         raise ValueError(f"Unknown source: {source}")
 
-    # Load or create data
-    logger.info("Loading data...")
-    truth_ds, data_processor, task_loader = data_loader.get_dataproc_taskload()
-
-    # Create training tasks
-    logger.info("Generating training tasks...")
-
-    # Load station locations
-    stn_file = config['data']['station_locations_file']
-    stn_locs_df = pd.read_csv(stn_file)[['latitude_last_valid', 'longitude_last_valid']]  # get lat/lon only
-    gdf_points = gpd.GeoDataFrame(stn_locs_df,
-                                  crs='epsg:4326',
-                                  geometry=gpd.points_from_xy(stn_locs_df['longitude_last_valid'],
-                                                              stn_locs_df['latitude_last_valid'])).to_crs('epsg:3413')
-    stn_locs_df_subset  = gdf_points.cx[truth_ds.lon[0].values:truth_ds.lon[-1].values, truth_ds.lat[0].values:truth_ds.lat[-1].values]
-
-    raw_stn_locs = pd.DataFrame({'lat': stn_locs_df_subset.geometry.y, 'lon': stn_locs_df_subset.geometry.x})
-    stn_locs = data_processor.map_coord_array(raw_stn_locs.to_numpy().transpose())  # normalise to x1/x2 using data_processor
-
     # Define data partition
     train_start = config['data']['train_start']
     train_end = config['data']['train_end']
@@ -145,9 +126,30 @@ def main(args):
         train_dates = list(np.sort(train_sampled_dates + td).astype('datetime64[ns]'))
         val_dates = list(np.sort(val_sampled_dates + td).astype('datetime64[ns]'))
     else:
-        train_dates = list(truth_ds.sel(time=slice(train_start,train_end)).time.values[::every])
-        val_dates = list(truth_ds.sel(time=slice(val_start, val_end)).time.values[::every])
+        td = np.timedelta64(12, 'h') #offset 12hours
+        train_dates = pd.date_range(start=train_start, end=train_end, freq='D')[::every]
+        val_dates = pd.date_range(start=val_start, end=val_end, freq='D')[::every]
+        train_dates = list(np.sort(train_dates + td).astype('datetime64[ns]'))
+        val_dates = list(np.sort(val_dates + td).astype('datetime64[ns]'))
 
+    # Load or create data
+    logger.info("Loading data...")
+    truth_ds, data_processor, task_loader = data_loader.get_dataproc_taskload(dates=train_dates+val_dates)
+
+    # Load station locations
+    stn_file = config['data']['station_locations_file']
+    stn_locs_df = pd.read_csv(stn_file)[['latitude_last_valid', 'longitude_last_valid']]  # get lat/lon only
+    gdf_points = gpd.GeoDataFrame(stn_locs_df,
+                                  crs='epsg:4326',
+                                  geometry=gpd.points_from_xy(stn_locs_df['longitude_last_valid'],
+                                                              stn_locs_df['latitude_last_valid'])).to_crs('epsg:3413')
+    stn_locs_df_subset  = gdf_points.cx[truth_ds.lon[0].values:truth_ds.lon[-1].values, truth_ds.lat[0].values:truth_ds.lat[-1].values]
+
+    raw_stn_locs = pd.DataFrame({'lat': stn_locs_df_subset.geometry.y, 'lon': stn_locs_df_subset.geometry.x})
+    stn_locs = data_processor.map_coord_array(raw_stn_locs.to_numpy().transpose())  # normalise to x1/x2 using data_processor
+
+    # Create training tasks
+    logger.info("Generating training tasks...")
     # Initialise training task generator
     # Train loader is unseeded so different context sampling is used each epoch
     if train_sampling == 'stn_obs':
