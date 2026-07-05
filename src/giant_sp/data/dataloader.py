@@ -306,6 +306,10 @@ class HIRHAM5DataLoader(BaseDataLoader):
 
         files = glob.glob(f'{self.source}/{self.region}/{self.data_pattern}')
         ds = xr.open_mfdataset(files)
+
+        # preprocess data to fix negative snmel
+        ds["snmel"] = ds["snmel"].where(ds["snmel"] >= 0, 0)
+
         ds = ds[[var[:-4] for var in self.variables]]
 
         if any(v.startswith("tas") for v in self.variables):
@@ -400,19 +404,26 @@ class HIRHAM5DataLoader(BaseDataLoader):
             data_processor = self.init_data_processor()
 
         # Apply/learn
-        ds = data_processor(raw_ds.sel(time=slice(self.train_start, self.val_end)))
-        _ = data_processor(raw_ds)
+        # ds_snmel_abs = data_processor(raw_ds[self.context_vars[0]].sel(time=slice(self.train_start, self.val_end)), method="mean_std")
+        # ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=slice(self.train_start, self.val_end)))
+        # ds = xr.concat([ds_snmel_abs, ds_others], dim='time')
+        _ = data_processor(raw_ds.sel(time=slice(self.train_start, self.val_end)))
+        ds_target = data_processor(raw_ds[self.context_vars[0]], method="positive_semidefinite")
+        ds_others = data_processor(raw_ds[self.context_vars[1]])
+        # ds = xr.concat([ds_snmel_abs, ds_others], dim='time')
         aux_ds, lsm_ds = data_processor([aux_raw_ds, lsm_raw_ds], method="min_max")
 
         # Spatiotemporal aux
-        aux_ds = self.add_spatiotemporal_aux(aux_ds, ds)
+        aux_ds = self.add_spatiotemporal_aux(aux_ds, ds_target)
 
         # Make task loader
         if len(self.variables) > 1:
-            context = [ds[sublist] for sublist in self.context_vars] + [aux_ds] + [lsm_ds]
+            # context = [ds[sublist] for sublist in self.context_vars] + [aux_ds] + [lsm_ds]
+            context = [ds_target] + [ds_others] + [aux_ds] + [lsm_ds]
         else:
             context = [ds[self.context_vars]] + [aux_ds] + [lsm_ds]
-        target = [ds[self.target_vars]]
+        # target = [ds[self.target_vars]]
+        target = [ds_target[self.target_vars]]
 
         if task is None:
             task_loader = TaskLoader(context=context,  target=target)
