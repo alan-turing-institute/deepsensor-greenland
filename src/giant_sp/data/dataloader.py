@@ -360,7 +360,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
         elif resolution == "bedmachine":
             aux_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'surface_5500m.nc'))
             # lsm_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'lsm_5500m.nc'))['lsm']
-            lsm_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'ablation_5500m.nc'))['snmel_abs']
+            lsm_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'ablation_5500m.nc'))['ablation']
 
             if lsm_raw_ds.dims == ('lat', 'lon'):
                 rename_map = {
