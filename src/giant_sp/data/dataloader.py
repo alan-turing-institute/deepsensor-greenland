@@ -407,9 +407,9 @@ class HIRHAM5DataLoader(BaseDataLoader):
         # ds_snmel_abs = data_processor(raw_ds[self.context_vars[0]].sel(time=slice(self.train_start, self.val_end)), method="mean_std")
         # ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=slice(self.train_start, self.val_end)))
         # ds = xr.concat([ds_snmel_abs, ds_others], dim='time')
-        _ = data_processor(raw_ds.sel(time=dates))
-        ds_target = data_processor(raw_ds[self.context_vars[0]], method="positive_semidefinite")
-        ds_others = data_processor(raw_ds[self.context_vars[1]])
+        # _ = data_processor(raw_ds.sel(time=dates))
+        ds_target = data_processor(raw_ds[self.context_vars[0]].sel(time=dates), method="positive_semidefinite")
+        ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=dates))
         # ds = xr.concat([ds_snmel_abs, ds_others], dim='time')
         aux_ds, lsm_ds = data_processor([aux_raw_ds, lsm_raw_ds], method="min_max")
 
