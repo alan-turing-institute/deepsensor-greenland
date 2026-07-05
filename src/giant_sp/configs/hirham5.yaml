@@ -23,7 +23,7 @@ dataloader:
   train_sampling: "land_obs"
   target_sampling: "all"
   frequency: "D"
-  sampling: 1
+  sampling: "temporal"
   change_dates_every_epoch: false
 
 # Model architecture
