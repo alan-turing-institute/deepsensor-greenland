@@ -28,7 +28,7 @@ dataloader:
 
 # Model architecture
 model:
-  likelihood: "gnp"
+  likelihood: "bernoulli-gamma"
   unet_channels: [64, 64, 64, 64]
   unet_kernels: 5
   num_basis_functions: 64
