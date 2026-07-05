@@ -400,7 +400,8 @@ class HIRHAM5DataLoader(BaseDataLoader):
             data_processor = self.init_data_processor()
 
         # Apply/learn
-        ds = data_processor(raw_ds)
+        ds = data_processor(raw_ds.sel(time=slice(self.train_start, self.val_end)))
+        _ = data_processor(raw_ds)
         aux_ds, lsm_ds = data_processor([aux_raw_ds, lsm_raw_ds], method="min_max")
 
         # Spatiotemporal aux
