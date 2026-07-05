@@ -21,7 +21,7 @@ from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader
 from giant_sp.models import DeepSensorModel
 from giant_sp.training import Trainer
 import giant_sp.utils.training as tu
-from giant_sp.utils.data import sample_land_locations
+from giant_sp.utils.data import sample_land_locations, sample_dates_by_year_chunks
 
 
 def setup_logging(config):
@@ -121,7 +121,33 @@ def main(args):
     every = config['dataloader']['sampling']
     lsm_mask = config['dataloader']['lsm_mask']
 
-    train_dates = list(truth_ds.sel(time=slice(train_start,train_end)).time.values[::every])
+    if every == 'temporal':
+        # source: https://github.com/eschlager/MeltEmulation/tree/main
+        # temporal sub-sampling of training data
+        doy = np.arange(1, 367)   # days 1 to 366
+        mu = 205    # 24th of July ~ peak of melt season
+        sigma = 60
+        min_weight_doy = 0.0
+        logger.info(f'Subsample training dates using seasonal weighting following gaussian distribution with mu {mu} and sigma {sigma}')
+        gauss_weights = np.exp(-0.5 * ((doy - mu) / sigma) ** 2)
+        weights = min_weight_doy + (1 - min_weight_doy) * gauss_weights
+        weights_doy = gauss_weights / gauss_weights.sum()
+
+        n_samples_per_year = 150
+        logger.info(f'Sample {n_samples_per_year} dates per year')
+
+        np.random.seed(42)
+        train_sampled_dates = sample_dates_by_year_chunks(weights_doy, train_start, train_end, n_samples_per_year)
+        np.random.seed(42)
+        val_sampled_dates = sample_dates_by_year_chunks(weights_doy, val_start, val_end, n_samples_per_year)
+
+        td = np.timedelta64(12, 'h') #offset 12hours
+        train_dates = list(np.sort(train_sampled_dates + td).astype('datetime64[ns]'))
+        val_dates = list(np.sort(val_sampled_dates + td).astype('datetime64[ns]'))
+    else:
+        train_dates = list(truth_ds.sel(time=slice(train_start,train_end)).time.values[::every])
+        val_dates = list(truth_ds.sel(time=slice(val_start, val_end)).time.values[::every])
+
     # Initialise training task generator
     # Train loader is unseeded so different context sampling is used each epoch
     if train_sampling == 'stn_obs':
@@ -170,7 +196,6 @@ def main(args):
     # Initialise validation task generator
     # with seeded rng and datewise_deterministic so tasks remain the same every epoch + for reproducibility
     rng = np.random.default_rng(123)
-    val_dates = list(truth_ds.sel(time=slice(val_start,val_end)).time.values[::every])
     if train_sampling == 'land_obs':
         val_tasks = [
             task_loader(
