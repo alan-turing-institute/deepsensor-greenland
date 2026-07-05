@@ -283,6 +283,8 @@ class HIRHAM5DataLoader(BaseDataLoader):
         """
         super().__init__(config)
         self.bm_ancils_path = config['data']['bedmachine_ancillary_path']
+        self.train_start = config['data']['train_start']
+        self.val_end = config['data']['val_end']
         if self.basin is not None:
             self.basin_x, self.basin_y = self.load_basin(target_basin=self.basin)
 
