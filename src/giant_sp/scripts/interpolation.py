@@ -125,7 +125,6 @@ def main(args):
         np.random.seed(42)
         val_sampled_dates = sample_dates_by_year_chunks(weights_doy, val_start, val_end, n_samples_per_year)
 
-        td = np.timedelta64(12, 'h') #offset 12hours
         train_dates = list(np.sort(train_sampled_dates + td).astype('datetime64[ns]'))
         val_dates = list(np.sort(val_sampled_dates + td).astype('datetime64[ns]'))
     elif temporal_sampling_method == 'regular':
@@ -161,7 +160,7 @@ def main(args):
             task_loader,
             train_dates,
             frequency=frequency,
-            sampling=every, change_dates_every_epoch=change_dates_every_epoch,
+            sampling=temporal_sampling_every, change_dates_every_epoch=change_dates_every_epoch,
             aod_sampling_strat=stn_locs,
             target_sampling=target_sampling
         )
@@ -172,7 +171,7 @@ def main(args):
             train_dates,
             min_obs=100, max_obs=500,
             frequency=frequency,
-            sampling=every, change_dates_every_epoch=change_dates_every_epoch,
+            sampling=temporal_sampling_every, change_dates_every_epoch=change_dates_every_epoch,
             aod_sampling_strat='land_obs', data_processor=data_processor, lsm=lsm,
             target_sampling=target_sampling,
         )
@@ -183,7 +182,7 @@ def main(args):
             train_dates,
             min_obs=10, max_obs=16,
             frequency=frequency,
-            sampling=every, change_dates_every_epoch=change_dates_every_epoch,
+            sampling=temporal_sampling_every, change_dates_every_epoch=change_dates_every_epoch,
             aod_sampling_strat='mixed_obs', data_processor=data_processor, lsm=lsm,
             target_sampling=target_sampling, stations_location=raw_stn_locs
         )
@@ -193,7 +192,7 @@ def main(args):
             train_dates,
             min_obs=100, max_obs=500,
             frequency=frequency,
-            sampling=every, change_dates_every_epoch=change_dates_every_epoch,
+            sampling=temporal_sampling_every, change_dates_every_epoch=change_dates_every_epoch,
             target_sampling=target_sampling
         )
     else:
