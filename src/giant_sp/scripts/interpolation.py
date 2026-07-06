@@ -49,7 +49,6 @@ def main(args):
     # Load configuration
     config = load_config(args.config)
     source = config['data']['source']
-    frequency = config['dataloader']['frequency']
 
     # Setup logging
     setup_logging(config)
@@ -102,7 +101,6 @@ def main(args):
     target_sampling = config['dataloader']['target_sampling']
     frequency = config['dataloader']['frequency']
     change_dates_every_epoch = config['dataloader']['change_dates_every_epoch']
-    every = config['dataloader']['sampling']
     temporal_sampling_method = config['dataloader']['temporal_sampling_method']
     temporal_sampling_every = config['dataloader']['temporal_sampling_every']
     lsm_mask = config['dataloader']['lsm_mask']
