@@ -98,6 +98,7 @@ def main(args):
     # Define data loader parameters
     train_sampling = config['dataloader']['train_sampling']
     target_sampling = config['dataloader']['target_sampling']
+    frequency = config['dataloader']['frequency']
     change_dates_every_epoch = config['dataloader']['change_dates_every_epoch']
     every = config['dataloader']['sampling']
     lsm_mask = config['dataloader']['lsm_mask']
