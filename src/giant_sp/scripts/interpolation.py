@@ -216,7 +216,7 @@ def main(args):
                             seed=int(date)
                         )
                     ),
-                    "all", "all", "all"),
+                    "all", "all"),
                 target_sampling="all",
                 datewise_deterministic=True
             ).remove_context_nans().remove_target_nans()
@@ -226,7 +226,7 @@ def main(args):
         val_tasks = [
             task_loader(
                 date,
-                context_sampling=(rng.integers(100, 500), "all", "all", "all"),
+                context_sampling=(rng.integers(100, 500), "all", "all"),
                 target_sampling="all",
                 datewise_deterministic=True
             ).remove_context_nans().remove_target_nans()
@@ -238,7 +238,7 @@ def main(args):
     stnval_tasks = [
         task_loader(
             date,
-            context_sampling=(stn_locs, "all", "all", "all"),
+            context_sampling=(stn_locs, "all", "all"),
             target_sampling="all"
         ).remove_context_nans().remove_target_nans()
         for date in val_dates
