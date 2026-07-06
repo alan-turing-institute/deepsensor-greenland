@@ -17,7 +17,7 @@ import torch
 import deepsensor.torch
 from deepsensor.train import set_gpu_default_device
 
-from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader
+from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
 from giant_sp.models import DeepSensorModel
 from giant_sp.training import Trainer
 import giant_sp.utils.training as tu
