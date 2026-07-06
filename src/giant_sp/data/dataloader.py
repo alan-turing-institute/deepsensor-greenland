@@ -240,7 +240,7 @@ class CARRA2DataLoader(BaseDataLoader):
 
         return aux_raw_ds, lsm_raw_ds
 
-    def get_dataproc_taskload(self, task=None, data_processor=None):
+    def get_dataproc_taskload(self, dates, task=None, data_processor=None):
         # Load all data
         raw_ds = self.load_ds()
         aux_raw_ds, lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
@@ -252,6 +252,7 @@ class CARRA2DataLoader(BaseDataLoader):
             data_processor = self.init_data_processor()
 
         # Apply/learn
+        _ = data_processor(raw_ds.sel(time=dates))
         ds = data_processor(raw_ds)
         aux_ds, lsm_ds = data_processor([aux_raw_ds, lsm_raw_ds], method="min_max")
 
