@@ -84,8 +84,10 @@ def main(args):
     # Initialize data loader
     if source == 'carra2':
         data_loader = CARRA2DataLoader(config)
+        td =  np.timedelta64(0, 'ms')
     elif source == 'hirham5':
         data_loader = HIRHAM5DataLoader(config)
+        td = np.timedelta64(12, 'h') #offset 12hours
     else:
         raise ValueError(f"Unknown source: {source}")
 
@@ -101,9 +103,11 @@ def main(args):
     frequency = config['dataloader']['frequency']
     change_dates_every_epoch = config['dataloader']['change_dates_every_epoch']
     every = config['dataloader']['sampling']
+    temporal_sampling_method = config['dataloader']['temporal_sampling_method']
+    temporal_sampling_every = config['dataloader']['temporal_sampling_every']
     lsm_mask = config['dataloader']['lsm_mask']
 
-    if every == 'temporal':
+    if temporal_sampling_method == 'seasonal':
         # source: https://github.com/eschlager/MeltEmulation/tree/main
         # temporal sub-sampling of training data
         doy = np.arange(1, 367)   # days 1 to 366
@@ -115,7 +119,7 @@ def main(args):
         weights = min_weight_doy + (1 - min_weight_doy) * gauss_weights
         weights_doy = gauss_weights / gauss_weights.sum()
 
-        n_samples_per_year = 150
+        n_samples_per_year = temporal_sampling_every
         logger.info(f'Sample {n_samples_per_year} dates per year')
 
         np.random.seed(42)
@@ -126,12 +130,13 @@ def main(args):
         td = np.timedelta64(12, 'h') #offset 12hours
         train_dates = list(np.sort(train_sampled_dates + td).astype('datetime64[ns]'))
         val_dates = list(np.sort(val_sampled_dates + td).astype('datetime64[ns]'))
-    else:
-        td = np.timedelta64(12, 'h') #offset 12hours
-        train_dates = pd.date_range(start=train_start, end=train_end, freq=frequency)[::every]
-        val_dates = pd.date_range(start=val_start, end=val_end, freq=frequency)[::every]
+    elif temporal_sampling_method == 'regular':
+        train_dates = pd.date_range(start=train_start, end=train_end, freq=frequency)[::temporal_sampling_every]
+        val_dates = pd.date_range(start=val_start, end=val_end, freq=frequency)[::temporal_sampling_every]
         train_dates = list(np.sort(train_dates + td).astype('datetime64[ns]'))
         val_dates = list(np.sort(val_dates + td).astype('datetime64[ns]'))
+    else:
+        raise ValueError(f"Unknown temporal sampling method: {temporal_sampling_method}")
 
     # Load or create data
     logger.info("Loading data...")
