@@ -87,6 +87,9 @@ def main(args):
     elif source == 'hirham5':
         data_loader = HIRHAM5DataLoader(config)
         td = np.timedelta64(12, 'h') #offset 12hours
+    elif source == 'hirham5zarr':
+        data_loader = HIRHAM5ZarrDataLoader(config)
+        td = np.timedelta64(12, 'h')
     else:
         raise ValueError(f"Unknown source: {source}")
 
