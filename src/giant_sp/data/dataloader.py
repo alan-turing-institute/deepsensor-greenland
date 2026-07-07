@@ -570,3 +570,144 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
             task_loader = TaskLoader(context=context,  target=target)
 
         return raw_ds, data_processor, task_loader
+
+class HIRHAM5ZarrPredictionDataLoader(BaseDataLoader):
+    """Load and preprocess HIRHAM5 data for DeepSensor models"""
+
+    def __init__(self, config: dict):
+        """
+        Initialize data loader
+
+        Args:
+            config: Configuration dictionary
+        """
+        super().__init__(config)
+        self.bm_ancils_path = config['data']['bedmachine_ancillary_path']
+        self.train_start = config['data']['train_start']
+        self.val_end = config['data']['val_end']
+        if self.basin is not None:
+            self.basin_x, self.basin_y = self.load_basin(target_basin=self.basin)
+
+    def load_basin(self, target_basin='SE'):
+        basin_ds = xr.open_zarr(os.path.join(self.source, 'GRLmask.zarr'), chunks='auto')['maskbas']
+        basin_ds = basin_ds.set_index(z=['y', 'x']).unstack('z').compute()
+        label_to_code = {'N': 1, 'NE': 2, 'CE': 3, 'SE': 4, 'SW': 5, 'NW': 6}
+        se_code = label_to_code[target_basin]
+        se_mask = basin_ds == se_code
+        basin_x = basin_ds.x.where(se_mask.any("y"), drop=True)
+        basin_y = basin_ds.y.where(se_mask.any("x"), drop=True)
+        return basin_x, basin_y
+
+    # Load gridded
+    def load_ds(self):
+        if not isinstance(self.context_vars, list):
+            self.variables = [self.context_vars + self.target_vars]
+        if any(isinstance(el, list) for el in self.context_vars):
+            context_vars = [var for l in self.context_vars for var in l]
+            target_vars = [self.target_vars]
+            self.variables = context_vars + target_vars
+
+        ds = xr.open_zarr(os.path.join(self.source, self.data_pattern), chunks='auto')
+        ds = ds.set_index(z=['y', 'x']).unstack('z')
+        ds = ds.drop_vars(['lat','lon'])
+
+        # preprocess data to fix negative snmel
+        ds["snmel"] = ds["snmel"].where(ds["snmel"] >= 0, 0)
+
+        ds = ds[[var[:-4] for var in self.variables]]
+
+        if any(v.startswith("tas") for v in self.variables):
+            scale = 1.0
+            shift = -273.15
+            ds["tas"] = ds["tas"] * scale + shift
+
+        for var in self.variables:
+
+            if var[-3:] == 'anm':
+                target = var[:-4]
+                ds.update(
+                    self.featurize_vars(
+                        var=target,
+                        dims=ds[target].dims,
+                        chunks=ds[target].chunks,
+                        abs=ds[target],
+                    )
+                )
+
+        rename_map = {
+            var: f"{var}_abs"
+            for var in ds.data_vars
+            if not (var.endswith("_anm") or var.endswith("_abs"))
+        }
+
+        ds = ds.rename(rename_map)
+
+        if self.basin is not None:
+            ds = ds.sel(
+                x=slice(float(self.basin_x.min()), float(self.basin_x.max())),
+                y=slice(float(self.basin_y.min()), float(self.basin_y.max())),  # y is decreasing
+            )
+
+        rename_map = {
+            'x': 'lon',
+            'y': 'lat'
+        }
+        ds = ds.rename(rename_map)
+
+        return ds
+
+    def load_aux_ds(self, resolution="public"):
+        # Download static auxiliary features (elevation/land mask)
+        if resolution == "public":
+            reg_extent = region_extents[self.region]
+            lsm_raw_ds = get_gldas_land_mask(reg_extent, cache=True, cache_dir=cache_dir)
+
+        elif resolution == "bedmachine":
+            mask_native = xr.open_zarr(os.path.join(self.source, 'GRLmask.zarr'), chunks='auto')
+            mask_native = mask_native['glacGRL'].set_index(z=['y', 'x']).unstack('z')
+            lsm_raw_ds = mask_native.drop_vars(['lat', 'lon']).fillna(0)
+
+            if self.basin is not None:
+                lsm_raw_ds = lsm_raw_ds.sel(
+                    x=slice(float(self.basin_x.min()), float(self.basin_x.max())),
+                    y=slice(float(self.basin_y.min()), float(self.basin_y.max())),
+                )
+
+            rename_map = {
+                'x': 'lon',
+                'y': 'lat'
+            }
+            lsm_raw_ds = lsm_raw_ds.rename(rename_map)
+
+        return lsm_raw_ds, lsm_raw_ds
+
+    def get_dataproc_taskload(self, dates, task=None, data_processor=None):
+        # Load all data
+        raw_ds = self.load_ds()
+        _, lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
+        if self.lsm_mask:
+            raw_ds = raw_ds.where(lsm_raw_ds == 1)
+
+        # Data processor
+        if data_processor is None:
+            data_processor = self.init_data_processor()
+
+        # Apply/learn
+        ds_target = data_processor(raw_ds[self.target_vars].sel(time=dates), method="positive_semidefinite")
+        ds_others = data_processor(raw_ds[self.context_vars[0]].sel(time=dates))
+        aux_ds = data_processor(lsm_raw_ds, method="min_max")
+
+        # Spatiotemporal aux
+        aux_ds = self.add_spatiotemporal_aux(aux_ds.to_dataset(name='GRLmask'), ds_target)
+
+        # Make task loader
+        if len(self.variables) > 1:
+            context = [ds_others] + [aux_ds]
+        else:
+            context = [ds[self.context_vars]] + [aux_ds]
+        target = ds_target
+
+        if task is None:
+            task_loader = TaskLoader(context=context,  target=target)
+
+        return raw_ds, data_processor, task_loader
