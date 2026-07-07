@@ -7,7 +7,7 @@ data:
   data_pattern: "base_dataset.zarr"
   bedmachine_ancillary_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/reference/bedmachinev6/"
   station_locations_file: "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations.csv"
-  context_var_IDs: [["snmel_abs"], ["ahfl_abs", "ahfs_abs", "dlwrad_abs", "dswrad_abs", "rainfall_abs", "snfall_abs", "tas_abs"]]
+  context_var_IDs: [["ahfl_abs", "ahfs_abs", "dlwrad_abs", "dswrad_abs", "rainfall_abs", "snfall_abs", "tas_abs"]]
   target_var_IDs: "snmel_abs"
   region: "greenland"
   basin: "CE" #SE, CE
