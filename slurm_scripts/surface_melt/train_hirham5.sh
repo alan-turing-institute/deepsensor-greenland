@@ -21,4 +21,4 @@ source $HOME/repos/giant/giant-sp/.venv/bin/activate
 export PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
 
 # submit the code
-srun uv run src/giant_sp/scripts/interpolation.py --config src/giant_sp/configs/hirham5zarr.yaml
+srun uv run src/giant_sp/scripts/prediction.py --config src/giant_sp/configs/hirham5zarr_prediction.yaml
