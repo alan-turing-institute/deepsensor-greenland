@@ -79,7 +79,7 @@ logging:
     log_model: true  # Log model checkpoints as artifacts
     watch_model: false  # Watch model gradients and parameters
     watch_freq: 100  # Log gradients every N steps
-  log_stnval: true
+  log_stnval: false
 
 # Visualization
 visualization:
