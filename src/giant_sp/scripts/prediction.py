@@ -1,0 +1,207 @@
+#!/usr/bin/env python
+"""
+Main training script for DeepSensor spatial interpolation
+"""
+import logging
+import argparse
+import yaml
+from pathlib import Path
+import wandb
+
+import numpy as np
+import pandas as pd
+import geopandas as gpd
+
+import torch
+
+import deepsensor.torch
+from deepsensor.train import set_gpu_default_device
+
+from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader, HIRHAM5ZarrPredictionDataLoader
+from giant_sp.models import DeepSensorModel
+from giant_sp.training import Trainer
+import giant_sp.utils.training as tu
+from giant_sp.utils.data import sample_land_locations, sample_dates_by_year_chunks
+
+
+def setup_logging(config):
+    """Setup logging configuration"""
+    log_level = getattr(logging, config['logging']['log_level'])
+
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler()
+        ]
+    )
+
+
+def load_config(config_path):
+    """Load configuration from YAML file"""
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    return config
+
+
+def main(args):
+    """Main training function"""
+    # Load configuration
+    config = load_config(args.config)
+    source = config['data']['source']
+
+    # Setup logging
+    setup_logging(config)
+    logger = logging.getLogger(__name__)
+
+    # Initialize W&B early to track the full run (data loading, model build, training)
+    wandb_run = None
+    use_wandb = config['logging'].get('wandb', {}).get('enabled', False)
+    resume = config['training'].get('resume', False)
+    if use_wandb and not resume:
+        wandb_cfg = config['logging']['wandb']
+        wandb_run = wandb.init(
+            project=wandb_cfg.get('project', 'deepsensor-spatial-interpolation'),
+            entity=wandb_cfg.get('entity'),
+            name=wandb_cfg.get('name'),
+            tags=wandb_cfg.get('tags', []),
+            notes=wandb_cfg.get('docs', ''),
+            config={
+                'model': config['model'],
+                'training': config['training'],
+                'data': config['data'],
+            }
+        )
+        logger.info(f"Initialized W&B run: {wandb_run.name}")
+        logger.info(f"W&B URL: {wandb_run.url}")
+
+    logger.info(f"Active devices before updating default: {torch.get_default_device()}")
+    set_gpu_default_device() if torch.cuda.is_available() else torch.device('cpu')
+    logger.info(f"Active devices after updating default: {torch.get_default_device()}")
+    logger.info(f"Configuration: {args.config}")
+
+    # Initialize data loader
+    if source == 'carra2':
+        data_loader = CARRA2DataLoader(config)
+        td =  np.timedelta64(0, 'ms')
+    elif source == 'hirham5':
+        data_loader = HIRHAM5DataLoader(config)
+        td = np.timedelta64(12, 'h') #offset 12hours
+    elif source == 'hirham5zarr':
+        data_loader = HIRHAM5ZarrDataLoader(config)
+        td = np.timedelta64(12, 'h')
+    elif source == 'hirham5predzarr':
+        data_loader = HIRHAM5ZarrPredictionDataLoader(config)
+        td = np.timedelta64(12, 'h')
+    else:
+        raise ValueError(f"Unknown source: {source}")
+
+    # Define data partition
+    train_start = config['data']['train_start']
+    train_end = config['data']['train_end']
+    val_start = config['data']['val_start']
+    val_end = config['data']['val_end']
+
+    # Define data loader parameters
+    train_sampling = config['dataloader']['train_sampling']
+    target_sampling = config['dataloader']['target_sampling']
+    frequency = config['dataloader']['frequency']
+    change_dates_every_epoch = config['dataloader']['change_dates_every_epoch']
+    temporal_sampling_method = config['dataloader']['temporal_sampling_method']
+    temporal_sampling_every = config['dataloader']['temporal_sampling_every']
+    lsm_mask = config['dataloader']['lsm_mask']
+
+    if temporal_sampling_method == 'seasonal':
+        # source: https://github.com/eschlager/MeltEmulation/tree/main
+        # temporal sub-sampling of training data
+        doy = np.arange(1, 367)   # days 1 to 366
+        mu = 205    # 24th of July ~ peak of melt season
+        sigma = 60
+        min_weight_doy = 0.0
+        logger.info(f'Subsample training dates using seasonal weighting following gaussian distribution with mu {mu} and sigma {sigma}')
+        gauss_weights = np.exp(-0.5 * ((doy - mu) / sigma) ** 2)
+        weights = min_weight_doy + (1 - min_weight_doy) * gauss_weights
+        weights_doy = gauss_weights / gauss_weights.sum()
+
+        n_samples_per_year = temporal_sampling_every
+        logger.info(f'Sample {n_samples_per_year} dates per year')
+
+        np.random.seed(42)
+        train_sampled_dates = sample_dates_by_year_chunks(weights_doy, train_start, train_end, n_samples_per_year)
+        np.random.seed(42)
+        val_sampled_dates = sample_dates_by_year_chunks(weights_doy, val_start, val_end, n_samples_per_year)
+
+        train_dates = list(np.sort(train_sampled_dates + td).astype('datetime64[ns]'))
+        val_dates = list(np.sort(val_sampled_dates + td).astype('datetime64[ns]'))
+    elif temporal_sampling_method == 'regular':
+        train_dates = pd.date_range(start=train_start, end=train_end, freq=frequency)[::temporal_sampling_every]
+        val_dates = pd.date_range(start=val_start, end=val_end, freq=frequency)[::temporal_sampling_every]
+        train_dates = list(np.sort(train_dates + td).astype('datetime64[ns]'))
+        val_dates = list(np.sort(val_dates + td).astype('datetime64[ns]'))
+    else:
+        raise ValueError(f"Unknown temporal sampling method: {temporal_sampling_method}")
+
+    # Load or create data
+    logger.info("Loading data...")
+    truth_ds, data_processor, task_loader = data_loader.get_dataproc_taskload(dates=train_dates+val_dates)
+
+    # Create training tasks
+    logger.info("Generating training tasks...")
+    # Initialise training task generator
+    # Train loader is unseeded so different context sampling is used each epoch
+    _, lsm = data_loader.load_aux_ds(resolution="bedmachine")
+    task_stream_tr = tu.TaskStreamDataset(
+        task_loader,
+        train_dates,
+        min_obs=100, max_obs=500,
+        frequency=frequency,
+        sampling=temporal_sampling_every, change_dates_every_epoch=change_dates_every_epoch,
+        aod_sampling_strat='land_obs', data_processor=data_processor, lsm=lsm,
+        target_sampling=target_sampling,
+    )
+
+    # Initialise validation task generator
+    # with seeded rng and datewise_deterministic so tasks remain the same every epoch + for reproducibility
+    rng = np.random.default_rng(123)
+    val_tasks = [
+        task_loader(
+            date,
+            context_sampling=("all", "all"),
+            target_sampling="all",
+            datewise_deterministic=True
+        ).remove_context_nans().remove_target_nans()
+        for date in val_dates
+    ]
+    logger.info(f'Finished val task generation ({len(val_dates)})')
+
+    # Build model
+    logger.info("Building model...")
+    model_wrapper = DeepSensorModel(config)
+    model_wrapper.build_model(data_processor, task_loader)
+
+    logger.info(f"Model parameters: {model_wrapper.count_parameters():,}")
+    
+    # Create trainer
+    trainer = Trainer(model_wrapper, config, wandb_run=wandb_run)
+
+    # Check mask
+    if lsm_mask:
+        _, lsm = data_loader.load_aux_ds(resolution="bedmachine")
+    else:
+        lsm = None
+
+    # Train model
+    logger.info("Starting training...")
+    trainer.train(truth_ds, task_stream_tr, val_tasks, mask=lsm, stnval_tasks=None)
+
+    logger.info("Training complete!")
+    logger.info(f"Best validation loss: {trainer.best_val_loss:.6f}")
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Train DeepSensor model')
+    parser.add_argument('--config', type=str, default='configs/carra2_debug.yaml',
+                       help='Path to configuration file')
+    
+    args = parser.parse_args()
+    main(args)
