@@ -7,7 +7,7 @@ data:
   data_pattern: "base_dataset.zarr"
   bedmachine_ancillary_path: "data/reference/bm_v6"
   station_locations_file: "data/station/promice/processed/promice_locations.csv"
-  context_var_IDs: [["snmel_abs"], ["ahfl_abs", "ahfs_abs", "dlwrad_abs", "dswrad_abs", "rainfall_abs", "snfall_abs", "tas_abs"]]
+  context_var_IDs: [["ahfl_abs", "ahfs_abs", "dlwrad_abs", "dswrad_abs", "rainfall_abs", "snfall_abs"]]
   target_var_IDs: "snmel_abs"
   region: "greenland"
   basin: "CE" #CE, CW, NE, NO, NW, SE, SW
@@ -24,7 +24,7 @@ dataloader:
   target_sampling: "all"
   frequency: "D"
   temporal_sampling_method: "seasonal"
-  temporal_sampling_every: 150
+  temporal_sampling_every: 100
   change_dates_every_epoch: false
 
 # Model architecture
