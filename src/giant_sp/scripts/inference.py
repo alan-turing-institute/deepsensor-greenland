@@ -112,6 +112,7 @@ rename_map = {
 pred_final = pred_final.rename(rename_map)
 
 ds_xr = pred_final.reindex({'x': xy_coords_ref[0], 'y': xy_coords_ref[1]})
+ds_xr = ds_xr.assign_coords(lon=extra_coords[0], lat=extra_coords[1])
 ds_xr = ds_xr.chunk({'time': chunk_size, 'x': -1, 'y': -1})
 
 ds_xr.to_zarr(
