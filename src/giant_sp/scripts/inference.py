@@ -45,11 +45,12 @@ def load_wandb_model(data_processor, task_loader, config_path, weights_path):
 
     return model
 
-# Load model
+# Path and files
 files_path = '/gws/pw/j07/aria_giant/wip/draft/acocac/outputs/present/hirham5/1h622vp9'
+config_file = 'src/giant_sp/configs/hirham5zarr_prediction.yaml'
+coords_path = '/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed/HIRHAM5-ERAInterim/v_02'
 
 # Args
-config_file = 'src/giant_sp/configs/hirham5zarr_prediction.yaml'
 config = load_config(config_file)
 source = config['data']['source']
 chunk_size = 100
@@ -101,9 +102,10 @@ mean_da, truth_da = xr.align(pred_ds['mean'], truth_ds[tvar], join='inner')
 pred_final = xr.concat([mean_da, truth_da], dim='variable').assign_coords(variable=['snmel_pred', 'snmel_true'])
 pred_final = pred_final.to_dataset(dim='variable')
 
-coords_file = os.path.sep.join(['/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed/HIRHAM5-ERAInterim/v_02', 'coords_only.zarr'])
+coords_file = os.path.sep.join([coords_path, 'coords_only.zarr'])
 coords_ref = xr.open_dataset(coords_file)
 xy_coords_ref = (coords_ref['x'], coords_ref['y'])
+lonlat_coords_ref = (coords_ref['lon'], coords_ref['lat'])
 
 rename_map = {
     'lon': 'x',
@@ -112,7 +114,7 @@ rename_map = {
 pred_final = pred_final.rename(rename_map)
 
 ds_xr = pred_final.reindex({'x': xy_coords_ref[0], 'y': xy_coords_ref[1]})
-ds_xr = ds_xr.assign_coords(lon=extra_coords[0], lat=extra_coords[1])
+ds_xr = ds_xr.assign_coords(lon=lonlat_coords_ref[0], lat=lonlat_coords_ref[1])
 ds_xr = ds_xr.chunk({'time': chunk_size, 'x': -1, 'y': -1})
 
 ds_xr.to_zarr(
