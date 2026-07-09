@@ -24,7 +24,7 @@ dataloader:
   target_sampling: "all"
   frequency: "D"
   temporal_sampling_method: "seasonal"
-  temporal_sampling_every: 10
+  temporal_sampling_every: 100
   change_dates_every_epoch: false
 
 # Model architecture
