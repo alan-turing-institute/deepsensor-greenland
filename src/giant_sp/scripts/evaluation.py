@@ -47,8 +47,8 @@ def load_wandb_model(data_processor, task_loader, config_path, weights_path):
     return model
 
 # Path and files
-files_path = '/gws/pw/j07/aria_giant/wip/draft/acocac/outputs/present/hirham5/dxh0fb6j'
-config_file = 'src/giant_sp/configs/hirham5zarr.yaml'
+files_path = '/gws/pw/j07/aria_giant/wip/draft/acocac/outputs/present/hirham5/1h622vp9'
+config_file = 'src/giant_sp/configs/hirham5zarr_prediction.yaml'
 coords_path = '/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed/HIRHAM5-ERAInterim/v_02'
 
 # Args
@@ -94,7 +94,7 @@ mask, _ = data_loader.load_aux_ds(resolution="bedmachine")
 # predict
 tasks = []
 for date in dates:
-    task = task_loader(date, ("all", "all", "all"), "all", seed_override=42)
+    task = task_loader(date, ("all", "all"), "all", seed_override=42)
     tasks.append(task)
 
 pred_ds = model.predict(tasks, X_t=true_ds, X_t_mask=mask)[tvar]
