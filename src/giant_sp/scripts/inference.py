@@ -93,7 +93,7 @@ mask, _ = data_loader.load_aux_ds(resolution="bedmachine")
 # predict
 tasks = []
 for date in dates:
-    task = task_loader(date, ("all", "all"), "all", seed_override=42)
+    task = task_loader(date, ("all", "all", "all"), "all", seed_override=42)
     tasks.append(task)
 
 pred_ds = model.predict(tasks, X_t=true_ds, X_t_mask=mask)[tvar]
@@ -127,3 +127,31 @@ ds_xr.to_zarr(
                     for var in ds_xr.data_vars
                 }
             )
+
+# PIT
+# Randomly select dates
+test_dates = [tasks[i]['time'] for i in range(len(tasks))]
+n_dates = min(len(test_dates), 30)
+np.random.seed(42)
+dates_plt = np.random.choice(test_dates, n_dates, replace=False)
+
+# Subselect and flatten datasets
+true_plt      = truth_da.sel(time=dates_plt).values.flatten()
+pred_mean_plt = pred_ds[tvar]['mean'].sel(time=dates_plt).values.flatten()
+pred_std_plt  = pred_ds[tvar]['std'].sel(time=dates_plt).values.flatten()
+
+# PIT histogram (area weighted)
+# Compute PIT values
+pit_values = sp.stats.norm.cdf(true_plt, loc=pred_mean_plt, scale=pred_std_plt)
+# Plot
+fig, ax = plt.subplots()
+ax.hist(pit_values, bins=100, range=(0,1), density=True,
+    label='ConvNP model')
+ax.set_xlabel('Probability integral transform')
+ax.set_ylabel('Density')
+ax.set_title('PIT histogram')
+ax.grid()
+# Plot uniform line
+ax.axhline(1., color='k', linestyle='--')
+
+fig.savefig(os.path.join(files_path, 'test_figures', 'pit_histogram.png'))
