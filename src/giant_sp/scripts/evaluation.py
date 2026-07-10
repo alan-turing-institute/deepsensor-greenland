@@ -107,8 +107,8 @@ dates_plt = np.random.choice(test_dates, n_dates, replace=False)
 
 # Subselect and flatten datasets
 true_plt      = truth_da.sel(time=dates_plt).values.flatten()
-pred_mean_plt = pred_ds[tvar]['mean'].sel(time=dates_plt).values.flatten()
-pred_std_plt  = pred_ds[tvar]['std'].sel(time=dates_plt).values.flatten()
+pred_mean_plt = pred_ds['mean'].sel(time=dates_plt).values.flatten()
+pred_std_plt  = pred_ds['std'].sel(time=dates_plt).values.flatten()
 
 # PIT histogram (area weighted)
 # Compute PIT values
