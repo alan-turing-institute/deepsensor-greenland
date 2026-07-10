@@ -93,7 +93,7 @@ mask, _ = data_loader.load_aux_ds(resolution="bedmachine")
 # predict
 tasks = []
 for date in dates:
-    task = task_loader(date, ("all", "all", "all"), "all", seed_override=42)
+    task = task_loader(date, ("all", "all"), "all", seed_override=42)
     tasks.append(task)
 
 pred_ds = model.predict(tasks, X_t=true_ds, X_t_mask=mask)[tvar]
