@@ -405,13 +405,9 @@ class HIRHAM5DataLoader(BaseDataLoader):
             data_processor = self.init_data_processor()
 
         # Apply/learn
-        # ds_snmel_abs = data_processor(raw_ds[self.context_vars[0]].sel(time=slice(self.train_start, self.val_end)), method="mean_std")
-        # ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=slice(self.train_start, self.val_end)))
-        # ds = xr.concat([ds_snmel_abs, ds_others], dim='time')
-        # _ = data_processor(raw_ds.sel(time=dates))
         ds_target = data_processor(raw_ds[self.context_vars[0]].sel(time=dates), method="positive_semidefinite")
         ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=dates))
-        # ds = xr.concat([ds_snmel_abs, ds_others], dim='time')
+
         aux_ds, lsm_ds = data_processor([aux_raw_ds, lsm_raw_ds], method="min_max")
 
         # Spatiotemporal aux
@@ -419,11 +415,9 @@ class HIRHAM5DataLoader(BaseDataLoader):
 
         # Make task loader
         if len(self.variables) > 1:
-            # context = [ds[sublist] for sublist in self.context_vars] + [aux_ds] + [lsm_ds]
             context = [ds_target] + [ds_others] + [aux_ds] + [lsm_ds]
         else:
             context = [ds[self.context_vars]] + [aux_ds] + [lsm_ds]
-        # target = [ds[self.target_vars]]
         target = [ds_target[self.target_vars]]
 
         if task is None:
