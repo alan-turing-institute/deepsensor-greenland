@@ -45,8 +45,10 @@ class BaseDataLoader:
         self.basin = config['data']['basin']
         self.context_vars = config['data']['context_var_IDs']
         self.target_vars = config['data']['target_var_IDs']
-        self.train_start = pd.Timestamp(self.config['data']['train_start'])
-        self.train_end = pd.Timestamp(self.config['data']['train_end'])
+        self.train_start = self.config['data']['train_start']
+        self.train_end = self.config['data']['train_end']
+        self.val_start = config['data']['val_start']
+        self.val_end = config['data']['val_end']
         self.lsm_mask = config['dataloader']['lsm_mask']
         self.frequency = config['dataloader']['frequency']
         self.variables = []
@@ -77,12 +79,12 @@ class BaseDataLoader:
         climatology_fpath = os.path.join(
             climatology_folder,
             '{}_climatology_{}_{}_{}.nc'.format(
-                var_ID, self.train_start.year, self.train_end.year, self.data_pattern.split("*.")[0][-3:]))
+                var_ID, pd.Timestamp(self.train_start).year, pd.Timestamp(self.train_end).year, self.data_pattern.split("*.")[0][-3:]))
         if os.path.exists(climatology_fpath):
             with xr.open_dataset(climatology_fpath) as ds:
                 climatology = next(iter(ds.data_vars.values()))
         else:
-            climatology = da.sel(time=slice(self.train_start, self.train_end)). \
+            climatology = da.sel(time=slice(pd.Timestamp(self.train_start), pd.Timestamp(self.train_end))). \
                 groupby("time.dayofyear", restore_coord_dims=True).mean("time")
             climatology.to_netcdf(climatology_fpath)
 
@@ -252,6 +254,7 @@ class CARRA2DataLoader(BaseDataLoader):
             data_processor = self.init_data_processor()
 
         # Apply/learn
+        _ = data_processor(raw_ds.sel(time=slice(self.train_start, self.val_end)))
         ds = data_processor(raw_ds)
         aux_ds, lsm_ds = data_processor([aux_raw_ds, lsm_raw_ds], method="min_max")
 
@@ -358,7 +361,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
         elif resolution == "bedmachine":
             aux_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'surface_5500m.nc'))
             # lsm_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'lsm_5500m.nc'))['lsm']
-            lsm_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'ablation_5500m.nc'))['snmel_abs']
+            lsm_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'ablation_5500m.nc'))['ablation']
 
             if lsm_raw_ds.dims == ('lat', 'lon'):
                 rename_map = {
@@ -398,6 +401,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
             data_processor = self.init_data_processor()
 
         # Apply/learn
+        _ = data_processor(raw_ds.sel(time=slice(self.train_start, self.val_end)))
         ds = data_processor(raw_ds)
         aux_ds, lsm_ds = data_processor([aux_raw_ds, lsm_raw_ds], method="min_max")
 
