@@ -13,6 +13,7 @@ import json
 
 import colorcet as cc
 import matplotlib.colors as mcolors
+import scipy as sp
 
 def load_config(config_path):
     """Load configuration from YAML file"""
