@@ -2,6 +2,7 @@
 """
 Main training script for DeepSensor spatial interpolation
 """
+import os
 import logging
 import argparse
 import yaml
@@ -11,6 +12,7 @@ import wandb
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+import xarray as xr
 
 import torch
 
@@ -21,7 +23,7 @@ from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLo
 from giant_sp.models import DeepSensorModel
 from giant_sp.training import Trainer
 import giant_sp.utils.training as tu
-from giant_sp.utils.data import sample_land_locations, sample_dates_by_year_chunks
+from giant_sp.utils.data import sample_land_locations, sample_dates_by_year_chunks, find_xy_for_points
 
 
 def setup_logging(config):
@@ -141,17 +143,43 @@ def main(args):
     # Load or create data
     logger.info("Loading data...")
     truth_ds, data_processor, task_loader = data_loader.get_dataproc_taskload(dates=train_dates+val_dates)
+    lsm, _ = data_loader.load_aux_ds(resolution="bedmachine")
 
     # Load station locations
+    coords_path = '/Users/acoca/Local/turing/giant/repos/forked/MeltEmulation/data/processed/HIRHAM5-ERAInterim/v_02'
+    coords_file = os.path.sep.join([coords_path, 'coords_only.zarr'])
+    coords_ref = xr.open_dataset(coords_file)
+    xy_coords_ref = (coords_ref['x'], coords_ref['y'])
+    lonlat_coords_ref = (coords_ref['lon'], coords_ref['lat'])
+
+    rename_map = {
+        'lon': 'x',
+        'lat': 'y'
+    }
+
+    mask_reference = lsm.rename(rename_map)
+
+    mask_reference = mask_reference.reindex({'x': xy_coords_ref[0], 'y': xy_coords_ref[1]})
+    mask_reference = mask_reference.assign_coords(lon=lonlat_coords_ref[0], lat=lonlat_coords_ref[1])
+
     stn_file = config['data']['station_locations_file']
     stn_locs_df = pd.read_csv(stn_file)[['latitude_last_valid', 'longitude_last_valid']]  # get lat/lon only
     gdf_points = gpd.GeoDataFrame(stn_locs_df,
                                   crs='epsg:4326',
                                   geometry=gpd.points_from_xy(stn_locs_df['longitude_last_valid'],
-                                                              stn_locs_df['latitude_last_valid'])).to_crs('epsg:3413')
-    stn_locs_df_subset  = gdf_points.cx[truth_ds.lon[0].values:truth_ds.lon[-1].values, truth_ds.lat[0].values:truth_ds.lat[-1].values]
+                                                              stn_locs_df['latitude_last_valid']))
 
-    raw_stn_locs = pd.DataFrame({'lat': stn_locs_df_subset.geometry.y, 'lon': stn_locs_df_subset.geometry.x})
+    gdf_points = find_xy_for_points(mask_reference, gdf_points)
+
+    gdf_points['mask_val'] = mask_reference.sel(
+        x=xr.DataArray(gdf_points['x'].values, dims='points'),
+        y=xr.DataArray(gdf_points['y'].values, dims='points'),
+        method='nearest'
+    ).values
+
+    stn_locs_df_subset = gdf_points[gdf_points['mask_val'] == 1]
+
+    raw_stn_locs = pd.DataFrame({'lat': stn_locs_df_subset.y, 'lon': stn_locs_df_subset.x})
     stn_locs = data_processor.map_coord_array(raw_stn_locs.to_numpy().transpose())  # normalise to x1/x2 using data_processor
 
     # Create training tasks
@@ -172,7 +200,7 @@ def main(args):
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
-            min_obs=100, max_obs=500,
+            min_obs=100, max_obs=400,
             frequency=frequency,
             sampling=temporal_sampling_every, change_dates_every_epoch=change_dates_every_epoch,
             aod_sampling_strat='land_obs', data_processor=data_processor, lsm=lsm,
@@ -183,7 +211,7 @@ def main(args):
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
-            min_obs=10, max_obs=16,
+            min_obs=100, max_obs=400,
             frequency=frequency,
             sampling=temporal_sampling_every, change_dates_every_epoch=change_dates_every_epoch,
             aod_sampling_strat='mixed_obs', data_processor=data_processor, lsm=lsm,
@@ -193,7 +221,7 @@ def main(args):
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
-            min_obs=100, max_obs=500,
+            min_obs=100, max_obs=400,
             frequency=frequency,
             sampling=temporal_sampling_every, change_dates_every_epoch=change_dates_every_epoch,
             target_sampling=target_sampling
@@ -211,7 +239,7 @@ def main(args):
                 context_sampling=(
                     data_processor.map_coord_array(
                         sample_land_locations(
-                            n_obs=rng.integers(100, 500),
+                            n_obs=rng.integers(100, 400),
                             lsm=lsm,
                             seed=int(date)
                         )
@@ -226,7 +254,7 @@ def main(args):
         val_tasks = [
             task_loader(
                 date,
-                context_sampling=(rng.integers(100, 500), "all", "all"),
+                context_sampling=(rng.integers(100, 400), "all", "all"),
                 target_sampling="all",
                 datewise_deterministic=True
             ).remove_context_nans().remove_target_nans()
