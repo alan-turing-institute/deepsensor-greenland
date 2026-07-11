@@ -48,7 +48,7 @@ def load_wandb_model(data_processor, task_loader, config_path, weights_path):
     return model
 
 # Path and files
-files_path = '/gws/pw/j07/aria_giant/wip/draft/acocac/outputs/present/hirham5/i55x1lsp'
+files_path = '/gws/pw/j07/aria_giant/wip/draft/acocac/outputs/present/hirham5/1c2kqi07'
 config_file = 'src/giant_sp/configs/hirham5zarr_prediction.yaml'
 coords_path = '/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed/HIRHAM5-ERAInterim/v_02'
 
