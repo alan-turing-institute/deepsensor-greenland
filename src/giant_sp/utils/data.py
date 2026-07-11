@@ -15,7 +15,7 @@ import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 
 from deepsensor.model.convnp import ConvNP
-
+import scipy as sp
 
 class NumpyFloatValuesEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -65,15 +65,13 @@ def sample_station_locations(stn_locs_df, n_obs, seed=None):
 
     return raw_locs
 
-def mixed_sampling_strategy(stn_file, n_obs, frac_stn=0.5, frac_land=0.3, frac_sea=0.2, lsm=None, seed=None):
+def mixed_sampling_strategy(stn_file, n_obs, frac_stn=0.1, frac_land=0.9, lsm=None, seed=None):
     n_stn = int(frac_stn * n_obs)
     n_land = int(frac_land * n_obs)
-    n_sea = int(frac_sea * n_obs)
     stn_locs = sample_station_locations(stn_file, n_stn, seed=seed)
     land_locs = sample_land_locations(n_land, lsm=lsm, seed=seed)
-    sea_locs = sample_land_locations(n_sea, lsm=lsm, seed=seed, invert_mask=True)
 
-    raw_locs = np.concatenate((stn_locs, land_locs, sea_locs), axis=1)
+    raw_locs = np.concatenate((stn_locs, land_locs), axis=1)
     return raw_locs
 
 def construct_circ_and_linear_time_ds(dates, freq):
@@ -177,3 +175,36 @@ def sample_dates_by_year_chunks(weights, start_date, end_date, n_samples_per_yea
         current_start = next_year
 
     return sampled_dates
+
+def find_lon_lat(ds):
+    # source: https://github.com/eschlager/MeltEmulation/
+    # Try common names (coords or data_vars)
+    lon_names = [n for n in ds.coords if n.lower() in ('lon', 'longitude', 'long')]
+    lat_names = [n for n in ds.coords if n.lower() in ('lat', 'latitude')]
+    if not lon_names or not lat_names:
+        raise ValueError("Couldn't find lon/lat variables!")
+    else:
+        lon = ds[lon_names[0]].values
+        lat = ds[lat_names[0]].values
+        return lon, lat
+
+def find_xy_for_points(ds, gdf_points):
+    """
+    For each point in gdf_points (lat/lon geometry), find the nearest
+    grid cell in ds and return its x,y coordinate values.
+    ds must have 2D lon/lat coordinates and 1D x/y dims.
+    """
+    lon2d, lat2d = find_lon_lat(ds)
+
+    X2d, Y2d = xr.broadcast(ds['x'], ds['y'])
+    X2d = X2d.transpose(*ds['lon'].dims).values
+    Y2d = Y2d.transpose(*ds['lon'].dims).values
+
+    tree = sp.spatial.cKDTree(np.column_stack([lon2d.ravel(), lat2d.ravel()]))
+    query_pts = np.column_stack([gdf_points.geometry.x.values, gdf_points.geometry.y.values])
+    _, idx = tree.query(query_pts)
+
+    gdf_points = gdf_points.copy()
+    gdf_points['x'] = X2d.ravel()[idx]
+    gdf_points['y'] = Y2d.ravel()[idx]
+    return gdf_points
