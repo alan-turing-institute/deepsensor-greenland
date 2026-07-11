@@ -10,6 +10,7 @@ from deepsensor.model.convnp import ConvNP
 from deepsensor.data.processor import DataProcessor
 from giant_sp.data import HIRHAM5ZarrPredictionDataLoader, HIRHAM5ZarrDataLoader
 import json
+import matplotlib.pyplot as plt
 
 import colorcet as cc
 import matplotlib.colors as mcolors
