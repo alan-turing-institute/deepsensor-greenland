@@ -561,7 +561,7 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
 
         # Make task loader
         if len(self.variables) > 1:
-            context = [ds_target] + [ds_others] + [aux_ds]
+            context = [ds_others] + [aux_ds]
         else:
             context = [ds[self.context_vars]] + [aux_ds]
         target = [ds_target[self.target_vars]]

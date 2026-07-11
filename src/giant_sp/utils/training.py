@@ -109,7 +109,7 @@ class TaskStreamDataset(IterableDataset):
 
             task = self.task_loader(
                 date,
-                context_sampling = (aod_context, "all", "all"),
+                context_sampling = (aod_context, "all"),
                 target_sampling = aod_target,
                 datewise_deterministic=self.datewise_deterministic
             ).remove_context_nans().remove_target_nans()
