@@ -21,4 +21,4 @@ source $HOME/repos/giant/giant-sp/.venv/bin/activate
 export PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
 
 # submit the code
-srun uv run src/giant_sp/scripts/placement.py
+srun uv run src/giant_sp/scripts/placement.py --acq_fn MeanStddev
