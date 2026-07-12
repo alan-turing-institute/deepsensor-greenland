@@ -70,7 +70,7 @@ def main():
 
     parser.add_argument('--search_start_date', default='2016-01-01', type=str)
     parser.add_argument('--search_end_date', default='2016-12-31', type=str)
-    parser.add_argument('--every', default=1, type=int)
+    parser.add_argument('--every', default=50, type=int)
     parser.add_argument('--pred_resolution', default=0, type=int)
 
     parser.add_argument('--search_mask_file', default='')
