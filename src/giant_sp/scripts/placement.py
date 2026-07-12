@@ -90,12 +90,12 @@ def main():
     # Path and files
     files_path = f'outputs/{run_id}'
     config_file = 'src/giant_sp/configs/hirham5zarr.yaml'
-    coords_path = config['data']['data_path']
     savefolder = os.path.join(files_path, 'demo')
     os.makedirs(savefolder, exist_ok=True)
 
     # Args
     config = load_config(config_file)
+    coords_path = config['data']['data_path']
     source = config['data']['source']
     chunk_size = 100
     tvar = 'snmel_abs'
