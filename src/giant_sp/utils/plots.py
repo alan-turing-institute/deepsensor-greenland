@@ -115,3 +115,19 @@ def hexbin_parity_plot(x, y):
     ax.set_ylim(lims)
 
     return fig, ax
+
+def new_placements_plot_xy(acqfn_da, newplace_df, Xc_df=None, cmap='YlGnBu', title=None):
+    fig, ax = plt.subplots()
+
+    plot_da = acqfn_da.sel(iteration=0).mean(dim='time')
+    acq_plot = plot_da.plot(ax=ax, cmap=cmap, vmax=plot_da.max(), vmin=plot_da.min(), add_colorbar=False)
+    ax.set_title(title)
+
+    plc_plot = ax.scatter(*newplace_df.values.T[::-1], marker='x', s=20, c='tab:red', linewidths=1.5)
+
+    if Xc_df is None:
+        Xc_df = pd.read_csv('data/interim/AERONET/aeronet_locations_global_active_2023-06-01_0.5-degrees.csv')[
+            ['lat', 'lon']]
+    ctx_plot = ax.scatter(*Xc_df.values.T[::-1], marker='o', s=3, c='k', facecolors='none', linewidths=0.5)
+
+    return fig, ax
