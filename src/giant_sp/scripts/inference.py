@@ -258,7 +258,7 @@ elif val_set == 'station':
     print(datetime.datetime.now(), 'Finished task generation')
 
     # Predict
-    print(datetime.datetime.now(), f'Starting prediction of {len(stnval_tasks)} tasks')
+    print(datetime.datetime.now(), f'Starting prediction of {len(val_tasks)} tasks')
     val_pred = model.predict(val_tasks, X_t=aod_raw_ds, X_t_mask=lsm)
     print(datetime.datetime.now(), f'Done')
 
@@ -269,7 +269,7 @@ elif val_set == 'station':
 # Averaged prediction plots
 if args.plot:
     date = pd.Timestamp(dates[0])
-    task = [t for t in stnval_tasks if t['time'] == date][0]
+    task = [t for t in val_tasks if t['time'] == date][0]
     mean_da, raw_da = xr.align(val_pred[aod_var]['mean'], aod_raw_ds[aod_var], join='inner')
     fig, ax = myplt.averaged_prediction_plot(raw_da, val_pred[aod_var]['mean'], val_pred[aod_var]['std'], cmap='viridis', task=task,
                                              dataproc=data_processor, highlight_negatives=True, plot_xc=True, crs="None")
@@ -277,7 +277,7 @@ if args.plot:
 
     # PIT
     # Randomly select dates
-    test_dates = [stnval_tasks[i]['time'] for i in range(len(stnval_tasks))]
+    test_dates = [val_tasks[i]['time'] for i in range(len(val_tasks))]
     n_dates = min(len(test_dates), 30)
     np.random.seed(42)
     dates_plt = np.random.choice(test_dates, n_dates, replace=False)
