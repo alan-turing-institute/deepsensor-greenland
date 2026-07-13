@@ -171,7 +171,7 @@ if val_set == 'no-obs':
 
     # Predict
     print(datetime.datetime.now(), f'Starting prediction of {len(tasks)} tasks')
-    stnval_pred = model.predict(tasks, X_t=aod_raw_ds, X_t_mask=lsm)  # pred_params=("mean", "std", "covariance")
+    val_pred = model.predict(tasks, X_t=aod_raw_ds, X_t_mask=lsm)  # pred_params=("mean", "std", "covariance")
     print(datetime.datetime.now(), f'Done')
 
     fname = f'{aod_var}_{date_split}-{val_set}-e{temporal_sampling_every}_predictions.nc'
@@ -284,8 +284,8 @@ if args.plot:
 
     # Subselect and flatten datasets
     true_plt = stnval_cams_raw_da.sel(time=dates_plt).values.flatten()
-    pred_mean_plt = stnval_pred[aod_var]['mean'].sel(time=dates_plt).values.flatten()
-    pred_std_plt = stnval_pred[aod_var]['std'].sel(time=dates_plt).values.flatten()
+    pred_mean_plt = val_pred[aod_var]['mean'].sel(time=dates_plt).values.flatten()
+    pred_std_plt = val_pred[aod_var]['std'].sel(time=dates_plt).values.flatten()
 
     # PIT histogram (area weighted)
     # Compute PIT values
