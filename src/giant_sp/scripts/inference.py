@@ -174,7 +174,7 @@ if val_set == 'no-obs':
     val_pred = model.predict(tasks, X_t=aod_raw_ds, X_t_mask=lsm)  # pred_params=("mean", "std", "covariance")
     print(datetime.datetime.now(), f'Done')
 
-    fname = f'{aod_var}_{date_split}-{val_set}-e{temporal_sampling_every}_predictions.nc'
+    fname = f'{aod_var}_{date_split}-{val_set}-e{temporal_sampling_every}_predictions'
     export_zarr(aod_var, val_pred, aod_raw_ds, savefolder, fname)
     print(datetime.datetime.now(), f'Saved')
 
