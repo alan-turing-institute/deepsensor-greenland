@@ -66,7 +66,7 @@ def main():
     parser.add_argument('--weights_filename', default='best-weights-stnval.pt')
     # Expt settings
     parser.add_argument('--acq_fn', default='OracleRMSE', type=str)
-    parser.add_argument('--n_new', default=3, type=int)
+    parser.add_argument('--n_new', default=5, type=int)
 
     parser.add_argument('--search_start_date', default='2016-01-01', type=str)
     parser.add_argument('--search_end_date', default='2016-12-31', type=str)
@@ -89,7 +89,7 @@ def main():
 
     # Path and files
     files_path = f'outputs/{run_id}'
-    config_file = 'src/giant_sp/configs/hirham5zarr_debug.yaml'
+    config_file = 'src/giant_sp/configs/hirham5zarr.yaml'
     savefolder = os.path.join(files_path, 'demo')
     os.makedirs(savefolder, exist_ok=True)
 
@@ -118,7 +118,7 @@ def main():
     dates_end = args.search_end_date
     frequency = config['dataloader']['frequency']
     temporal_sampling_method = config['dataloader']['temporal_sampling_method']
-    temporal_sampling_every = 1
+    temporal_sampling_every = config['dataloader']['temporal_sampling_every']
 
     if temporal_sampling_method == 'seasonal':
         # source: https://github.com/eschlager/MeltEmulation/tree/main
