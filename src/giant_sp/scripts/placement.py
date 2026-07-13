@@ -65,7 +65,7 @@ def main():
     parser.add_argument('--run_ref', default='y5f2wnx5')
     parser.add_argument('--weights_filename', default='best-weights-stnval.pt')
     # Expt settings
-    parser.add_argument('--acq_fn', default='MeanStddev', type=str)
+    parser.add_argument('--acq_fn', default='OracleRMSE', type=str)
     parser.add_argument('--n_new', default=3, type=int)
 
     parser.add_argument('--search_start_date', default='2016-01-01', type=str)
@@ -89,7 +89,7 @@ def main():
 
     # Path and files
     files_path = f'outputs/{run_id}'
-    config_file = 'src/giant_sp/configs/hirham5zarr.yaml'
+    config_file = 'src/giant_sp/configs/hirham5zarr_debug.yaml'
     savefolder = os.path.join(files_path, 'demo')
     os.makedirs(savefolder, exist_ok=True)
 
@@ -118,7 +118,7 @@ def main():
     dates_end = args.search_end_date
     frequency = config['dataloader']['frequency']
     temporal_sampling_method = config['dataloader']['temporal_sampling_method']
-    temporal_sampling_every = args.every
+    temporal_sampling_every = 1
 
     if temporal_sampling_method == 'seasonal':
         # source: https://github.com/eschlager/MeltEmulation/tree/main
@@ -252,7 +252,6 @@ def main():
         raise NotImplementedError(f'No deepsensor acquisition function named {args.acq_fn}')
 
     if args.acq_fn[:6] == 'Oracle':
-        aod_ds.load()
         # Args for fns needing ground truth
         greedy_gt_args = {
             'query_infill': aod_ds[aod_var],
@@ -266,7 +265,7 @@ def main():
     greedy_alg = GreedyAlgorithm(
         model=model,
         X_t=target_grid,
-        X_s=search_mask,
+        X_s=search_mask.astype(bool),
         X_s_mask=search_mask.astype(bool),
         N_new_context=args.n_new,
         progress_bar=True,
