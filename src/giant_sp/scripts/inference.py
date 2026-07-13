@@ -85,7 +85,7 @@ def export_zarr(aod_var, pred_ds, truth_ds, files_path, fname):
                 )
 
 # Path and files
-files_path = 'outputs/4flbw8xy'
+files_path = '/gws/pw/j07/aria_giant/wip/draft/acocac/outputs/present/hirham5/4flbw8xy'
 config_file = 'src/giant_sp/configs/hirham5zarr.yaml'
 savefolder = os.path.join(files_path, 'test_results')
 figfolder = os.path.join(savefolder, 'figures')
@@ -124,7 +124,7 @@ dates_start = config['data'][f'{date_split}_start']
 dates_end = config['data'][f'{date_split}_end']
 frequency = config['dataloader']['frequency']
 temporal_sampling_method = 'regular'
-temporal_sampling_every = 150
+temporal_sampling_every = 1
 n_obs = 400
 
 if temporal_sampling_method == 'seasonal':
