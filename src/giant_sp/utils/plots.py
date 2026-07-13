@@ -17,7 +17,8 @@ def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs = cc
     err_da = mean_da - truth_da
     
     # Set up subplots
-    fig, axes = plt.subplots(subplot_kw={"projection": crs}, nrows=2, ncols=2, figsize=(10, 5), layout='constrained')
+    # fig, axes = plt.subplots(subplot_kw={"projection": crs}, nrows=2, ncols=2, figsize=(10, 5), layout='constrained')
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(10, 5), layout='constrained')
     axes = axes.flatten()
     # Title
     date_min = pd.Timestamp(truth_da.time.values.min()).strftime('%Y-%m-%d')
@@ -71,8 +72,8 @@ def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs = cc
     if plot_xc==True:
         dsplt.offgrid_context(axes[0], task, dataproc, s=3, markers="x", linewidths=0.5, colors='green', add_legend=False)
 
-    for ax in axes:
-        ax.coastlines(linewidth=0.5)
+    # for ax in axes:
+    #     ax.coastlines(linewidth=0.5)
 
     return fig, axes
 
