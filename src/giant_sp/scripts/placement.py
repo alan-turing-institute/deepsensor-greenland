@@ -113,7 +113,7 @@ def main():
     else:
         raise ValueError(f"Unknown source: {source}")
 
-    target_var = config['data']['target_var_IDs']
+    aod_var = config['data']['target_var_IDs']
     dates_start = args.search_start_date
     dates_end = args.search_end_date
     frequency = config['dataloader']['frequency']
