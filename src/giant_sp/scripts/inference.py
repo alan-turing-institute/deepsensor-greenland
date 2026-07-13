@@ -1,4 +1,5 @@
 import os
+import argparse
 import xarray as xr
 import yaml
 import numpy as np
@@ -84,6 +85,12 @@ def export_zarr(aod_var, pred_ds, truth_ds, files_path, fname):
                     }
                 )
 
+# Arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('--val_set', default='station', type=str) # random, station, active, reduced, station-reduced
+parser.add_argument('--seed', default=321, type=int)
+args = parser.parse_args()
+
 # Path and files
 files_path = '/gws/pw/j07/aria_giant/wip/draft/acocac/outputs/present/hirham5/4flbw8xy'
 config_file = 'src/giant_sp/configs/hirham5zarr.yaml'
@@ -95,9 +102,9 @@ if not os.path.exists(figfolder):
     os.makedirs(figfolder)
 
 # Args
-val_set = 'station'
+val_set = args.val_set
 date_split = 'test'
-seed = 321
+seed = args.seed
 plot = True
 config = load_config(config_file)
 source = config['data']['source']
