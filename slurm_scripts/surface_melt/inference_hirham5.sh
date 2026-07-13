@@ -18,4 +18,4 @@
 export PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
 
 # submit the code
-srun uv run src/giant_sp/scripts/inference.py --val_set no-obs --plot
+srun uv run src/giant_sp/scripts/inference.py --val_set random-land --plot
