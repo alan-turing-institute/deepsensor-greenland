@@ -89,6 +89,7 @@ def export_zarr(aod_var, pred_ds, truth_ds, files_path, fname):
 parser = argparse.ArgumentParser()
 parser.add_argument('--val_set', default='station', type=str) # random, station, active, reduced, station-reduced
 parser.add_argument('--seed', default=321, type=int)
+parser.add_argument('--plot', action='store_true', default=False)
 args = parser.parse_args()
 
 # Path and files
@@ -165,25 +166,7 @@ config_file = os.path.join(files_path, 'model_config.json')
 weights_file = os.path.join(files_path, 'best-weights.pt')
 model = load_wandb_model(data_processor, task_loader, config_file, weights_file)
 
-# Validation - random locations
-if val_set == 'random':
-    # Generate tasks
-    task_stream_val = tu.TaskStreamDataset(task_loader, dates, frequency=frequency, sampling=temporal_sampling_every, seed=123,
-                                           datewise_deterministic=True, shuffle=False)
-    val_tasks = [task for task in task_stream_val]
-
-    # Save given context locations
-    n_obs = [task['X_c'][0].shape[1] for task in val_tasks]
-
-    # Predict
-    val_pred = model.predict(val_tasks, X_t=aod_raw_ds, X_t_mask=lsm)
-    val_mean_da = val_pred[aod_var]['mean']
-    val_std_da = val_pred[aod_var]['std']
-
-    fname = f'{aod_var}_{date_split}-{val_set}-e{temporal_sampling_every}_predictions'
-    export_zarr(aod_var, val_pred, aod_raw_ds, savefolder, fname)
-
-elif val_set == 'no-obs':
+if val_set == 'no-obs':
     tasks = task_loader(dates, context_sampling=(0, 'all', 'all'), target_sampling='all')
 
     # Predict
@@ -227,7 +210,6 @@ elif val_set == 'random-land':
     export_zarr(aod_var, val_pred, aod_raw_ds, savefolder, fname)
     print(datetime.datetime.now(), f'Saved')
 
-# Validation - station locations
 elif val_set == 'station':
     # All station locations ever
     stn_file = config['data']['station_locations_file']
@@ -268,7 +250,7 @@ elif val_set == 'station':
 
     # Create set of stnval tasks
     print(datetime.datetime.now(), f'Starting task generation ({len(dates)})')
-    stnval_tasks = task_loader(
+    val_tasks = task_loader(
         dates,
         context_sampling=(stn_locs, "all", "all"),
         target_sampling="all"
@@ -277,49 +259,49 @@ elif val_set == 'station':
 
     # Predict
     print(datetime.datetime.now(), f'Starting prediction of {len(stnval_tasks)} tasks')
-    stnval_pred = model.predict(stnval_tasks, X_t=aod_raw_ds, X_t_mask=lsm)
+    val_pred = model.predict(val_tasks, X_t=aod_raw_ds, X_t_mask=lsm)
     print(datetime.datetime.now(), f'Done')
 
     fname = f'{aod_var}_{date_split}-{val_set}-e{temporal_sampling_every}_predictions'
-    export_zarr(aod_var, stnval_pred, aod_raw_ds, savefolder, fname)
+    export_zarr(aod_var, val_pred, aod_raw_ds, savefolder, fname)
     print(datetime.datetime.now(), f'Saved')
 
-    # Averaged prediction plots
-    if plot:
-        date = pd.Timestamp(dates[0])
-        task = [t for t in stnval_tasks if t['time'] == date][0]
-        stnval_mean_da, stnval_cams_raw_da = xr.align(stnval_pred[aod_var]['mean'], aod_raw_ds[aod_var], join='inner')
-        fig, ax = myplt.averaged_prediction_plot(stnval_cams_raw_da, stnval_pred[aod_var]['mean'], stnval_pred[aod_var]['std'], cmap='viridis', task=task,
-                                                 dataproc=data_processor, highlight_negatives=True, plot_xc=True, crs="None")
-        fig.savefig(os.path.join(figfolder, f'{fname}_avgpred.png'))
+# Averaged prediction plots
+if args.plot:
+    date = pd.Timestamp(dates[0])
+    task = [t for t in stnval_tasks if t['time'] == date][0]
+    mean_da, raw_da = xr.align(val_pred[aod_var]['mean'], aod_raw_ds[aod_var], join='inner')
+    fig, ax = myplt.averaged_prediction_plot(raw_da, val_pred[aod_var]['mean'], val_pred[aod_var]['std'], cmap='viridis', task=task,
+                                             dataproc=data_processor, highlight_negatives=True, plot_xc=True, crs="None")
+    fig.savefig(os.path.join(figfolder, f'{fname}_avgpred.png'))
 
-        # PIT
-        # Randomly select dates
-        test_dates = [stnval_tasks[i]['time'] for i in range(len(stnval_tasks))]
-        n_dates = min(len(test_dates), 30)
-        np.random.seed(42)
-        dates_plt = np.random.choice(test_dates, n_dates, replace=False)
+    # PIT
+    # Randomly select dates
+    test_dates = [stnval_tasks[i]['time'] for i in range(len(stnval_tasks))]
+    n_dates = min(len(test_dates), 30)
+    np.random.seed(42)
+    dates_plt = np.random.choice(test_dates, n_dates, replace=False)
 
-        # Subselect and flatten datasets
-        true_plt = stnval_cams_raw_da.sel(time=dates_plt).values.flatten()
-        pred_mean_plt = stnval_pred[aod_var]['mean'].sel(time=dates_plt).values.flatten()
-        pred_std_plt = stnval_pred[aod_var]['std'].sel(time=dates_plt).values.flatten()
+    # Subselect and flatten datasets
+    true_plt = stnval_cams_raw_da.sel(time=dates_plt).values.flatten()
+    pred_mean_plt = stnval_pred[aod_var]['mean'].sel(time=dates_plt).values.flatten()
+    pred_std_plt = stnval_pred[aod_var]['std'].sel(time=dates_plt).values.flatten()
 
-        # PIT histogram (area weighted)
-        # Compute PIT values
-        pit_values = sp.stats.norm.cdf(true_plt, loc=pred_mean_plt, scale=pred_std_plt)
-        # Plot
-        fig, ax = plt.subplots()
-        ax.hist(pit_values, bins=100, range=(0, 1), density=True,
-                label='ConvNP model')
-        ax.set_xlabel('Probability integral transform')
-        ax.set_ylabel('Density')
-        ax.set_title('PIT histogram')
-        ax.grid()
-        # Plot uniform line
-        ax.axhline(1., color='k', linestyle='--')
+    # PIT histogram (area weighted)
+    # Compute PIT values
+    pit_values = sp.stats.norm.cdf(true_plt, loc=pred_mean_plt, scale=pred_std_plt)
+    # Plot
+    fig, ax = plt.subplots()
+    ax.hist(pit_values, bins=100, range=(0, 1), density=True,
+            label='ConvNP model')
+    ax.set_xlabel('Probability integral transform')
+    ax.set_ylabel('Density')
+    ax.set_title('PIT histogram')
+    ax.grid()
+    # Plot uniform line
+    ax.axhline(1., color='k', linestyle='--')
 
-        fig.savefig(os.path.join(figfolder, f'{fname}_pit_histogram_.png'))
+    fig.savefig(os.path.join(figfolder, f'{fname}_pit_histogram_.png'))
 
 else:
     raise ValueError('Unknown val_set, should be one of [random, station, active, reduced, station-reduced, grid]')
