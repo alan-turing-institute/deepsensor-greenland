@@ -10,7 +10,5 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=94
 
-# activate the environment
-source $HOME/repos/giant/MeltEmulation/.venv/bin/activate
-
+# submit the code
 srun uv run python slurm_scripts/hirham5_preprocessing/3_create_basefile.sh
