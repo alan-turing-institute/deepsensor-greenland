@@ -17,7 +17,7 @@ import torch
 import deepsensor.torch
 from deepsensor.train import set_gpu_default_device
 
-from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader
+from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
 from giant_sp.models import DeepSensorModel
 from giant_sp.training import Trainer
 import giant_sp.utils.training as tu
@@ -87,6 +87,9 @@ def main(args):
     elif source == 'hirham5':
         data_loader = HIRHAM5DataLoader(config)
         td = np.timedelta64(12, 'h') #offset 12hours
+    elif source == 'hirham5zarr':
+        data_loader = HIRHAM5ZarrDataLoader(config)
+        td = np.timedelta64(12, 'h')
     else:
         raise ValueError(f"Unknown source: {source}")
 
@@ -165,7 +168,7 @@ def main(args):
             target_sampling=target_sampling
         )
     elif train_sampling == 'land_obs':
-        _, lsm = data_loader.load_aux_ds(resolution="bedmachine")
+        lsm = data_loader.load_aux_ds(resolution="bedmachine")
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
@@ -176,7 +179,7 @@ def main(args):
             target_sampling=target_sampling,
         )
     elif train_sampling == 'mixed_obs':
-        _, lsm = data_loader.load_aux_ds(resolution="bedmachine")
+        lsm = data_loader.load_aux_ds(resolution="bedmachine")
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
@@ -213,7 +216,7 @@ def main(args):
                             seed=int(date)
                         )
                     ),
-                    "all", "all", "all"),
+                    "all", "all"),
                 target_sampling="all",
                 datewise_deterministic=True
             ).remove_context_nans().remove_target_nans()
@@ -223,7 +226,7 @@ def main(args):
         val_tasks = [
             task_loader(
                 date,
-                context_sampling=(rng.integers(100, 500), "all", "all", "all"),
+                context_sampling=(rng.integers(100, 500), "all", "all"),
                 target_sampling="all",
                 datewise_deterministic=True
             ).remove_context_nans().remove_target_nans()
@@ -235,7 +238,7 @@ def main(args):
     stnval_tasks = [
         task_loader(
             date,
-            context_sampling=(stn_locs, "all", "all", "all"),
+            context_sampling=(stn_locs, "all", "all"),
             target_sampling="all"
         ).remove_context_nans().remove_target_nans()
         for date in val_dates
@@ -254,7 +257,7 @@ def main(args):
 
     # Check mask
     if lsm_mask:
-        _, lsm = data_loader.load_aux_ds(resolution="bedmachine")
+        lsm = data_loader.load_aux_ds(resolution="bedmachine")
     else:
         lsm = None
 
