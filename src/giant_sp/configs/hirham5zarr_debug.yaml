@@ -3,7 +3,7 @@
 # Data settings
 data:
   source: "hirham5zarr"
-  data_path: "/Users/acoca/Local/turing/giant/repos/forked/MeltEmulation/data/processed/HIRHAM5-ERAInterim/v_02"
+  data_path: "data/anemoi/processed/hirham5zarr/greenland"
   data_pattern: "base_dataset.zarr"
   bedmachine_ancillary_path: "data/reference/bm_v6"
   station_locations_file: "data/station/promice/processed/promice_locations.csv"
@@ -24,12 +24,12 @@ dataloader:
   target_sampling: "all"
   frequency: "D"
   temporal_sampling_method: "seasonal"
-  temporal_sampling_every: 150
+  temporal_sampling_every: 30
   change_dates_every_epoch: false
 
 # Model architecture
 model:
-  likelihood: "gnp"
+  likelihood: "bernoulli-gamma"
   unet_channels: [64, 64, 64] # [64, 64, 64, 64] for GrIS
   unet_kernels: 5
   num_basis_functions: 32 #64 for GrIS
@@ -66,8 +66,8 @@ logging:
   tensorboard: true
   wandb:
     enabled: true  # Set to true to enable W&B logging
-    project: "giant-sp"  # W&B project name
-    entity: null  # Your W&B username/team (null = default)
+    project: "present-train"  # W&B project name
+    entity: "turing-giant"  # Your W&B username/team (null = default)
     name: null  # Run name (null = auto-generated)
     tags: ["spatial-interpolation", "convgnp", "snmel", "hirham5", "debug"]  # Tags for organizing runs
     notes: ""  # Optional docs about this run

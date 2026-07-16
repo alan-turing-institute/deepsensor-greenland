@@ -66,8 +66,8 @@ logging:
   tensorboard: true
   wandb:
     enabled: true  # Set to true to enable W&B logging
-    project: "giant-sp"  # W&B project name
-    entity: null  # Your W&B username/team (null = default)
+    project: "present-train"  # W&B project name
+    entity: "turing-giant"  # Your W&B username/team (null = default)
     name: null  # Run name (null = auto-generated)
     tags: ["spatial-interpolation", "convgnp", "t2m", "carra2"]  # Tags for organizing runs
     notes: ""  # Optional docs about this run
