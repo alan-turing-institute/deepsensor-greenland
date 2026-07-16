@@ -127,6 +127,7 @@ def construct_circ_and_linear_time_ds(dates, freq):
 
 def sample_dates_by_year_chunks(weights, start_date, end_date, n_samples_per_year):
     """
+    Source: https://github.com/eschlager/MeltEmulation/
     Sample dates within 12-month chunks starting from `start_date`, using the given weights.
 
     Parameters:
