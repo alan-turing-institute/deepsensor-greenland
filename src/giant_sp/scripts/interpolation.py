@@ -150,7 +150,7 @@ def main(args):
 
     if source == 'hirham5zarr':
         coords_file = os.path.sep.join([config['data']['data_path'], 'coords_only.zarr'])
-        coords_ref = xr.open_dataset(coords_file)
+        coords_ref = xr.open_zarr(coords_file, chunks='auto')
         xy_coords_ref = (coords_ref['x'], coords_ref['y'])
         lonlat_coords_ref = (coords_ref['lon'], coords_ref['lat'])
 
