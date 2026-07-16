@@ -219,14 +219,9 @@ class CARRA2DataLoader(BaseDataLoader):
             lsm_raw_ds = get_gldas_land_mask(reg_extent, cache=True, cache_dir=cache_dir)
 
         elif resolution == "bedmachine":
-            aux_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'surface_2500m.nc'))
             lsm_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'lsm_2500m.nc'))['lsm']
 
             if self.basin is not None:
-                aux_raw_ds = aux_raw_ds.sel(
-                    x=slice(float(self.basin_x.min()), float(self.basin_x.max())),
-                    y=slice(float(self.basin_y.max()), float(self.basin_y.min())),  # y is decreasing
-                )
                 lsm_raw_ds = lsm_raw_ds.sel(
                     x=slice(float(self.basin_x.min()), float(self.basin_x.max())),
                     y=slice(float(self.basin_y.max()), float(self.basin_y.min())),
@@ -237,15 +232,14 @@ class CARRA2DataLoader(BaseDataLoader):
                 'y': 'lat'
             }
 
-            aux_raw_ds = aux_raw_ds.rename(rename_map)
             lsm_raw_ds = lsm_raw_ds.rename(rename_map)
 
-        return aux_raw_ds, lsm_raw_ds
+        return lsm_raw_ds
 
     def get_dataproc_taskload(self, dates, task=None, data_processor=None):
         # Load all data
         raw_ds = self.load_ds()
-        aux_raw_ds, lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
+        lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
         if self.lsm_mask:
             raw_ds = raw_ds.where(lsm_raw_ds == 1)
 
@@ -256,16 +250,16 @@ class CARRA2DataLoader(BaseDataLoader):
         # Apply/learn
         _ = data_processor(raw_ds.sel(time=dates))
         ds = data_processor(raw_ds)
-        aux_ds, lsm_ds = data_processor([aux_raw_ds, lsm_raw_ds], method="min_max")
+        aux_ds = data_processor(lsm_raw_ds, method="min_max")
 
         # Spatiotemporal aux
-        aux_ds = self.add_spatiotemporal_aux(aux_ds, ds)
+        aux_ds = self.add_spatiotemporal_aux(aux_ds.to_dataset(), ds)
 
         # Make task loader
         if len(self.variables) > 1:
-            context = [ds[sublist] for sublist in self.context_vars] + [aux_ds] + [lsm_ds]
+            context = [ds[sublist] for sublist in self.context_vars] + [aux_ds]
         else:
-            context = [ds[self.context_vars]] + [aux_ds] + [lsm_ds]
+            context = [ds[self.context_vars]] + [aux_ds]
         target = [ds[self.target_vars]]
 
         if task is None:
