@@ -124,3 +124,57 @@ def construct_circ_and_linear_time_ds(dates, freq):
         },
     )
     return ds
+
+def sample_dates_by_year_chunks(weights, start_date, end_date, n_samples_per_year):
+    """
+    Source: https://github.com/eschlager/MeltEmulation/
+    Sample dates within 12-month chunks starting from `start_date`, using the given weights.
+
+    Parameters:
+        dates (array-like): Array or Series of datetime-like objects.
+        weights (array-like): Array of weights corresponding to each date.
+        start_date (datetime-like): The start of the overall date range.
+        end_date (datetime-like): The end of the overall date range.
+        n_samples_per_year (int): Number of dates to sample per 12-month period.
+
+    Returns:
+        List of sampled dates.
+
+    Source: https://github.com/eschlager/MeltEmulation/
+    """
+    sampled_dates = []
+
+    # Ensure dates and weights are pandas Series
+    dates = pd.date_range(start=start_date, end=end_date, freq='D')
+    weights = weights[dates.dayofyear - 1]
+
+    current_start = pd.Timestamp(start_date)
+    while current_start < pd.Timestamp(end_date):
+        # Define the end of the 12-month period
+        next_year = current_start + pd.DateOffset(years=1)
+        current_end = min(next_year, pd.Timestamp(end_date))
+
+        # Select dates within this period
+        mask = (dates >= current_start) & (dates < current_end)
+        period_dates = dates[mask]
+        period_weights = weights[mask]
+
+        if len(period_dates) < n_samples_per_year:
+            current_start = next_year
+            continue  # Skip periods with too few dates
+
+        # Normalize weights
+        period_weights = period_weights / period_weights.sum()
+
+        # Sample without replacement
+        sampled = np.random.choice(
+            period_dates,
+            size=n_samples_per_year,
+            replace=False,
+            p=period_weights
+        )
+
+        sampled_dates.extend(sampled)
+        current_start = next_year
+
+    return sampled_dates

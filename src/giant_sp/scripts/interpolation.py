@@ -21,7 +21,7 @@ from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader
 from giant_sp.models import DeepSensorModel
 from giant_sp.training import Trainer
 import giant_sp.utils.training as tu
-from giant_sp.utils.data import sample_land_locations
+from giant_sp.utils.data import sample_land_locations, sample_dates_by_year_chunks
 
 
 def setup_logging(config):
@@ -49,7 +49,6 @@ def main(args):
     # Load configuration
     config = load_config(args.config)
     source = config['data']['source']
-    frequency = config['dataloader']['frequency']
 
     # Setup logging
     setup_logging(config)
@@ -84,17 +83,61 @@ def main(args):
     # Initialize data loader
     if source == 'carra2':
         data_loader = CARRA2DataLoader(config)
+        td =  np.timedelta64(0, 'ms')
     elif source == 'hirham5':
         data_loader = HIRHAM5DataLoader(config)
+        td = np.timedelta64(12, 'h') #offset 12hours
     else:
         raise ValueError(f"Unknown source: {source}")
 
+    # Define data partition
+    train_start = config['data']['train_start']
+    train_end = config['data']['train_end']
+    val_start = config['data']['val_start']
+    val_end = config['data']['val_end']
+
+    # Define data loader parameters
+    train_sampling = config['dataloader']['train_sampling']
+    target_sampling = config['dataloader']['target_sampling']
+    frequency = config['dataloader']['frequency']
+    change_dates_every_epoch = config['dataloader']['change_dates_every_epoch']
+    temporal_sampling_method = config['dataloader']['temporal_sampling_method']
+    temporal_sampling_every = config['dataloader']['temporal_sampling_every']
+    lsm_mask = config['dataloader']['lsm_mask']
+
+    if temporal_sampling_method == 'seasonal':
+        # source: https://github.com/eschlager/MeltEmulation/tree/main
+        # temporal sub-sampling of training data
+        doy = np.arange(1, 367)   # days 1 to 366
+        mu = 205    # 24th of July ~ peak of melt season
+        sigma = 60
+        min_weight_doy = 0.0
+        logger.info(f'Subsample training dates using seasonal weighting following gaussian distribution with mu {mu} and sigma {sigma}')
+        gauss_weights = np.exp(-0.5 * ((doy - mu) / sigma) ** 2)
+        weights = min_weight_doy + (1 - min_weight_doy) * gauss_weights
+        weights_doy = gauss_weights / gauss_weights.sum()
+
+        n_samples_per_year = temporal_sampling_every
+        logger.info(f'Sample {n_samples_per_year} dates per year')
+
+        np.random.seed(42)
+        train_sampled_dates = sample_dates_by_year_chunks(weights_doy, train_start, train_end, n_samples_per_year)
+        np.random.seed(42)
+        val_sampled_dates = sample_dates_by_year_chunks(weights_doy, val_start, val_end, n_samples_per_year)
+
+        train_dates = list(np.sort(train_sampled_dates + td).astype('datetime64[ns]'))
+        val_dates = list(np.sort(val_sampled_dates + td).astype('datetime64[ns]'))
+    elif temporal_sampling_method == 'regular':
+        train_dates = pd.date_range(start=train_start, end=train_end, freq=frequency)[::temporal_sampling_every]
+        val_dates = pd.date_range(start=val_start, end=val_end, freq=frequency)[::temporal_sampling_every]
+        train_dates = list(np.sort(train_dates + td).astype('datetime64[ns]'))
+        val_dates = list(np.sort(val_dates + td).astype('datetime64[ns]'))
+    else:
+        raise ValueError(f"Unknown temporal sampling method: {temporal_sampling_method}")
+
     # Load or create data
     logger.info("Loading data...")
-    truth_ds, data_processor, task_loader = data_loader.get_dataproc_taskload()
-
-    # Create training tasks
-    logger.info("Generating training tasks...")
+    truth_ds, data_processor, task_loader = data_loader.get_dataproc_taskload(dates=train_dates+val_dates)
 
     # Load station locations
     stn_file = config['data']['station_locations_file']
@@ -108,20 +151,8 @@ def main(args):
     raw_stn_locs = pd.DataFrame({'lat': stn_locs_df_subset.geometry.y, 'lon': stn_locs_df_subset.geometry.x})
     stn_locs = data_processor.map_coord_array(raw_stn_locs.to_numpy().transpose())  # normalise to x1/x2 using data_processor
 
-    # Define data partition
-    train_start = config['data']['train_start']
-    train_end = config['data']['train_end']
-    val_start = config['data']['val_start']
-    val_end = config['data']['val_end']
-
-    # Define data loader parameters
-    train_sampling = config['dataloader']['train_sampling']
-    target_sampling = config['dataloader']['target_sampling']
-    change_dates_every_epoch = config['dataloader']['change_dates_every_epoch']
-    every = config['dataloader']['sampling']
-    lsm_mask = config['dataloader']['lsm_mask']
-
-    train_dates = list(truth_ds.sel(time=slice(train_start,train_end)).time.values[::every])
+    # Create training tasks
+    logger.info("Generating training tasks...")
     # Initialise training task generator
     # Train loader is unseeded so different context sampling is used each epoch
     if train_sampling == 'stn_obs':
@@ -129,7 +160,7 @@ def main(args):
             task_loader,
             train_dates,
             frequency=frequency,
-            sampling=every, change_dates_every_epoch=change_dates_every_epoch,
+            sampling=temporal_sampling_every, change_dates_every_epoch=change_dates_every_epoch,
             aod_sampling_strat=stn_locs,
             target_sampling=target_sampling
         )
@@ -140,7 +171,7 @@ def main(args):
             train_dates,
             min_obs=100, max_obs=500,
             frequency=frequency,
-            sampling=every, change_dates_every_epoch=change_dates_every_epoch,
+            sampling=temporal_sampling_every, change_dates_every_epoch=change_dates_every_epoch,
             aod_sampling_strat='land_obs', data_processor=data_processor, lsm=lsm,
             target_sampling=target_sampling,
         )
@@ -151,7 +182,7 @@ def main(args):
             train_dates,
             min_obs=10, max_obs=16,
             frequency=frequency,
-            sampling=every, change_dates_every_epoch=change_dates_every_epoch,
+            sampling=temporal_sampling_every, change_dates_every_epoch=change_dates_every_epoch,
             aod_sampling_strat='mixed_obs', data_processor=data_processor, lsm=lsm,
             target_sampling=target_sampling, stations_location=raw_stn_locs
         )
@@ -161,7 +192,7 @@ def main(args):
             train_dates,
             min_obs=100, max_obs=500,
             frequency=frequency,
-            sampling=every, change_dates_every_epoch=change_dates_every_epoch,
+            sampling=temporal_sampling_every, change_dates_every_epoch=change_dates_every_epoch,
             target_sampling=target_sampling
         )
     else:
@@ -170,7 +201,6 @@ def main(args):
     # Initialise validation task generator
     # with seeded rng and datewise_deterministic so tasks remain the same every epoch + for reproducibility
     rng = np.random.default_rng(123)
-    val_dates = list(truth_ds.sel(time=slice(val_start,val_end)).time.values[::every])
     if train_sampling == 'land_obs':
         val_tasks = [
             task_loader(
