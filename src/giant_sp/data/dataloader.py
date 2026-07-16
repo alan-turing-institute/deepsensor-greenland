@@ -525,12 +525,12 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
             }
             lsm_raw_ds = lsm_raw_ds.rename(rename_map)
 
-        return lsm_raw_ds, lsm_raw_ds
+        return lsm_raw_ds
 
     def get_dataproc_taskload(self, dates, task=None, data_processor=None):
         # Load all data
         raw_ds = self.load_ds()
-        _, lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
+        lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
         if self.lsm_mask:
             raw_ds = raw_ds.where(lsm_raw_ds == 1)
 
