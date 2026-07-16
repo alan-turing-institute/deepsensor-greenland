@@ -160,7 +160,7 @@ def main(args):
         }
 
         # subset based on lsm mask
-        lsm, _ = data_loader.load_aux_ds(resolution="bedmachine")
+        lsm = data_loader.load_aux_ds(resolution="bedmachine")
         mask_reference = lsm.rename(rename_map)
         mask_reference = mask_reference.reindex({'x': xy_coords_ref[0], 'y': xy_coords_ref[1]})
         mask_reference = mask_reference.assign_coords(lon=lonlat_coords_ref[0], lat=lonlat_coords_ref[1])
