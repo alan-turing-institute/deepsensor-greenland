@@ -3,7 +3,7 @@
 # Data settings
 data:
   source: "hirham5zarr"
-  data_path: "/Users/acoca/Local/turing/giant/repos/forked/MeltEmulation/data/processed/HIRHAM5-ERAInterim/v_02"
+  data_path: "data/anemoi/processed/hirham5zarr/greenland"
   data_pattern: "base_dataset.zarr"
   bedmachine_ancillary_path: "data/reference/bm_v6"
   station_locations_file: "data/station/promice/processed/promice_locations.csv"
