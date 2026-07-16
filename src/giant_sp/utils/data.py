@@ -195,11 +195,12 @@ def find_xy_for_points(ds, gdf_points):
     grid cell in ds and return its x,y coordinate values.
     ds must have 2D lon/lat coordinates and 1D x/y dims.
     """
-    lon2d, lat2d = find_lon_lat(ds)
+    lon_da, lat_da = find_lon_lat(ds)
+    lon2d, lat2d = lon_da.values, lat_da.values
 
     X2d, Y2d = xr.broadcast(ds['x'], ds['y'])
-    X2d = X2d.transpose(*ds['lon'].dims).values
-    Y2d = Y2d.transpose(*ds['lon'].dims).values
+    X2d = X2d.transpose(*lon_da.dims).values
+    Y2d = Y2d.transpose(*lon_da.dims).values
 
     tree = sp.spatial.cKDTree(np.column_stack([lon2d.ravel(), lat2d.ravel()]))
     query_pts = np.column_stack([gdf_points.geometry.x.values, gdf_points.geometry.y.values])
