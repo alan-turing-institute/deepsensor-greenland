@@ -168,7 +168,7 @@ def main(args):
             target_sampling=target_sampling
         )
     elif train_sampling == 'land_obs':
-        _, lsm = data_loader.load_aux_ds(resolution="bedmachine")
+        lsm = data_loader.load_aux_ds(resolution="bedmachine")
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
@@ -179,7 +179,7 @@ def main(args):
             target_sampling=target_sampling,
         )
     elif train_sampling == 'mixed_obs':
-        _, lsm = data_loader.load_aux_ds(resolution="bedmachine")
+        lsm = data_loader.load_aux_ds(resolution="bedmachine")
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
@@ -257,7 +257,7 @@ def main(args):
 
     # Check mask
     if lsm_mask:
-        _, lsm = data_loader.load_aux_ds(resolution="bedmachine")
+        lsm = data_loader.load_aux_ds(resolution="bedmachine")
     else:
         lsm = None
 
