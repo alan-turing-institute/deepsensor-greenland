@@ -104,7 +104,7 @@ def main():
     # Arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_file', default='src/giant_sp/configs/hirham5zarr_debug.yaml', type=str)
-    parser.add_argument('--val_set', default='station', type=str) # random, station, active, reduced, station-reduced
+    parser.add_argument('--val_set', default='station', type=str, choices=['station', 'random-land', 'no-obs'])  # station, random-land, no-obs
     parser.add_argument('--n_obs', default=400, type=int)
     parser.add_argument('--run_ref', default='acoca/giant-sp/4flbw8xy')
     parser.add_argument('--weights_filename', default='best-weights-stnval.pt')
