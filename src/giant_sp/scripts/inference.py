@@ -217,8 +217,6 @@ def main():
         # Predict
         print(datetime.datetime.now(), f'Starting prediction of {len(val_tasks)} tasks')
         val_pred = model.predict(val_tasks, X_t=raw_ds, X_t_mask=lsm)  # pred_params=("mean", "std", "covariance")
-        val_mean_da = val_pred[target_var]['mean']
-        val_std_da = val_pred[target_var]['std']
         print(datetime.datetime.now(), f'Done')
 
         fname = f'{target_var}_{date_split}_{val_set}_seed{seed}_e{every}_{weights_fn}_predictions'
