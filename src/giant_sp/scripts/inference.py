@@ -224,7 +224,7 @@ elif val_set == 'station':
     stn_locs_df = pd.read_csv(stn_file)[['latitude_last_valid', 'longitude_last_valid']]  # get lat/lon only
 
     coords_file = os.path.sep.join([config['data']['data_path'], 'coords_only.zarr'])
-    coords_ref = xr.open_dataset(coords_file)
+    coords_ref = xr.open_zarr(coords_file, chunks="auto")
     xy_coords_ref = (coords_ref['x'], coords_ref['y'])
     lonlat_coords_ref = (coords_ref['lon'], coords_ref['lat'])
 
