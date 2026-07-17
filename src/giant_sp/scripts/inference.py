@@ -243,6 +243,13 @@ elif val_set == 'station':
                                   geometry=gpd.points_from_xy(stn_locs_df['longitude_last_valid'],
                                                               stn_locs_df['latitude_last_valid']))
 
+    # Drop stations outside the model domain before snapping to the nearest grid cell
+    lon_min = float(lonlat_coords_ref[0].min().values)
+    lon_max = float(lonlat_coords_ref[0].max().values)
+    lat_min = float(lonlat_coords_ref[1].min().values)
+    lat_max = float(lonlat_coords_ref[1].max().values)
+    gdf_points = gdf_points.cx[lon_min:lon_max, lat_min:lat_max]
+
     gdf_points = du.find_xy_for_points(mask_reference, gdf_points)
 
     gdf_points['mask_val'] = mask_reference.sel(
