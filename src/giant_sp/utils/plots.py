@@ -11,13 +11,16 @@ import xarray as xr
 import deepsensor.plot as dsplt
 
 
-def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs = ccrs.PlateCarree(), highlight_negatives=False, task=None, dataproc=None, plot_xc=False):
+def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs=None, highlight_negatives=False, task=None, dataproc=None, plot_xc=False):
     mean_da, truth_da = xr.align(mean_da, truth_da, join='inner')
     # Calculate prediction errors
     err_da = mean_da - truth_da
     
     # Set up subplots
-    fig, axes = plt.subplots(subplot_kw={"projection": crs}, nrows=2, ncols=2, figsize=(10, 5), layout='constrained')
+    if crs is None:
+        fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(10, 5), layout='constrained')
+    else:
+        fig, axes = plt.subplots(subplot_kw={"projection": crs}, nrows=2, ncols=2, figsize=(10, 5), layout='constrained')
     axes = axes.flatten()
     # Title
     date_min = pd.Timestamp(truth_da.time.values.min()).strftime('%Y-%m-%d')
@@ -71,8 +74,9 @@ def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs = cc
     if plot_xc==True:
         dsplt.offgrid_context(axes[0], task, dataproc, s=3, markers="x", linewidths=0.5, colors='green', add_legend=False)
 
-    for ax in axes:
-        ax.coastlines(linewidth=0.5)
+    if crs is not None:
+        for ax in axes:
+            ax.coastlines(linewidth=0.5)
 
     return fig, axes
 
