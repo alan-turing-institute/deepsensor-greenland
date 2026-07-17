@@ -238,10 +238,21 @@ elif val_set == 'station':
     mask_reference = mask_reference.reindex({'x': xy_coords_ref[0], 'y': xy_coords_ref[1]})
     mask_reference = mask_reference.assign_coords(lon=lonlat_coords_ref[0], lat=lonlat_coords_ref[1])
 
-    gdf_points = gpd.GeoDataFrame(stn_locs_df,
-                                  crs='epsg:4326',
-                                  geometry=gpd.points_from_xy(stn_locs_df['longitude_last_valid'],
-                                                              stn_locs_df['latitude_last_valid']))
+    gdf_points = gpd.GeoDataFrame(
+        stn_locs_df,
+        crs='epsg:4326',
+        geometry=gpd.points_from_xy(
+            stn_locs_df['longitude_last_valid'],
+            stn_locs_df['latitude_last_valid'],
+        ),
+    )
+
+    # Drop stations outside the model domain before snapping to nearest grid cell.
+    lon_min = float(lonlat_coords_ref[0].min().values)
+    lon_max = float(lonlat_coords_ref[0].max().values)
+    lat_min = float(lonlat_coords_ref[1].min().values)
+    lat_max = float(lonlat_coords_ref[1].max().values)
+    gdf_points = gdf_points.cx[lon_min:lon_max, lat_min:lat_max]
 
     # Drop stations outside the model domain before snapping to the nearest grid cell
     lon_min = float(lonlat_coords_ref[0].min().values)
