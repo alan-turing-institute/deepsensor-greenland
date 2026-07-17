@@ -72,7 +72,7 @@ def main():
     # Trained model args
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_file', default='src/giant_sp/configs/hirham5zarr_debug.yaml', type=str)
-    parser.add_argument('--run_ref', default='4flbw8xy')
+    parser.add_argument('--run_ref', default='acoca/giant-sp/4flbw8xy')
     parser.add_argument('--weights_filename', default='best-weights-stnval.pt')
     # Expt settings
     parser.add_argument('--acq_fn', default='ContextDist', type=str)
