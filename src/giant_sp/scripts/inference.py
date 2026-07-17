@@ -35,7 +35,7 @@ def download_wandb_file(run_ref, files_path, file):
     api = wandb.Api()
     therun = api.run(run_ref)
 
-    therun.file(file).download(root=os.path.join('wandb', f'run-{run_id}'), exist_ok=True)
+    therun.file(file).download(root=files_path, exist_ok=True)
 
 def load_wandb_model(data_processor, task_loader, config_path, weights_path):
 
