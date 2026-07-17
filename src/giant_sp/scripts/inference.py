@@ -355,7 +355,7 @@ def main():
         # Plot uniform line
         ax.axhline(1., color='k', linestyle='--')
 
-        fig.savefig(os.path.join(figfolder, f'{fname}_pit_histogram_.png'))
+        fig.savefig(os.path.join(figfolder, f'{fname}_pit_histogram.png'))
 
 
 if __name__ == "__main__":
