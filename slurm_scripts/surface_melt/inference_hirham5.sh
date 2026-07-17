@@ -18,4 +18,4 @@
 export PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
 
 # submit the code
-srun uv run src/giant_sp/scripts/inference.py --val_set station --plot
+srun uv run src/giant_sp/scripts/inference.py --run_ref acoca/giant-sp/4flbw8xy --config_file src/giant_sp/configs/hirham5zarr.yaml --val_set station --every 1 --weights_filename best-weights.pt --plot
