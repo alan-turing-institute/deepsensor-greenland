@@ -270,6 +270,8 @@ elif val_set == 'station':
     ).values
 
     stn_locs_df_subset = gdf_points[gdf_points['mask_val'] == 1]
+    if stn_locs_df_subset.empty:
+        raise ValueError("No station locations remain after applying the land mask/domain filter.")
 
     raw_stn_locs = pd.DataFrame({'lat': stn_locs_df_subset.y, 'lon': stn_locs_df_subset.x})
     stn_locs = data_processor.map_coord_array(raw_stn_locs.to_numpy().transpose())
