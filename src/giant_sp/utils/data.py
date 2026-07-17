@@ -179,15 +179,14 @@ def sample_dates_by_year_chunks(weights, start_date, end_date, n_samples_per_yea
 
 def find_lon_lat(ds):
     # source: https://github.com/eschlager/MeltEmulation/
-    # Try common names (coords or data_vars)
+    # Try common names (coords)
     lon_names = [n for n in ds.coords if n.lower() in ('lon', 'longitude', 'long')]
     lat_names = [n for n in ds.coords if n.lower() in ('lat', 'latitude')]
     if not lon_names or not lat_names:
         raise ValueError("Couldn't find lon/lat variables!")
-    else:
-        lon = ds[lon_names[0]].values
-        lat = ds[lat_names[0]].values
-        return lon, lat
+    lon = ds.coords[lon_names[0]]
+    lat = ds.coords[lat_names[0]]
+    return lon, lat
 
 def find_xy_for_points(ds, gdf_points):
     """
