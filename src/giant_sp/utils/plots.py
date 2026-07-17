@@ -74,8 +74,9 @@ def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs=None
     if plot_xc==True:
         dsplt.offgrid_context(axes[0], task, dataproc, s=3, markers="x", linewidths=0.5, colors='green', add_legend=False)
 
-    # for ax in axes:
-    #     ax.coastlines(linewidth=0.5)
+    if crs is not None:
+        for ax in axes:
+            ax.coastlines(linewidth=0.5)
 
     return fig, axes
 
