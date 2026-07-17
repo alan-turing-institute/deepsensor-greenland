@@ -53,8 +53,8 @@ def load_wandb_model(data_processor, task_loader, config_path, weights_path):
 
     return model
 
-def export_zarr(aod_var, pred_ds, truth_ds, files_path, fname):
-    pred_ds, truth_da = xr.align(pred_ds[aod_var], truth_ds[aod_var], join='inner')
+def export_zarr(target_var, pred_ds, truth_ds, files_path, fname):
+    pred_ds, truth_da = xr.align(pred_ds[target_var], truth_ds[target_var], join='inner')
 
     pred_final = xr.concat([truth_da, pred_ds['mean'], pred_ds['std']], dim='variable').assign_coords(variable=['snmel_true', 'snmel_pred', 'snmel_std'])
     pred_final = pred_final.to_dataset(dim='variable')
@@ -110,7 +110,7 @@ plot = True
 config = load_config(config_file)
 source = config['data']['source']
 chunk_size = 100
-aod_var = config['data']['target_var_IDs']
+target_var = config['data']['target_var_IDs']
 
 # Initialize data loader
 if source == 'carra2':
@@ -137,7 +137,7 @@ dates = pd.date_range(start=dates_start, end=dates_end, freq=frequency)
 dates = list(np.sort(dates + td).astype('datetime64[ns]'))
 
 data_processor = DataProcessor(files_path)
-aod_raw_ds, data_processor, task_loader = data_loader.get_dataproc_taskload(dates=dates, data_processor=data_processor)
+raw_ds, data_processor, task_loader = data_loader.get_dataproc_taskload(dates=dates, data_processor=data_processor)
 lsm = data_loader.load_aux_ds(resolution="bedmachine")
 
 config_file = os.path.join(files_path, 'model_config.json')
@@ -149,11 +149,11 @@ if val_set == 'no-obs':
 
     # Predict
     print(datetime.datetime.now(), f'Starting prediction of {len(tasks)} tasks')
-    val_pred = model.predict(tasks, X_t=aod_raw_ds, X_t_mask=lsm)  # pred_params=("mean", "std", "covariance")
+    val_pred = model.predict(tasks, X_t=raw_ds, X_t_mask=lsm)  # pred_params=("mean", "std", "covariance")
     print(datetime.datetime.now(), f'Done')
 
-    fname = f'{aod_var}_{date_split}-{val_set}-e{temporal_sampling_every}_predictions'
-    export_zarr(aod_var, val_pred, aod_raw_ds, savefolder, fname)
+    fname = f'{target_var}_{date_split}-{val_set}-e{temporal_sampling_every}_predictions'
+    export_zarr(target_var, val_pred, raw_ds, savefolder, fname)
     print(datetime.datetime.now(), f'Saved')
 
 elif val_set == 'random-land':
@@ -179,13 +179,13 @@ elif val_set == 'random-land':
 
     # Predict
     print(datetime.datetime.now(), f'Starting prediction of {len(val_tasks)} tasks')
-    val_pred = model.predict(val_tasks, X_t=aod_raw_ds, X_t_mask=lsm)  # pred_params=("mean", "std", "covariance")
-    val_mean_da = val_pred[aod_var]['mean']
-    val_std_da = val_pred[aod_var]['std']
+    val_pred = model.predict(val_tasks, X_t=raw_ds, X_t_mask=lsm)  # pred_params=("mean", "std", "covariance")
+    val_mean_da = val_pred[target_var]['mean']
+    val_std_da = val_pred[target_var]['std']
     print(datetime.datetime.now(), f'Done')
 
-    fname = f'{aod_var}_{date_split}-{val_set}-seed{seed}-e{temporal_sampling_every}_predictions'
-    export_zarr(aod_var, val_pred, aod_raw_ds, savefolder, fname)
+    fname = f'{target_var}_{date_split}-{val_set}-seed{seed}-e{temporal_sampling_every}_predictions'
+    export_zarr(target_var, val_pred, raw_ds, savefolder, fname)
     print(datetime.datetime.now(), f'Saved')
 
 elif val_set == 'station':
@@ -237,19 +237,19 @@ elif val_set == 'station':
 
     # Predict
     print(datetime.datetime.now(), f'Starting prediction of {len(val_tasks)} tasks')
-    val_pred = model.predict(val_tasks, X_t=aod_raw_ds, X_t_mask=lsm)
+    val_pred = model.predict(val_tasks, X_t=raw_ds, X_t_mask=lsm)
     print(datetime.datetime.now(), f'Done')
 
-    fname = f'{aod_var}_{date_split}-{val_set}-e{temporal_sampling_every}_predictions'
-    export_zarr(aod_var, val_pred, aod_raw_ds, savefolder, fname)
+    fname = f'{target_var}_{date_split}-{val_set}-e{temporal_sampling_every}_predictions'
+    export_zarr(target_var, val_pred, raw_ds, savefolder, fname)
     print(datetime.datetime.now(), f'Saved')
 
 # Averaged prediction plots
 if args.plot:
     date = pd.Timestamp(dates[0])
     task = [t for t in val_tasks if t['time'] == date][0]
-    mean_da, raw_da = xr.align(val_pred[aod_var]['mean'], aod_raw_ds[aod_var], join='inner')
-    fig, ax = myplt.averaged_prediction_plot(raw_da, val_pred[aod_var]['mean'], val_pred[aod_var]['std'], cmap='viridis', task=task,
+    mean_da, raw_da = xr.align(val_pred[target_var]['mean'], raw_ds[target_var], join='inner')
+    fig, ax = myplt.averaged_prediction_plot(raw_da, val_pred[target_var]['mean'], val_pred[target_var]['std'], cmap='viridis', task=task,
                                              dataproc=data_processor, highlight_negatives=True, plot_xc=True, crs="None")
     fig.savefig(os.path.join(figfolder, f'{fname}_avgpred.png'))
 
@@ -262,8 +262,8 @@ if args.plot:
 
     # Subselect and flatten datasets
     true_plt = stnval_cams_raw_da.sel(time=dates_plt).values.flatten()
-    pred_mean_plt = val_pred[aod_var]['mean'].sel(time=dates_plt).values.flatten()
-    pred_std_plt = val_pred[aod_var]['std'].sel(time=dates_plt).values.flatten()
+    pred_mean_plt = val_pred[target_var]['mean'].sel(time=dates_plt).values.flatten()
+    pred_std_plt = val_pred[target_var]['std'].sel(time=dates_plt).values.flatten()
 
     # PIT histogram (area weighted)
     # Compute PIT values
