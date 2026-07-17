@@ -17,8 +17,10 @@ def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs=None
     err_da = mean_da - truth_da
     
     # Set up subplots
-    fig, axes = plt.subplots(subplot_kw={"projection": crs}, nrows=2, ncols=2, figsize=(10, 5), layout='constrained')
-    # fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(10, 5), layout='constrained')
+    if crs is None:
+        fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(10, 5), layout='constrained')
+    else:
+        fig, axes = plt.subplots(subplot_kw={"projection": crs}, nrows=2, ncols=2, figsize=(10, 5), layout='constrained')
     axes = axes.flatten()
     # Title
     date_min = pd.Timestamp(truth_da.time.values.min()).strftime('%Y-%m-%d')
