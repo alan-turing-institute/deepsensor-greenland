@@ -65,7 +65,7 @@ def load_wandb_model(data_processor, task_loader, config_path, weights_path):
 def export_zarr(target_var, pred_ds, truth_ds, files_path, fname):
     pred_ds, truth_da = xr.align(pred_ds[target_var], truth_ds[target_var], join='inner')
 
-    pred_final = xr.concat([truth_da, pred_ds['mean'], pred_ds['std']], dim='variable').assign_coords(variable=['snmel_true', 'snmel_pred', 'snmel_std'])
+    pred_final = xr.concat([truth_da, pred_ds['mean'], pred_ds['std']], dim='variable').assign_coords(variable=[f'{target_var}_true', f'{target_var}_pred', f'{target_var}_std'])
     pred_final = pred_final.to_dataset(dim='variable')
 
     coords_file = os.path.sep.join([config['data']['data_path'], 'coords_only.zarr'])
