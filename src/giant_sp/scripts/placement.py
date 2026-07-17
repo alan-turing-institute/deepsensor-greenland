@@ -241,13 +241,6 @@ def main():
         acq_fn = acq.OracleMarginalNLL(model)
     elif args.acq_fn == 'OracleJointNLL':
         acq_fn = acq.OracleJointNLL(model)
-    # Custom
-    elif args.acq_fn == 'GreatCircleContextDist':
-        acq_fn = myacqfns.GreatCircleContextDist(context_set_idx=0, data_processor=data_processor)
-        tasks = tasks[:1]
-    # Lognormal
-    elif args.acq_fn == 'StddevLognormal':
-        acq_fn = myacqfns.StddevLognormal(model, target_var_ID=aod_var)
     else:
         raise NotImplementedError(f'No deepsensor acquisition function named {args.acq_fn}')
 
