@@ -62,26 +62,32 @@ def load_wandb_model(data_processor, task_loader, config_path, weights_path):
 
     return model
 
-def export_zarr(target_var, pred_ds, truth_ds, files_path, fname):
+def export_zarr(target_var, pred_ds, truth_ds, files_path, fname, source, chunk_size, data_path=None):
     pred_ds, truth_da = xr.align(pred_ds[target_var], truth_ds[target_var], join='inner')
 
     pred_final = xr.concat([truth_da, pred_ds['mean'], pred_ds['std']], dim='variable').assign_coords(variable=[f'{target_var}_true', f'{target_var}_pred', f'{target_var}_std'])
     pred_final = pred_final.to_dataset(dim='variable')
 
-    coords_file = os.path.sep.join([config['data']['data_path'], 'coords_only.zarr'])
-    coords_ref = xr.open_zarr(coords_file, chunks="auto")
-    xy_coords_ref = (coords_ref['x'], coords_ref['y'])
-    lonlat_coords_ref = (coords_ref['lon'], coords_ref['lat'])
+    if source == 'hirham5zarr':
+        coords_file = os.path.sep.join([data_path, 'coords_only.zarr'])
+        coords_ref = xr.open_zarr(coords_file, chunks="auto")
+        xy_coords_ref = (coords_ref['x'], coords_ref['y'])
+        lonlat_coords_ref = (coords_ref['lon'], coords_ref['lat'])
 
-    rename_map = {
-        'lon': 'x',
-        'lat': 'y'
-    }
-    pred_final = pred_final.rename(rename_map)
+        rename_map = {
+            'lon': 'x',
+            'lat': 'y'
+        }
+        pred_final = pred_final.rename(rename_map)
 
-    ds_xr = pred_final.reindex({'x': xy_coords_ref[0], 'y': xy_coords_ref[1]})
-    ds_xr = ds_xr.assign_coords(lon=lonlat_coords_ref[0], lat=lonlat_coords_ref[1])
-    ds_xr = ds_xr.chunk({'time': chunk_size, 'x': -1, 'y': -1})
+        ds_xr = pred_final.reindex({'x': xy_coords_ref[0], 'y': xy_coords_ref[1]})
+        ds_xr = ds_xr.assign_coords(lon=lonlat_coords_ref[0], lat=lonlat_coords_ref[1])
+        chunk_dims = {'time': chunk_size, 'x': -1, 'y': -1}
+    else:
+        ds_xr = pred_final
+        chunk_dims = {'time': chunk_size, 'lat': -1, 'lon': -1}
+
+    ds_xr = ds_xr.chunk(chunk_dims)
 
     ds_xr.to_zarr(
                     store=os.path.join(files_path,f'{fname}.zarr'),
@@ -184,7 +190,7 @@ def main():
         print(datetime.datetime.now(), f'Done')
 
         fname = f'{target_var}_{date_split}_{val_set}_e{every}_{weights_fn}_predictions'
-        export_zarr(target_var, val_pred, raw_ds, savefolder, fname)
+        export_zarr(target_var, val_pred, raw_ds, savefolder, fname, source, chunk_size, config['data']['data_path'])
         print(datetime.datetime.now(), f'Saved')
 
     elif val_set == 'random-land':
@@ -216,7 +222,7 @@ def main():
         print(datetime.datetime.now(), f'Done')
 
         fname = f'{target_var}_{date_split}_{val_set}_seed{seed}_e{every}_{weights_fn}_predictions'
-        export_zarr(target_var, val_pred, raw_ds, savefolder, fname)
+        export_zarr(target_var, val_pred, raw_ds, savefolder, fname, source, chunk_size, config['data']['data_path'])
         print(datetime.datetime.now(), f'Saved')
 
     elif val_set == 'station':
@@ -224,57 +230,69 @@ def main():
         stn_file = config['data']['station_locations_file']
         stn_locs_df = pd.read_csv(stn_file)[['latitude_last_valid', 'longitude_last_valid']]  # get lat/lon only
 
-        coords_file = os.path.sep.join([config['data']['data_path'], 'coords_only.zarr'])
-        coords_ref = xr.open_zarr(coords_file, chunks="auto")
-        xy_coords_ref = (coords_ref['x'], coords_ref['y'])
-        lonlat_coords_ref = (coords_ref['lon'], coords_ref['lat'])
+        if source == 'hirham5zarr':
+            coords_file = os.path.sep.join([config['data']['data_path'], 'coords_only.zarr'])
+            coords_ref = xr.open_zarr(coords_file, chunks="auto")
+            xy_coords_ref = (coords_ref['x'], coords_ref['y'])
+            lonlat_coords_ref = (coords_ref['lon'], coords_ref['lat'])
 
-        rename_map = {
-            'lon': 'x',
-            'lat': 'y'
-        }
+            rename_map = {
+                'lon': 'x',
+                'lat': 'y'
+            }
 
-        # subset based on lsm mask
-        mask_reference = lsm.rename(rename_map)
-        mask_reference = mask_reference.reindex({'x': xy_coords_ref[0], 'y': xy_coords_ref[1]})
-        mask_reference = mask_reference.assign_coords(lon=lonlat_coords_ref[0], lat=lonlat_coords_ref[1])
+            # subset based on lsm mask
+            mask_reference = lsm.rename(rename_map)
+            mask_reference = mask_reference.reindex({'x': xy_coords_ref[0], 'y': xy_coords_ref[1]})
+            mask_reference = mask_reference.assign_coords(lon=lonlat_coords_ref[0], lat=lonlat_coords_ref[1])
 
-        gdf_points = gpd.GeoDataFrame(
-            stn_locs_df,
-            crs='epsg:4326',
-            geometry=gpd.points_from_xy(
-                stn_locs_df['longitude_last_valid'],
-                stn_locs_df['latitude_last_valid'],
-            ),
-        )
+            gdf_points = gpd.GeoDataFrame(
+                stn_locs_df,
+                crs='epsg:4326',
+                geometry=gpd.points_from_xy(
+                    stn_locs_df['longitude_last_valid'],
+                    stn_locs_df['latitude_last_valid'],
+                ),
+            )
 
-        # Drop stations outside the model domain before snapping to nearest grid cell.
-        lon_min = float(lonlat_coords_ref[0].min().values)
-        lon_max = float(lonlat_coords_ref[0].max().values)
-        lat_min = float(lonlat_coords_ref[1].min().values)
-        lat_max = float(lonlat_coords_ref[1].max().values)
-        gdf_points = gdf_points.cx[lon_min:lon_max, lat_min:lat_max]
+            # Drop stations outside the model domain before snapping to nearest grid cell.
+            lon_min = float(lonlat_coords_ref[0].min().values)
+            lon_max = float(lonlat_coords_ref[0].max().values)
+            lat_min = float(lonlat_coords_ref[1].min().values)
+            lat_max = float(lonlat_coords_ref[1].max().values)
+            gdf_points = gdf_points.cx[lon_min:lon_max, lat_min:lat_max]
 
-        # Drop stations outside the model domain before snapping to the nearest grid cell
-        lon_min = float(lonlat_coords_ref[0].min().values)
-        lon_max = float(lonlat_coords_ref[0].max().values)
-        lat_min = float(lonlat_coords_ref[1].min().values)
-        lat_max = float(lonlat_coords_ref[1].max().values)
-        gdf_points = gdf_points.cx[lon_min:lon_max, lat_min:lat_max]
+            gdf_points = du.find_xy_for_points(mask_reference, gdf_points)
 
-        gdf_points = du.find_xy_for_points(mask_reference, gdf_points)
+            gdf_points['mask_val'] = mask_reference.sel(
+                x=xr.DataArray(gdf_points['x'].values, dims='points'),
+                y=xr.DataArray(gdf_points['y'].values, dims='points'),
+                method='nearest'
+            ).values
 
-        gdf_points['mask_val'] = mask_reference.sel(
-            x=xr.DataArray(gdf_points['x'].values, dims='points'),
-            y=xr.DataArray(gdf_points['y'].values, dims='points'),
-            method='nearest'
-        ).values
+            stn_locs_df_subset = gdf_points[gdf_points['mask_val'] == 1]
+            if stn_locs_df_subset.empty:
+                raise ValueError("No station locations remain after applying the land mask/domain filter.")
 
-        stn_locs_df_subset = gdf_points[gdf_points['mask_val'] == 1]
-        if stn_locs_df_subset.empty:
-            raise ValueError("No station locations remain after applying the land mask/domain filter.")
+            raw_stn_locs = pd.DataFrame({'lat': stn_locs_df_subset.y, 'lon': stn_locs_df_subset.x})
+        else:
+            # Non-zarr sources (hirham5, carra2): raw_ds has projected x/y coords renamed to lon/lat
+            gdf_points = gpd.GeoDataFrame(
+                stn_locs_df,
+                crs='epsg:4326',
+                geometry=gpd.points_from_xy(
+                    stn_locs_df['longitude_last_valid'],
+                    stn_locs_df['latitude_last_valid'],
+                )
+            ).to_crs('epsg:3413')
+            stn_locs_df_subset = gdf_points.cx[
+                raw_ds.lon[0].values:raw_ds.lon[-1].values,
+                raw_ds.lat[0].values:raw_ds.lat[-1].values
+            ]
+            if stn_locs_df_subset.empty:
+                raise ValueError("No station locations remain after filtering to the model domain.")
+            raw_stn_locs = pd.DataFrame({'lat': stn_locs_df_subset.geometry.y, 'lon': stn_locs_df_subset.geometry.x})
 
-        raw_stn_locs = pd.DataFrame({'lat': stn_locs_df_subset.y, 'lon': stn_locs_df_subset.x})
         stn_locs = data_processor.map_coord_array(raw_stn_locs.to_numpy().transpose())
 
         # Create set of stnval tasks
@@ -292,7 +310,7 @@ def main():
         print(datetime.datetime.now(), f'Done')
 
         fname = f'{target_var}_{date_split}_{val_set}_e{every}_{weights_fn}_predictions'
-        export_zarr(target_var, val_pred, raw_ds, savefolder, fname)
+        export_zarr(target_var, val_pred, raw_ds, savefolder, fname, source, chunk_size, config['data']['data_path'])
         print(datetime.datetime.now(), f'Saved')
 
     else:
