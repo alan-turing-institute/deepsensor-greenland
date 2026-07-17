@@ -1160,6 +1160,8 @@ dependencies = [
     { name = "colorcet" },
     { name = "deepsensor" },
     { name = "geopandas" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "torch" },
     { name = "wandb" },
 ]
@@ -1187,6 +1189,7 @@ requires-dist = [
     { name = "colorcet", specifier = ">=3.2.1" },
     { name = "deepsensor", specifier = ">=0.4.3" },
     { name = "geopandas", specifier = ">=1.1.4" },
+    { name = "scipy", specifier = ">=1.17.1" },
     { name = "torch", specifier = ">=2.12.1" },
     { name = "wandb", specifier = ">=0.28.0" },
 ]
