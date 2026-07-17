@@ -65,8 +65,8 @@ def sample_station_locations(stn_locs_df, n_obs, seed=None):
 
     return raw_locs
 
-def mixed_sampling_strategy(stn_file, n_obs, frac_stn=0.1, frac_land=0.9, lsm=None, seed=None):
-    n_stn = int(frac_stn * n_obs)
+def mixed_sampling_strategy(stn_file, n_obs, frac_stn=0.1, lsm=None, seed=None):
+    n_stn = round(frac_stn * n_obs)
     n_land = n_obs - n_stn
     stn_locs = sample_station_locations(stn_file, n_stn, seed=seed)
     land_locs = sample_land_locations(n_land, lsm=lsm, seed=seed)
