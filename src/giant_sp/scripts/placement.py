@@ -20,7 +20,8 @@ import scipy as sp
 # src
 import sys
 
-from giant_sp.data import HIRHAM5ZarrDataLoader
+from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
+import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
 from giant_sp.utils.data import sample_dates_by_year_chunks, find_xy_for_points
 
@@ -193,6 +194,8 @@ def main():
         mask_reference = mask_reference.reindex({'x': xy_coords_ref[0], 'y': xy_coords_ref[1]})
         mask_reference = mask_reference.assign_coords(lon=lonlat_coords_ref[0], lat=lonlat_coords_ref[1])
 
+        stn_file = config['data']['station_locations_file']
+        stn_locs_df = pd.read_csv(stn_file)[['latitude_last_valid', 'longitude_last_valid']]  # get lat/lon only
         gdf_points = gpd.GeoDataFrame(
             stn_locs_df,
             crs='epsg:4326',
