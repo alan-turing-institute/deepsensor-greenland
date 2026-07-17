@@ -177,10 +177,10 @@ def main():
     raw_ds, data_processor, task_loader = data_loader.get_dataproc_taskload(dates=dates, data_processor=data_processor)
     lsm = data_loader.load_aux_ds(resolution="bedmachine")
 
-    config_file = os.path.join(files_path, 'model_config.json')
+    model_config_file = os.path.join(files_path, 'model_config.json')
     weights_file = os.path.join(files_path, weights_fn)
 
-    model = load_wandb_model(data_processor, task_loader, config_file, weights_file)
+    model = load_wandb_model(data_processor, task_loader, model_config_file, weights_file)
 
     weights_fn = weights_fn.split('.')[0]
     if val_set == 'no-obs':
