@@ -160,13 +160,13 @@ def main():
         target_grid = aod_raw_ds
     else:
         # Load a 0.25degree resolution dataset as starting point and coarsen to desired resolution
-        _, lsm = data_loader.load_aux_ds(resolution="bedmachine")
+        lsm = data_loader.load_aux_ds(resolution="bedmachine")
         coarsen_factor = int(args.pred_resolution / 1.0)
         target_grid = lsm.coarsen({'lat': coarsen_factor, 'lon': coarsen_factor}, boundary='trim').mean()
 
     # Load Aeronet sensor locations
     ## station locations
-    mask, _ = data_loader.load_aux_ds(resolution="bedmachine")
+    mask = data_loader.load_aux_ds(resolution="bedmachine")
     coords_file = os.path.sep.join([coords_path, 'coords_only.zarr'])
     coords_ref = xr.open_dataset(coords_file)
     xy_coords_ref = (coords_ref['x'], coords_ref['y'])
@@ -203,7 +203,7 @@ def main():
     # Search space definition
     if args.search_mask_file == '':
         coarsen_factor = int(args.search_resolution / 1.0)
-        _, lsm = data_loader.load_aux_ds(resolution="bedmachine")
+        lsm = data_loader.load_aux_ds(resolution="bedmachine")
         aux_raw_ds = lsm.coarsen({'lat': coarsen_factor, 'lon': coarsen_factor}, boundary='trim').mean()
         search_mask = aux_raw_ds.where(aux_raw_ds > args.min_land, other=0)  # search where True
     else:
