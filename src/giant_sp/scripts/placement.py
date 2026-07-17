@@ -72,7 +72,7 @@ def main():
     parser.add_argument('--run_ref', default='4flbw8xy')
     parser.add_argument('--weights_filename', default='best-weights-stnval.pt')
     # Expt settings
-    parser.add_argument('--acq_fn', default='OracleRMSE', type=str)
+    parser.add_argument('--acq_fn', default='ContextDist', type=str)
     parser.add_argument('--n_new', default=5, type=int)
     parser.add_argument('--search_start_date', default='2016-01-01', type=str)
     parser.add_argument('--search_end_date', default='2016-12-31', type=str)
