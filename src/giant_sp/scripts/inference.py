@@ -287,10 +287,11 @@ for f in target_files:
                     stn_locs_df['latitude_last_valid'],
                 )
             ).to_crs('epsg:3413')
-            stn_locs_df_subset = gdf_points.cx[
-                raw_ds.lon[0].values:raw_ds.lon[-1].values,
-                raw_ds.lat[0].values:raw_ds.lat[-1].values
-            ]
+lon_min = float(raw_ds.lon.min().values)
+lon_max = float(raw_ds.lon.max().values)
+lat_min = float(raw_ds.lat.min().values)
+lat_max = float(raw_ds.lat.max().values)
+stn_locs_df_subset = gdf_points.cx[lon_min:lon_max, lat_min:lat_max]
             if stn_locs_df_subset.empty:
                 raise ValueError("No station locations remain after filtering to the model domain.")
             raw_stn_locs = pd.DataFrame({'lat': stn_locs_df_subset.geometry.y, 'lon': stn_locs_df_subset.geometry.x})
