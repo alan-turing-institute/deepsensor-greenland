@@ -162,7 +162,7 @@ def main():
             raise IndexError
     except IndexError:
         files_path = str(os.path.join('wandb', f'run-{run_id}', 'files'))
-        [download_wandb_file(run_ref, files_path, os.path.join('files',i)) for i in target_files]
+        [download_wandb_file(run_ref, files_path, 'files') for i in target_files]
     print('Loading run data from: ', files_path)
 
     data_processor = DataProcessor(files_path)
