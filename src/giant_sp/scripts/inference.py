@@ -144,9 +144,6 @@ elif source == 'hirham5':
 elif source == 'hirham5zarr':
     data_loader = HIRHAM5ZarrDataLoader(config)
     td = np.timedelta64(12, 'h')
-elif source == 'hirham5predzarr':
-    data_loader = HIRHAM5ZarrPredictionDataLoader(config)
-    td = np.timedelta64(12, 'h')
 else:
     raise ValueError(f"Unknown source: {source}")
 
