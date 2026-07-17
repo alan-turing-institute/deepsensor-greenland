@@ -131,36 +131,14 @@ else:
 dates_start = config['data'][f'{date_split}_start']
 dates_end = config['data'][f'{date_split}_end']
 frequency = config['dataloader']['frequency']
-temporal_sampling_method = 'regular'
-temporal_sampling_every = 1
 n_obs = 400
 
-if temporal_sampling_method == 'seasonal':
-    # source: https://github.com/eschlager/MeltEmulation/tree/main
-    # temporal sub-sampling of training data
-    doy = np.arange(1, 367)  # days 1 to 366
-    mu = 205  # 24th of July ~ peak of melt season
-    sigma = 60
-    min_weight_doy = 0.0
-    gauss_weights = np.exp(-0.5 * ((doy - mu) / sigma) ** 2)
-    weights = min_weight_doy + (1 - min_weight_doy) * gauss_weights
-    weights_doy = gauss_weights / gauss_weights.sum()
-
-    n_samples_per_year = temporal_sampling_every
-
-    np.random.seed(42)
-    dates = sample_dates_by_year_chunks(weights_doy, dates_start, dates_end, n_samples_per_year)
-
-    dates = list(np.sort(dates + td).astype('datetime64[ns]'))
-elif temporal_sampling_method == 'regular':
-    dates = pd.date_range(start=dates_start, end=dates_end, freq=frequency)[::temporal_sampling_every]
-    dates = list(np.sort(dates + td).astype('datetime64[ns]'))
-else:
-    raise ValueError(f"Unknown temporal sampling method: {temporal_sampling_method}")
+dates = pd.date_range(start=dates_start, end=dates_end, freq=frequency)
+dates = list(np.sort(dates + td).astype('datetime64[ns]'))
 
 data_processor = DataProcessor(files_path)
 aod_raw_ds, data_processor, task_loader = data_loader.get_dataproc_taskload(dates=dates, data_processor=data_processor)
-lsm, _ = data_loader.load_aux_ds(resolution="bedmachine")
+lsm = data_loader.load_aux_ds(resolution="bedmachine")
 
 config_file = os.path.join(files_path, 'model_config.json')
 weights_file = os.path.join(files_path, 'best-weights.pt')
