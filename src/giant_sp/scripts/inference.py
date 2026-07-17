@@ -336,7 +336,7 @@ def main():
         true_plt = raw_ds[target_var].sel(time=dates_plt).values.flatten()
         pred_mean_plt_all = val_pred[target_var]['mean'].sel(time=dates_plt).values.flatten()
         pred_std_plt = val_pred[target_var]['std'].sel(time=dates_plt).values.flatten()
-        pred_mean_plt = pred_mean_plt[~np.isnan(pred_mean_plt_all)]
+        pred_mean_plt = pred_mean_plt_all[~np.isnan(pred_mean_plt_all)]
         pred_std_plt = pred_std_plt[~np.isnan(pred_mean_plt_all)]
         true_plt = true_plt[~np.isnan(pred_mean_plt_all)]
 
