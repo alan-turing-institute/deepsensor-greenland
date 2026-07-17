@@ -90,8 +90,6 @@ def main():
     # Path and files
     files_path = f'outputs/{run_id}'
     config_file = 'src/giant_sp/configs/hirham5zarr.yaml'
-    savefolder = os.path.join(files_path, 'demo')
-    os.makedirs(savefolder, exist_ok=True)
 
     # Args
     config = load_config(config_file)
