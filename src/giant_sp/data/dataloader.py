@@ -45,8 +45,10 @@ class BaseDataLoader:
         self.basin = config['data']['basin']
         self.context_vars = config['data']['context_var_IDs']
         self.target_vars = config['data']['target_var_IDs']
-        self.train_start = pd.Timestamp(self.config['data']['train_start'])
-        self.train_end = pd.Timestamp(self.config['data']['train_end'])
+        self.train_start = self.config['data']['train_start']
+        self.train_end = self.config['data']['train_end']
+        self.val_start = config['data']['val_start']
+        self.val_end = config['data']['val_end']
         self.lsm_mask = config['dataloader']['lsm_mask']
         self.frequency = config['dataloader']['frequency']
         self.variables = []
@@ -77,12 +79,12 @@ class BaseDataLoader:
         climatology_fpath = os.path.join(
             climatology_folder,
             '{}_climatology_{}_{}_{}.nc'.format(
-                var_ID, self.train_start.year, self.train_end.year, self.data_pattern.split("*.")[0][-3:]))
+                var_ID, pd.Timestamp(self.train_start).year, pd.Timestamp(self.train_end).year, self.data_pattern.split("*.")[0][-3:]))
         if os.path.exists(climatology_fpath):
             with xr.open_dataset(climatology_fpath) as ds:
                 climatology = next(iter(ds.data_vars.values()))
         else:
-            climatology = da.sel(time=slice(self.train_start, self.train_end)). \
+            climatology = da.sel(time=slice(pd.Timestamp(self.train_start), pd.Timestamp(self.train_end))). \
                 groupby("time.dayofyear", restore_coord_dims=True).mean("time")
             climatology.to_netcdf(climatology_fpath)
 
@@ -217,14 +219,9 @@ class CARRA2DataLoader(BaseDataLoader):
             lsm_raw_ds = get_gldas_land_mask(reg_extent, cache=True, cache_dir=cache_dir)
 
         elif resolution == "bedmachine":
-            aux_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'surface_2500m.nc'))
             lsm_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'lsm_2500m.nc'))['lsm']
 
             if self.basin is not None:
-                aux_raw_ds = aux_raw_ds.sel(
-                    x=slice(float(self.basin_x.min()), float(self.basin_x.max())),
-                    y=slice(float(self.basin_y.max()), float(self.basin_y.min())),  # y is decreasing
-                )
                 lsm_raw_ds = lsm_raw_ds.sel(
                     x=slice(float(self.basin_x.min()), float(self.basin_x.max())),
                     y=slice(float(self.basin_y.max()), float(self.basin_y.min())),
@@ -235,15 +232,14 @@ class CARRA2DataLoader(BaseDataLoader):
                 'y': 'lat'
             }
 
-            aux_raw_ds = aux_raw_ds.rename(rename_map)
             lsm_raw_ds = lsm_raw_ds.rename(rename_map)
 
-        return aux_raw_ds, lsm_raw_ds
+        return lsm_raw_ds
 
     def get_dataproc_taskload(self, dates, task=None, data_processor=None):
         # Load all data
         raw_ds = self.load_ds()
-        aux_raw_ds, lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
+        lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
         if self.lsm_mask:
             raw_ds = raw_ds.where(lsm_raw_ds == 1)
 
@@ -254,16 +250,16 @@ class CARRA2DataLoader(BaseDataLoader):
         # Apply/learn
         _ = data_processor(raw_ds.sel(time=dates))
         ds = data_processor(raw_ds)
-        aux_ds, lsm_ds = data_processor([aux_raw_ds, lsm_raw_ds], method="min_max")
+        aux_ds = data_processor(lsm_raw_ds, method="min_max")
 
         # Spatiotemporal aux
-        aux_ds = self.add_spatiotemporal_aux(aux_ds, ds)
+        aux_ds = self.add_spatiotemporal_aux(aux_ds.to_dataset(), ds)
 
         # Make task loader
         if len(self.variables) > 1:
-            context = [ds[sublist] for sublist in self.context_vars] + [aux_ds] + [lsm_ds]
+            context = [ds[sublist] for sublist in self.context_vars] + [aux_ds]
         else:
-            context = [ds[self.context_vars]] + [aux_ds] + [lsm_ds]
+            context = [ds[self.context_vars]] + [aux_ds]
         target = [ds[self.target_vars]]
 
         if task is None:
@@ -284,8 +280,6 @@ class HIRHAM5DataLoader(BaseDataLoader):
         """
         super().__init__(config)
         self.bm_ancils_path = config['data']['bedmachine_ancillary_path']
-        self.train_start = config['data']['train_start']
-        self.val_end = config['data']['val_end']
         if self.basin is not None:
             self.basin_x, self.basin_y = self.load_basin(target_basin=self.basin)
 
@@ -363,8 +357,6 @@ class HIRHAM5DataLoader(BaseDataLoader):
             lsm_raw_ds = get_gldas_land_mask(reg_extent, cache=True, cache_dir=cache_dir)
 
         elif resolution == "bedmachine":
-            aux_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'surface_5500m.nc'))
-            # lsm_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'lsm_5500m.nc'))['lsm']
             lsm_raw_ds = xr.open_dataset(os.path.join(self.bm_ancils_path,'ablation_5500m.nc'))['ablation']
 
             if lsm_raw_ds.dims == ('lat', 'lon'):
@@ -375,10 +367,6 @@ class HIRHAM5DataLoader(BaseDataLoader):
                 lsm_raw_ds = lsm_raw_ds.rename(rename_map)
 
             if self.basin is not None:
-                aux_raw_ds = aux_raw_ds.sel(
-                    x=slice(float(self.basin_x.min()), float(self.basin_x.max())),
-                    y=slice(float(self.basin_y.max()), float(self.basin_y.min())),  # y is decreasing
-                )
                 lsm_raw_ds = lsm_raw_ds.sel(
                     x=slice(float(self.basin_x.min()), float(self.basin_x.max())),
                     y=slice(float(self.basin_y.max()), float(self.basin_y.min())),
@@ -388,15 +376,14 @@ class HIRHAM5DataLoader(BaseDataLoader):
                 'x': 'lon',
                 'y': 'lat'
             }
-            aux_raw_ds = aux_raw_ds.rename(rename_map)
             lsm_raw_ds = lsm_raw_ds.rename(rename_map)
 
-        return aux_raw_ds, lsm_raw_ds
+        return lsm_raw_ds
 
     def get_dataproc_taskload(self, dates, task=None, data_processor=None):
         # Load all data
         raw_ds = self.load_ds()
-        aux_raw_ds, lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
+        lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
         if self.lsm_mask:
             raw_ds = raw_ds.where(lsm_raw_ds == 1)
 
@@ -405,25 +392,19 @@ class HIRHAM5DataLoader(BaseDataLoader):
             data_processor = self.init_data_processor()
 
         # Apply/learn
-        # ds_snmel_abs = data_processor(raw_ds[self.context_vars[0]].sel(time=slice(self.train_start, self.val_end)), method="mean_std")
-        # ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=slice(self.train_start, self.val_end)))
-        # ds = xr.concat([ds_snmel_abs, ds_others], dim='time')
-        # _ = data_processor(raw_ds.sel(time=dates))
         ds_target = data_processor(raw_ds[self.context_vars[0]].sel(time=dates), method="positive_semidefinite")
         ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=dates))
-        # ds = xr.concat([ds_snmel_abs, ds_others], dim='time')
-        aux_ds, lsm_ds = data_processor([aux_raw_ds, lsm_raw_ds], method="min_max")
+
+        aux_ds = data_processor(lsm_raw_ds, method="min_max")
 
         # Spatiotemporal aux
-        aux_ds = self.add_spatiotemporal_aux(aux_ds, ds_target)
+        aux_ds = self.add_spatiotemporal_aux(aux_ds.to_dataset(), ds_target)
 
         # Make task loader
         if len(self.variables) > 1:
-            # context = [ds[sublist] for sublist in self.context_vars] + [aux_ds] + [lsm_ds]
-            context = [ds_target] + [ds_others] + [aux_ds] + [lsm_ds]
+            context = [ds_target] + [ds_others] + [aux_ds]
         else:
-            context = [ds[self.context_vars]] + [aux_ds] + [lsm_ds]
-        # target = [ds[self.target_vars]]
+            context = [ds[self.context_vars]] + [aux_ds]
         target = [ds_target[self.target_vars]]
 
         if task is None:
@@ -538,12 +519,12 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
             }
             lsm_raw_ds = lsm_raw_ds.rename(rename_map)
 
-        return lsm_raw_ds, lsm_raw_ds
+        return lsm_raw_ds
 
     def get_dataproc_taskload(self, dates, task=None, data_processor=None):
         # Load all data
         raw_ds = self.load_ds()
-        _, lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
+        lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
         if self.lsm_mask:
             raw_ds = raw_ds.where(lsm_raw_ds == 1)
 

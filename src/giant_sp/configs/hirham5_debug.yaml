@@ -20,16 +20,16 @@ data:
 
 dataloader:
   lsm_mask: true
-  train_sampling: "land_obs"
+  train_sampling: "mixed_obs"
   target_sampling: "all"
   frequency: "D"
   temporal_sampling_method: "seasonal"
-  temporal_sampling_every: 10
+  temporal_sampling_every: 30
   change_dates_every_epoch: false
 
 # Model architecture
 model:
-  likelihood: "gnp"
+  likelihood: "bernoulli-gamma"
   unet_channels: [64, 64, 64] # [64, 64, 64, 64] for GrIS
   unet_kernels: 5
   num_basis_functions: 32 #64 for GrIS
@@ -66,8 +66,8 @@ logging:
   tensorboard: true
   wandb:
     enabled: true  # Set to true to enable W&B logging
-    project: "giant-sp"  # W&B project name
-    entity: null  # Your W&B username/team (null = default)
+    project: "present-train"  # W&B project name
+    entity: "turing-giant"  # Your W&B username/team (null = default)
     name: null  # Run name (null = auto-generated)
     tags: ["spatial-interpolation", "convgnp", "snmel", "hirham5", "debug"]  # Tags for organizing runs
     notes: ""  # Optional docs about this run

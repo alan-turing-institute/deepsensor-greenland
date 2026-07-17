@@ -65,10 +65,10 @@ def sample_station_locations(stn_locs_df, n_obs, seed=None):
 
     return raw_locs
 
-def mixed_sampling_strategy(stn_file, n_obs, frac_stn=0.1, frac_land=0.9, lsm=None, seed=None):
-    n_stn = int(frac_stn * n_obs)
-    n_land = int(frac_land * n_obs)
-    stn_locs = sample_station_locations(stn_file, n_stn, seed=seed)
+def mixed_sampling_strategy(stn_locs_df, n_obs, frac_stn=0.1, lsm=None, seed=None):
+    n_stn = round(frac_stn * n_obs)
+    n_land = n_obs - n_stn
+    stn_locs = sample_station_locations(stn_locs_df, n_stn, seed=seed)
     land_locs = sample_land_locations(n_land, lsm=lsm, seed=seed)
 
     raw_locs = np.concatenate((stn_locs, land_locs), axis=1)
@@ -125,6 +125,7 @@ def construct_circ_and_linear_time_ds(dates, freq):
 
 def sample_dates_by_year_chunks(weights, start_date, end_date, n_samples_per_year):
     """
+    Source: https://github.com/eschlager/MeltEmulation/
     Sample dates within 12-month chunks starting from `start_date`, using the given weights.
 
     Parameters:
@@ -178,15 +179,14 @@ def sample_dates_by_year_chunks(weights, start_date, end_date, n_samples_per_yea
 
 def find_lon_lat(ds):
     # source: https://github.com/eschlager/MeltEmulation/
-    # Try common names (coords or data_vars)
+    # Try common names (coords)
     lon_names = [n for n in ds.coords if n.lower() in ('lon', 'longitude', 'long')]
     lat_names = [n for n in ds.coords if n.lower() in ('lat', 'latitude')]
     if not lon_names or not lat_names:
         raise ValueError("Couldn't find lon/lat variables!")
-    else:
-        lon = ds[lon_names[0]].values
-        lat = ds[lat_names[0]].values
-        return lon, lat
+    lon = ds.coords[lon_names[0]]
+    lat = ds.coords[lat_names[0]]
+    return lon, lat
 
 def find_xy_for_points(ds, gdf_points):
     """
@@ -194,11 +194,12 @@ def find_xy_for_points(ds, gdf_points):
     grid cell in ds and return its x,y coordinate values.
     ds must have 2D lon/lat coordinates and 1D x/y dims.
     """
-    lon2d, lat2d = find_lon_lat(ds)
+    lon_da, lat_da = find_lon_lat(ds)
+    lon2d, lat2d = lon_da.values, lat_da.values
 
-    X2d, Y2d = xr.broadcast(ds['x'], ds['y'])
-    X2d = X2d.transpose(*ds['lon'].dims).values
-    Y2d = Y2d.transpose(*ds['lon'].dims).values
+    X2d, Y2d = xr.broadcast(ds.coords['x'], ds.coords['y'])
+    X2d = X2d.transpose(*lon_da.dims).values
+    Y2d = Y2d.transpose(*lon_da.dims).values
 
     tree = sp.spatial.cKDTree(np.column_stack([lon2d.ravel(), lat2d.ravel()]))
     query_pts = np.column_stack([gdf_points.geometry.x.values, gdf_points.geometry.y.values])
