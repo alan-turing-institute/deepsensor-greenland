@@ -12,8 +12,7 @@ import torch
 import deepsensor.torch
 from deepsensor.model.convnp import ConvNP
 from deepsensor.data.processor import DataProcessor
-from giant_sp.data import HIRHAM5ZarrDataLoader
-import giant_sp.utils.training as tu
+from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
 import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
 import json
