@@ -110,12 +110,9 @@ def main(args):
     temporal_sampling_every = config['dataloader']['temporal_sampling_every']
     lsm_mask = config['dataloader']['lsm_mask']
 
-    # Check mask
-    if lsm_mask:
-        lsm = data_loader.load_aux_ds(resolution="bedmachine")
-    else:
-        lsm = None
-
+    # Load land/sea mask if it will be used (masking, land/mixed sampling, or hirham5zarr station filtering)
+    needs_lsm = lsm_mask or train_sampling in ('land_obs', 'mixed_obs') or source == 'hirham5zarr'
+    lsm = data_loader.load_aux_ds(resolution="bedmachine") if needs_lsm else None
     if temporal_sampling_method == 'seasonal':
         # source: https://github.com/eschlager/MeltEmulation/tree/main
         # temporal sub-sampling of training data
