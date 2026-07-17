@@ -110,6 +110,12 @@ def main(args):
     temporal_sampling_every = config['dataloader']['temporal_sampling_every']
     lsm_mask = config['dataloader']['lsm_mask']
 
+    # Check mask
+    if lsm_mask:
+        lsm = data_loader.load_aux_ds(resolution="bedmachine")
+    else:
+        lsm = None
+
     if temporal_sampling_method == 'seasonal':
         # source: https://github.com/eschlager/MeltEmulation/tree/main
         # temporal sub-sampling of training data
@@ -160,7 +166,6 @@ def main(args):
         }
 
         # subset based on lsm mask
-        lsm = data_loader.load_aux_ds(resolution="bedmachine")
         mask_reference = lsm.rename(rename_map)
         mask_reference = mask_reference.reindex({'x': xy_coords_ref[0], 'y': xy_coords_ref[1]})
         mask_reference = mask_reference.assign_coords(lon=lonlat_coords_ref[0], lat=lonlat_coords_ref[1])
@@ -219,7 +224,6 @@ def main(args):
             target_sampling=target_sampling
         )
     elif train_sampling == 'land_obs':
-        lsm = data_loader.load_aux_ds(resolution="bedmachine")
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
@@ -230,7 +234,6 @@ def main(args):
             target_sampling=target_sampling,
         )
     elif train_sampling == 'mixed_obs':
-        lsm = data_loader.load_aux_ds(resolution="bedmachine")
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
@@ -305,12 +308,6 @@ def main(args):
     
     # Create trainer
     trainer = Trainer(model_wrapper, config, wandb_run=wandb_run)
-
-    # Check mask
-    if lsm_mask:
-        lsm = data_loader.load_aux_ds(resolution="bedmachine")
-    else:
-        lsm = None
 
     # Train model
     logger.info("Starting training...")
