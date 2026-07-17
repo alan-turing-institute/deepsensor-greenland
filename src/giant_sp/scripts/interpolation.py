@@ -110,6 +110,9 @@ def main(args):
     temporal_sampling_every = config['dataloader']['temporal_sampling_every']
     lsm_mask = config['dataloader']['lsm_mask']
 
+    # Load land/sea mask if it will be used (masking, land/mixed sampling, or hirham5zarr station filtering)
+    needs_lsm = lsm_mask or train_sampling in ('land_obs', 'mixed_obs') or source == 'hirham5zarr'
+    lsm = data_loader.load_aux_ds(resolution="bedmachine") if needs_lsm else None
     if temporal_sampling_method == 'seasonal':
         # source: https://github.com/eschlager/MeltEmulation/tree/main
         # temporal sub-sampling of training data
@@ -149,8 +152,8 @@ def main(args):
     stn_locs_df = pd.read_csv(stn_file)[['latitude_last_valid', 'longitude_last_valid']]  # get lat/lon only
 
     if source == 'hirham5zarr':
-        coords_file = os.path.sep.join([config['data']['data_path'], 'coords_only.zarr'])
-        coords_ref = xr.open_dataset(coords_file)
+        coords_file = os.path.join(config['data']['data_path'], 'coords_only.zarr')
+        coords_ref = xr.open_zarr(coords_file, chunks='auto')
         xy_coords_ref = (coords_ref['x'], coords_ref['y'])
         lonlat_coords_ref = (coords_ref['lon'], coords_ref['lat'])
 
@@ -160,15 +163,27 @@ def main(args):
         }
 
         # subset based on lsm mask
-        lsm, _ = data_loader.load_aux_ds(resolution="bedmachine")
+        if lsm is None:
+            raise ValueError("lsm_mask must be enabled to filter/snap station locations for hirham5zarr")
         mask_reference = lsm.rename(rename_map)
         mask_reference = mask_reference.reindex({'x': xy_coords_ref[0], 'y': xy_coords_ref[1]})
         mask_reference = mask_reference.assign_coords(lon=lonlat_coords_ref[0], lat=lonlat_coords_ref[1])
 
-        gdf_points = gpd.GeoDataFrame(stn_locs_df,
-                                      crs='epsg:4326',
-                                      geometry=gpd.points_from_xy(stn_locs_df['longitude_last_valid'],
-                                                                  stn_locs_df['latitude_last_valid']))
+        gdf_points = gpd.GeoDataFrame(
+            stn_locs_df,
+            crs='epsg:4326',
+            geometry=gpd.points_from_xy(
+                stn_locs_df['longitude_last_valid'],
+                stn_locs_df['latitude_last_valid'],
+            ),
+        )
+
+        # Drop stations outside the model domain before snapping to nearest grid cell.
+        lon_min = float(lonlat_coords_ref[0].min().values)
+        lon_max = float(lonlat_coords_ref[0].max().values)
+        lat_min = float(lonlat_coords_ref[1].min().values)
+        lat_max = float(lonlat_coords_ref[1].max().values)
+        gdf_points = gdf_points.cx[lon_min:lon_max, lat_min:lat_max]
 
         gdf_points = find_xy_for_points(mask_reference, gdf_points)
 
@@ -179,8 +194,10 @@ def main(args):
         ).values
 
         stn_locs_df_subset = gdf_points[gdf_points['mask_val'] == 1]
+        if stn_locs_df_subset.empty:
+            raise ValueError("No station locations remain after applying the land mask/domain filter for hirham5zarr.")
 
-        raw_stn_locs = pd.DataFrame({'lat': stn_locs_df_subset.y, 'lon': stn_locs_df_subset.x})
+        raw_stn_locs = pd.DataFrame({'lat': stn_locs_df_subset['y'], 'lon': stn_locs_df_subset['x']})
         stn_locs = data_processor.map_coord_array(raw_stn_locs.to_numpy().transpose())  # normalise to x1/x2 using data_processor
 
     else:
@@ -208,7 +225,6 @@ def main(args):
             target_sampling=target_sampling
         )
     elif train_sampling == 'land_obs':
-        _, lsm = data_loader.load_aux_ds(resolution="bedmachine")
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
@@ -219,7 +235,6 @@ def main(args):
             target_sampling=target_sampling,
         )
     elif train_sampling == 'mixed_obs':
-        _, lsm = data_loader.load_aux_ds(resolution="bedmachine")
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
@@ -294,12 +309,6 @@ def main(args):
     
     # Create trainer
     trainer = Trainer(model_wrapper, config, wandb_run=wandb_run)
-
-    # Check mask
-    if lsm_mask:
-        _, lsm = data_loader.load_aux_ds(resolution="bedmachine")
-    else:
-        lsm = None
 
     # Train model
     logger.info("Starting training...")
