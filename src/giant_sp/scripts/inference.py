@@ -1,5 +1,7 @@
 import os
+import glob
 import argparse
+
 import xarray as xr
 import yaml
 import numpy as np
@@ -22,11 +24,19 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import scipy as sp
 
+import wandb
+
 def load_config(config_path):
     """Load configuration from YAML file"""
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     return config
+
+def download_wandb_file(run_ref, files_path, file):
+    api = wandb.Api()
+    therun = api.run(run_ref)
+
+    therun.file(file).download(root=os.path.join('wandb', f'run-{run_id}'), exist_ok=True)
 
 def load_wandb_model(data_processor, task_loader, config_path, weights_path):
 
@@ -87,26 +97,38 @@ def export_zarr(target_var, pred_ds, truth_ds, files_path, fname):
 
 # Arguments
 parser = argparse.ArgumentParser()
+parser.add_argument('--config_file', default='src/giant_sp/configs/hirham5zarr_debug.yaml', type=str)
 parser.add_argument('--val_set', default='station', type=str) # random, station, active, reduced, station-reduced
+parser.add_argument('--n_obs', default=400, type=int)
+parser.add_argument('--run_ref', default='acoca/giant-sp/4flbw8xy')
+parser.add_argument('--weights_filename', default='best-weights-stnval.pt')
+parser.add_argument('--date_split', default='test')
+parser.add_argument('--every', default=200, type=int)
 parser.add_argument('--seed', default=321, type=int)
 parser.add_argument('--plot', action='store_true', default=False)
 args = parser.parse_args()
 
-# Path and files
-files_path = '/gws/pw/j07/aria_giant/wip/draft/acocac/outputs/present/hirham5/4flbw8xy'
-config_file = 'src/giant_sp/configs/hirham5zarr.yaml'
-savefolder = os.path.join(files_path, 'test_results')
+# Args
+config_file = args.config_file
+run_ref = args.run_ref
+weights_fn = args.weights_filename
+n_obs = args.n_obs
+val_set = args.val_set
+date_split = args.date_split
+every = args.every
+seed = args.seed
+plot = args.plot
+
+# Set up output folders
+run_id = run_ref.split('/')[-1]
+output_path = f'outputs/{run_id}'
+savefolder = os.path.join(output_path, 'test_results')
 figfolder = os.path.join(savefolder, 'figures')
 if not os.path.exists(savefolder):
     os.makedirs(savefolder)
 if not os.path.exists(figfolder):
     os.makedirs(figfolder)
 
-# Args
-val_set = args.val_set
-date_split = 'test'
-seed = args.seed
-plot = True
 config = load_config(config_file)
 source = config['data']['source']
 chunk_size = 100
@@ -131,19 +153,31 @@ else:
 dates_start = config['data'][f'{date_split}_start']
 dates_end = config['data'][f'{date_split}_end']
 frequency = config['dataloader']['frequency']
-n_obs = 400
 
-dates = pd.date_range(start=dates_start, end=dates_end, freq=frequency)
+dates = pd.date_range(start=dates_start, end=dates_end, freq=frequency)[::every]
 dates = list(np.sort(dates + td).astype('datetime64[ns]'))
+
+# Locate data
+target_files = ['model_config.json', 'data_processor_config.json', weights_fn]
+try:
+    files_path = sorted(glob.glob(f'wandb/run*{run_id}/files'), reverse=True)[0]
+    if not all(os.path.exists(os.path.join(files_path, f)) for f in target_files):
+        raise IndexError
+except IndexError:
+    files_path = str(os.path.join('wandb', f'run-{run_id}', 'files'))
+    [download_wandb_file(run_ref, files_path, os.path.join('files',i)) for i in target_files]
+print('Loading run data from: ', files_path)
 
 data_processor = DataProcessor(files_path)
 raw_ds, data_processor, task_loader = data_loader.get_dataproc_taskload(dates=dates, data_processor=data_processor)
 lsm = data_loader.load_aux_ds(resolution="bedmachine")
 
 config_file = os.path.join(files_path, 'model_config.json')
-weights_file = os.path.join(files_path, 'best-weights.pt')
+weights_file = os.path.join(files_path, weights_fn)
+
 model = load_wandb_model(data_processor, task_loader, config_file, weights_file)
 
+weights_fn = weights_fn.split('.')[0]
 if val_set == 'no-obs':
     tasks = task_loader(dates, context_sampling=(0, 'all', 'all'), target_sampling='all')
 
@@ -152,7 +186,7 @@ if val_set == 'no-obs':
     val_pred = model.predict(tasks, X_t=raw_ds, X_t_mask=lsm)  # pred_params=("mean", "std", "covariance")
     print(datetime.datetime.now(), f'Done')
 
-    fname = f'{target_var}_{date_split}-{val_set}-e{temporal_sampling_every}_predictions'
+    fname = f'{target_var}_{date_split}_{val_set}_e{every}_{weights_fn}_predictions'
     export_zarr(target_var, val_pred, raw_ds, savefolder, fname)
     print(datetime.datetime.now(), f'Saved')
 
@@ -184,7 +218,7 @@ elif val_set == 'random-land':
     val_std_da = val_pred[target_var]['std']
     print(datetime.datetime.now(), f'Done')
 
-    fname = f'{target_var}_{date_split}-{val_set}-seed{seed}-e{temporal_sampling_every}_predictions'
+    fname = f'{target_var}_{date_split}_{val_set}_seed{seed}_e{every}_{weights_fn}_predictions'
     export_zarr(target_var, val_pred, raw_ds, savefolder, fname)
     print(datetime.datetime.now(), f'Saved')
 
@@ -240,9 +274,12 @@ elif val_set == 'station':
     val_pred = model.predict(val_tasks, X_t=raw_ds, X_t_mask=lsm)
     print(datetime.datetime.now(), f'Done')
 
-    fname = f'{target_var}_{date_split}-{val_set}-e{temporal_sampling_every}_predictions'
+    fname = f'{target_var}_{date_split}_{val_set}_e{every}_{weights_fn}_predictions'
     export_zarr(target_var, val_pred, raw_ds, savefolder, fname)
     print(datetime.datetime.now(), f'Saved')
+
+else:
+    raise ValueError('Unknown val_set, should be one of [station, random-land, no-obs]')
 
 # Averaged prediction plots
 if args.plot:
@@ -261,7 +298,7 @@ if args.plot:
     dates_plt = np.random.choice(test_dates, n_dates, replace=False)
 
     # Subselect and flatten datasets
-    true_plt = stnval_cams_raw_da.sel(time=dates_plt).values.flatten()
+    true_plt = raw_ds[target_var].sel(time=dates_plt).values.flatten()
     pred_mean_plt = val_pred[target_var]['mean'].sel(time=dates_plt).values.flatten()
     pred_std_plt = val_pred[target_var]['std'].sel(time=dates_plt).values.flatten()
 
@@ -280,7 +317,3 @@ if args.plot:
     ax.axhline(1., color='k', linestyle='--')
 
     fig.savefig(os.path.join(figfolder, f'{fname}_pit_histogram_.png'))
-
-else:
-    raise ValueError('Unknown val_set, should be one of [random, station, active, reduced, station-reduced, grid]')
-
