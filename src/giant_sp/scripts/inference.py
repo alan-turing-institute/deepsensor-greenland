@@ -168,9 +168,9 @@ def main():
             raise IndexError
     except IndexError:
         files_path = str(os.path.join('wandb', f'run-{run_id}', 'files'))
-os.makedirs(files_path, exist_ok=True)
-for f in target_files:
-    download_wandb_file(run_ref, files_path, f)
+        os.makedirs(files_path, exist_ok=True)
+        for f in target_files:
+            download_wandb_file(run_ref, files_path, f)
     print('Loading run data from: ', files_path)
 
     data_processor = DataProcessor(files_path)
@@ -287,11 +287,11 @@ for f in target_files:
                     stn_locs_df['latitude_last_valid'],
                 )
             ).to_crs('epsg:3413')
-lon_min = float(raw_ds.lon.min().values)
-lon_max = float(raw_ds.lon.max().values)
-lat_min = float(raw_ds.lat.min().values)
-lat_max = float(raw_ds.lat.max().values)
-stn_locs_df_subset = gdf_points.cx[lon_min:lon_max, lat_min:lat_max]
+            lon_min = float(raw_ds.lon.min().values)
+            lon_max = float(raw_ds.lon.max().values)
+            lat_min = float(raw_ds.lat.min().values)
+            lat_max = float(raw_ds.lat.max().values)
+            stn_locs_df_subset = gdf_points.cx[lon_min:lon_max, lat_min:lat_max]
             if stn_locs_df_subset.empty:
                 raise ValueError("No station locations remain after filtering to the model domain.")
             raw_stn_locs = pd.DataFrame({'lat': stn_locs_df_subset.geometry.y, 'lon': stn_locs_df_subset.geometry.x})

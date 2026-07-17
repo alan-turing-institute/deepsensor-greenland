@@ -14,6 +14,9 @@
 #SBATCH --cpus-per-task=3
 #SBATCH --mem=128GB
 
+# create .logs folder
+mkdir -p .logs
+
 # environment variables
 export PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
 
