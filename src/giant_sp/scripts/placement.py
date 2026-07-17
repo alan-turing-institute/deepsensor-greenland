@@ -25,6 +25,8 @@ import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
 from giant_sp.utils.data import sample_dates_by_year_chunks, find_xy_for_points
 
+import wandb
+
 set_gpu_default_device() if torch.cuda.is_available() else torch.device('cpu')
 
 
