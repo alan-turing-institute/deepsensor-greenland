@@ -96,7 +96,7 @@ def main():
     run_id = run_ref.split('/')[-1]
 
     # Path and files
-    files_path = f'outputs/{run_id}'
+    output_path = f'outputs/{run_id}'
 
     # Args
     config = load_config(config_file)
@@ -312,8 +312,8 @@ def main():
     )
 
     # Checkpointing parameters
-    savedir = os.path.join(files_path, 'placement', args.acq_fn)
-    figdir = os.path.join(files_path, 'placement', 'figures')
+    savedir = os.path.join(output_path, 'placement', args.acq_fn)
+    figdir = os.path.join(output_path, 'placement', 'figures')
     if not os.path.exists(savedir): os.makedirs(savedir)
     if not os.path.exists(figdir): os.makedirs(figdir)
 
