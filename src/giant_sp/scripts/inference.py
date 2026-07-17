@@ -283,7 +283,7 @@ if args.plot:
     task = [t for t in val_tasks if t['time'] == date][0]
     mean_da, raw_da = xr.align(val_pred[target_var]['mean'], raw_ds[target_var], join='inner')
     fig, ax = myplt.averaged_prediction_plot(raw_da, val_pred[target_var]['mean'], val_pred[target_var]['std'], cmap='viridis', task=task,
-                                             dataproc=data_processor, highlight_negatives=True, plot_xc=True, crs="None")
+                                             dataproc=data_processor, highlight_negatives=True, plot_xc=True, crs=None)
     fig.savefig(os.path.join(figfolder, f'{fname}_avgpred.png'))
 
     # PIT

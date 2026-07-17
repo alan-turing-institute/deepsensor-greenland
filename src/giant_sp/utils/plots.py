@@ -11,7 +11,7 @@ import xarray as xr
 import deepsensor.plot as dsplt
 
 
-def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs = ccrs.PlateCarree(), highlight_negatives=False, task=None, dataproc=None, plot_xc=False):
+def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs=None, highlight_negatives=False, task=None, dataproc=None, plot_xc=False):
     mean_da, truth_da = xr.align(mean_da, truth_da, join='inner')
     # Calculate prediction errors
     err_da = mean_da - truth_da
