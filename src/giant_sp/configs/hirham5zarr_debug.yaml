@@ -20,7 +20,7 @@ data:
 
 dataloader:
   lsm_mask: true
-  train_sampling: "land_obs"
+  train_sampling: "mixed_obs"
   target_sampling: "all"
   frequency: "D"
   temporal_sampling_method: "seasonal"
