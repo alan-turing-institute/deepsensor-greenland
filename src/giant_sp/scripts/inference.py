@@ -175,11 +175,11 @@ model = load_wandb_model(data_processor, task_loader, config_file, weights_file)
 
 weights_fn = weights_fn.split('.')[0]
 if val_set == 'no-obs':
-    tasks = task_loader(dates, context_sampling=(0, 'all', 'all'), target_sampling='all')
+    val_tasks = task_loader(dates, context_sampling=(0, 'all', 'all'), target_sampling='all')
 
     # Predict
-    print(datetime.datetime.now(), f'Starting prediction of {len(tasks)} tasks')
-    val_pred = model.predict(tasks, X_t=raw_ds, X_t_mask=lsm)  # pred_params=("mean", "std", "covariance")
+    print(datetime.datetime.now(), f'Starting prediction of {len(val_tasks)} tasks')
+    val_pred = model.predict(val_tasks, X_t=raw_ds, X_t_mask=lsm)  # pred_params=("mean", "std", "covariance")
     print(datetime.datetime.now(), f'Done')
 
     fname = f'{target_var}_{date_split}_{val_set}_e{every}_{weights_fn}_predictions'
