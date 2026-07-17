@@ -316,7 +316,7 @@ def main():
         raise ValueError('Unknown val_set, should be one of [station, random-land, no-obs]')
 
     # Averaged prediction plots
-    if args.plot:
+    if plot:
         date = pd.Timestamp(dates[0])
         task = [t for t in val_tasks if t['time'] == date][0]
         mean_da, raw_da = xr.align(val_pred[target_var]['mean'], raw_ds[target_var], join='inner')
