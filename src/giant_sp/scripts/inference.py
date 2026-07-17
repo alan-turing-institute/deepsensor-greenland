@@ -18,9 +18,7 @@ import giant_sp.utils.plots as myplt
 import json
 import datetime
 
-import colorcet as cc
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 import scipy as sp
 
 import wandb
