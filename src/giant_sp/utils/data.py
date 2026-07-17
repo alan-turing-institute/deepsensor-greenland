@@ -197,7 +197,7 @@ def find_xy_for_points(ds, gdf_points):
     lon_da, lat_da = find_lon_lat(ds)
     lon2d, lat2d = lon_da.values, lat_da.values
 
-    X2d, Y2d = xr.broadcast(ds['x'], ds['y'])
+    X2d, Y2d = xr.broadcast(ds.coords['x'], ds.coords['y'])
     X2d = X2d.transpose(*lon_da.dims).values
     Y2d = Y2d.transpose(*lon_da.dims).values
 
