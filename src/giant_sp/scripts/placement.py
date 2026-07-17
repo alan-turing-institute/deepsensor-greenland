@@ -77,13 +77,12 @@ def main():
     parser.add_argument('--n_new', default=5, type=int)
     parser.add_argument('--search_start_date', default='2016-01-01', type=str)
     parser.add_argument('--search_end_date', default='2016-12-31', type=str)
-    parser.add_argument('--every', default=50, type=int)
+    parser.add_argument('--temporal_subsampling_method', default='seasonal', type=str)
+    parser.add_argument('--temporal_subsampling_every', default=50, type=int)
     parser.add_argument('--pred_resolution', default=0, type=int)
     parser.add_argument('--search_mask_file', default='')
-    parser.add_argument('--search_resolution', default=20, type=int)
+    parser.add_argument('--search_resolution', default=18, type=int)
     parser.add_argument('--min_land', default=0.25, type=float)
-    parser.add_argument('--mask_ant', action='store_true', default=False)
-    parser.add_argument('--tag', default='')
 
     args = parser.parse_args()
     config_file = args.config_file
@@ -91,7 +90,7 @@ def main():
     weights_fn = args.weights_filename
     dates_start = args.search_start_date
     dates_end = args.search_end_date
-    tag = args.tag
+    search_resolution = args.search_resolution
 
     run_id = run_ref.split('/')[-1]
 
@@ -119,8 +118,8 @@ def main():
 
     target_var = config['data']['target_var_IDs']
     frequency = config['dataloader']['frequency']
-    temporal_sampling_method = config['dataloader']['temporal_sampling_method']
-    temporal_sampling_every = config['dataloader']['temporal_sampling_every']
+    temporal_sampling_method = args.temporal_subsampling_method
+    temporal_sampling_every = args.temporal_subsampling_every
 
     if temporal_sampling_method == 'seasonal':
         # source: https://github.com/eschlager/MeltEmulation/tree/main
@@ -248,7 +247,7 @@ def main():
 
     # Search space definition
     if args.search_mask_file == '':
-        coarsen_factor = int(args.search_resolution / 1.0)
+        coarsen_factor = int(search_resolution / 1.0)
         lsm = data_loader.load_aux_ds(resolution="bedmachine")
         aux_raw_ds = lsm.coarsen({'lat': coarsen_factor, 'lon': coarsen_factor}, boundary='trim').mean()
         search_mask = aux_raw_ds.where(aux_raw_ds > args.min_land, other=0)  # search where True
@@ -257,6 +256,7 @@ def main():
 
     # Generate tasks
     tasks = task_loader(dates, (X_stn, 'all', 'all'))
+    weights_fn = weights_fn.split('.')[0]
 
     # Acquisition functions
     # Parallel
@@ -321,12 +321,12 @@ def main():
     X_new_df, acq_fn_da = greedy_alg(acq_fn, tasks)
 
     # Save
-    acq_fn_da.to_netcdf(os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_{tag}.nc'))
-    X_new_df.to_csv(os.path.join(savedir, f'NewPlace_{args.acq_fn}_{args.n_new}-iter_{tag}.csv'))
+    acq_fn_da.to_netcdf(os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc'))
+    X_new_df.to_csv(os.path.join(savedir, f'NewPlace_{args.acq_fn}_{args.n_new}-iter_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv'))
 
     # Plot
     fig, ax = myplt.new_placements_plot_xy(acq_fn_da, X_new_df, raw_stn_locs[['lat', 'lon']], title=args.acq_fn)
-    fig.savefig(os.path.join(figdir, f'newplacements_{args.acq_fn}_{args.n_new}-iter_{tag}.jpg'))
+    fig.savefig(os.path.join(figdir, f'newplacements_{args.acq_fn}_{args.n_new}-iter_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg'))
 
 if __name__ == "__main__":
     main()
