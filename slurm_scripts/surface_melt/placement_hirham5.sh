@@ -6,7 +6,7 @@
 #SBATCH --mail-type=begin,end,fail,requeue
 #SBATCH --mail-user=acoca@turing.ac.uk
 #SBATCH --gres=gpu:1
-#SBATCH -t 15:00:00 #15:30:00
+#SBATCH -t 23:59:00 #15:30:00
 #SBATCH --partition=orchid
 #SBATCH --qos=orchid
 #SBATCH --gpus-per-node=1
