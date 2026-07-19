@@ -21,4 +21,4 @@ source $HOME/repos/giant/giant-sp/.venv/bin/activate
 export PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
 
 # submit the code
-srun uv run src/giant_sp/scripts/placement.py --acq_fn MeanStddev --n_new 5 --run_ref acoca/giant-sp/4flbw8xy --config_file src/giant_sp/configs/hirham5zarr.yaml --temporal_subsampling_method seasonal --temporal_subsampling_every 50 --search_resolution 18
+srun uv run src/giant_sp/scripts/placement.py --acq_fn MeanStddev --n_new 10 --run_ref acoca/giant-sp/4flbw8xy --config_file src/giant_sp/configs/hirham5zarr.yaml --temporal_subsampling_method seasonal --temporal_subsampling_every 50 --search_resolution 9
