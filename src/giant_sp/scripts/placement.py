@@ -180,6 +180,8 @@ def main():
         coarsen_factor = int(args.pred_resolution / 1.0)
         target_grid = lsm.coarsen({'lat': coarsen_factor, 'lon': coarsen_factor}, boundary='trim').mean()
 
+    stn_file = config['data']['station_locations_file']
+    stn_locs_df = pd.read_csv(stn_file)[['latitude_last_valid', 'longitude_last_valid']]  # get lat/lon only
     if source == 'hirham5zarr':
         coords_file = os.path.sep.join([config['data']['data_path'], 'coords_only.zarr'])
         coords_ref = xr.open_zarr(coords_file, chunks="auto")
@@ -196,8 +198,6 @@ def main():
         mask_reference = mask_reference.reindex({'x': xy_coords_ref[0], 'y': xy_coords_ref[1]})
         mask_reference = mask_reference.assign_coords(lon=lonlat_coords_ref[0], lat=lonlat_coords_ref[1])
 
-        stn_file = config['data']['station_locations_file']
-        stn_locs_df = pd.read_csv(stn_file)[['latitude_last_valid', 'longitude_last_valid']]  # get lat/lon only
         gdf_points = gpd.GeoDataFrame(
             stn_locs_df,
             crs='epsg:4326',
