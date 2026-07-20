@@ -14,9 +14,6 @@
 #SBATCH --cpus-per-task=3
 #SBATCH --mem=32GB
 
-# activate the environment
-source $HOME/repos/giant/giant-sp/.venv/bin/activate
-
 # environment variables
 export PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
 
