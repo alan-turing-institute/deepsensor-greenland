@@ -153,11 +153,11 @@ def main():
         if not all(os.path.exists(os.path.join(files_path, f)) for f in target_files):
             raise IndexError
     except IndexError:
-        root_path = str(os.path.join('wandb', f'run-{run_id}'))
-        os.makedirs(files_path, exist_ok=True)
+        root_path = os.path.join('wandb', f'run-{run_id}')
+        os.makedirs(root_path, exist_ok=True)
         for f in target_files:
             download_wandb_file(run_ref, root_path, f)
-        files_path = str(os.path.join('wandb', f'run-{run_id}',))
+        files_path = os.path.join(root_path, 'files')
     print('Loading run data from: ', files_path)
 
     data_processor = DataProcessor(files_path)
