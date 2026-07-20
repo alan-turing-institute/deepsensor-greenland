@@ -119,3 +119,18 @@ def hexbin_parity_plot(x, y):
     ax.set_ylim(lims)
 
     return fig, ax
+
+def new_placements_plot_xy(acqfn_da, newplace_df, Xc_df, cmap='YlGnBu', title=None):
+    fig, ax = plt.subplots()
+
+    plot_da = acqfn_da.sel(iteration=0).mean(dim='time')
+    vmax = float(plot_da.max().compute())
+    vmin = float(plot_da.min().compute())
+    acq_plot = plot_da.plot(ax=ax, cmap=cmap, vmax=vmax, vmin=vmin, add_colorbar=False)
+    ax.set_title(title)
+
+    plc_plot = ax.scatter(*newplace_df.values.T[::-1], marker='x', s=20, c='tab:red', linewidths=1.5)
+
+    ctx_plot = ax.scatter(*Xc_df.values.T[::-1], marker='o', s=3, c='k', facecolors='none', linewidths=0.5)
+
+    return fig, ax
