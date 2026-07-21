@@ -175,10 +175,12 @@ def main():
     # Define target grid and gridbox weights
     if args.pred_resolution == 0:
         target_grid = raw_ds
+        target_mask = lsm.where(lsm > args.min_land, other=0)
     else:
         lsm = data_loader.load_aux_ds(resolution="bedmachine")
         coarsen_factor = int(args.pred_resolution / 1.0)
         target_grid = lsm.coarsen({'lat': coarsen_factor, 'lon': coarsen_factor}, boundary='trim').mean()
+        target_mask = target_grid.where(target_grid > args.min_land, other=0)
 
     stn_file = config['data']['station_locations_file']
     stn_locs_df = pd.read_csv(stn_file)[['latitude_last_valid', 'longitude_last_valid']]  # get lat/lon only
@@ -309,6 +311,7 @@ def main():
         X_t=target_grid,
         X_s=search_mask.astype(bool),
         X_s_mask=search_mask.astype(bool),
+        X_t_mask=target_mask.astype(bool),
         N_new_context=args.n_new,
         progress_bar=True,
         **greedy_gt_args
