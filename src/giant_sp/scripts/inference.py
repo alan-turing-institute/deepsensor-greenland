@@ -33,7 +33,7 @@ def download_wandb_file(run_ref, files_path, file):
     api = wandb.Api()
     therun = api.run(run_ref)
 
-    therun.file(file).download(root=files_path, exist_ok=True)
+    therun.file(os.path.join('files',file)).download(root=files_path, exist_ok=True)
 
 def load_wandb_model(data_processor, task_loader, config_path, weights_path):
 
@@ -97,6 +97,25 @@ def export_zarr(target_var, pred_ds, truth_ds, files_path, fname, source, chunk_
                         for var in ds_xr.data_vars
                     }
                 )
+
+def compute_pit_bernoulli_gamma(true, p_zero, k, scale, epsilon=1e-6, seed=42):
+    """PIT values for a zero-inflated Bernoulli-Gamma predictive distribution.
+
+    The predictive CDF has a jump at zero, so a plain CDF evaluation (as used
+    for continuous likelihoods) is not uniform under a correct model. Follows
+    the non-randomized PIT for discrete/mixed distributions (Czado et al.,
+    2009): values falling in the zero point mass are assigned a value drawn
+    uniformly between 0 and the mass P(Y=0); values above the point mass use
+    the standard Gamma CDF shifted by that mass.
+    """
+    rng = np.random.default_rng(seed)
+    is_zero = np.abs(true) < epsilon
+    pit = np.empty_like(true, dtype=float)
+    pit[is_zero] = rng.uniform(0, p_zero[is_zero])
+    pit[~is_zero] = p_zero[~is_zero] + (1 - p_zero[~is_zero]) * sp.stats.gamma.cdf(
+        true[~is_zero], a=k[~is_zero], scale=scale[~is_zero]
+    )
+    return pit
 
 def main():
     # Arguments
@@ -165,10 +184,11 @@ def main():
         if not all(os.path.exists(os.path.join(files_path, f)) for f in target_files):
             raise IndexError
     except IndexError:
-        files_path = str(os.path.join('wandb', f'run-{run_id}', 'files'))
-        os.makedirs(files_path, exist_ok=True)
+        root_path = os.path.join('wandb', f'run-{run_id}')
+        os.makedirs(root_path, exist_ok=True)
         for f in target_files:
-            download_wandb_file(run_ref, files_path, f)
+            download_wandb_file(run_ref, root_path, f)
+        files_path = os.path.join(root_path, 'files')
     print('Loading run data from: ', files_path)
 
     data_processor = DataProcessor(files_path)
@@ -179,6 +199,15 @@ def main():
     weights_file = os.path.join(files_path, weights_fn)
 
     model = load_wandb_model(data_processor, task_loader, model_config_file, weights_file)
+    likelihood = model.config['likelihood']
+
+    # Bernoulli-Gamma predictions are zero-inflated (non-continuous): PIT needs
+    # the zero-mass probability and Gamma parameters, not just mean/std.
+    # Must be a list: deepsensor's Model.predict mutates pred_params in place
+    # (list.remove/.append) when "mixture_probs" is requested.
+    pred_params = ['mean', 'std']
+    if plot and likelihood == 'bernoulli-gamma':
+        pred_params += ['mixture_probs', 'k', 'scale']
 
     weights_fn = weights_fn.split('.')[0]
     if val_set == 'no-obs':
@@ -186,7 +215,7 @@ def main():
 
         # Predict
         print(datetime.datetime.now(), f'Starting prediction of {len(val_tasks)} tasks')
-        val_pred = model.predict(val_tasks, X_t=raw_ds, X_t_mask=lsm)  # pred_params=("mean", "std", "covariance")
+        val_pred = model.predict(val_tasks, X_t=raw_ds, X_t_mask=lsm, pred_params=pred_params)
         print(datetime.datetime.now(), f'Done')
 
         fname = f'{target_var}_{date_split}_{val_set}_e{every}_{weights_fn}_predictions'
@@ -216,7 +245,7 @@ def main():
 
         # Predict
         print(datetime.datetime.now(), f'Starting prediction of {len(val_tasks)} tasks')
-        val_pred = model.predict(val_tasks, X_t=raw_ds, X_t_mask=lsm)  # pred_params=("mean", "std", "covariance")
+        val_pred = model.predict(val_tasks, X_t=raw_ds, X_t_mask=lsm, pred_params=pred_params)
         print(datetime.datetime.now(), f'Done')
 
         fname = f'{target_var}_{date_split}_{val_set}_seed{seed}_e{every}_{weights_fn}_predictions'
@@ -305,7 +334,7 @@ def main():
 
         # Predict
         print(datetime.datetime.now(), f'Starting prediction of {len(val_tasks)} tasks')
-        val_pred = model.predict(val_tasks, X_t=raw_ds, X_t_mask=lsm)
+        val_pred = model.predict(val_tasks, X_t=raw_ds, X_t_mask=lsm, pred_params=pred_params)
         print(datetime.datetime.now(), f'Done')
 
         fname = f'{target_var}_{date_split}_{val_set}_e{every}_{weights_fn}_predictions'
@@ -335,13 +364,22 @@ def main():
         true_plt = raw_ds[target_var].sel(time=dates_plt).values.flatten()
         pred_mean_plt_all = val_pred[target_var]['mean'].sel(time=dates_plt).values.flatten()
         pred_std_plt = val_pred[target_var]['std'].sel(time=dates_plt).values.flatten()
-        pred_mean_plt = pred_mean_plt_all[~np.isnan(pred_mean_plt_all)]
-        pred_std_plt = pred_std_plt[~np.isnan(pred_mean_plt_all)]
-        true_plt = true_plt[~np.isnan(pred_mean_plt_all)]
+        valid = ~np.isnan(pred_mean_plt_all)
+        pred_mean_plt = pred_mean_plt_all[valid]
+        pred_std_plt = pred_std_plt[valid]
+        true_plt = true_plt[valid]
 
         # PIT histogram (area weighted)
         # Compute PIT values
-        pit_values = sp.stats.norm.cdf(true_plt, loc=pred_mean_plt, scale=pred_std_plt)
+        if likelihood == 'bernoulli-gamma':
+            # Zero-inflated (non-continuous) predictive distribution: PIT must
+            # account for the point mass at zero, not just mean/std.
+            p_zero_plt = val_pred[target_var]['mixture_probs_0'].sel(time=dates_plt).values.flatten()[valid]
+            k_plt = val_pred[target_var]['k'].sel(time=dates_plt).values.flatten()[valid]
+            scale_plt = val_pred[target_var]['scale'].sel(time=dates_plt).values.flatten()[valid]
+            pit_values = compute_pit_bernoulli_gamma(true_plt, p_zero_plt, k_plt, scale_plt)
+        else:
+            pit_values = sp.stats.norm.cdf(true_plt, loc=pred_mean_plt, scale=pred_std_plt)
         # Plot
         fig, ax = plt.subplots()
         ax.hist(pit_values, bins=100, range=(0, 1), density=True,
