@@ -332,7 +332,7 @@ def main():
 
     # Plot
     fig, ax = myplt.new_placements_plot_xy(acq_fn_da, X_new_df, raw_stn_locs[['lat', 'lon']], title=args.acq_fn)
-    fig.savefig(os.path.join(figdir, f'newplacements_{args.acq_fn}_{args.n_new}-iter_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg'))
+    fig.savefig(os.path.join(figdir, f'newplacements_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg'))
 
 if __name__ == "__main__":
     main()
