@@ -1,4 +1,5 @@
 import numpy as np
+import scipy as sp
 
 
 def compute_pit_bernoulli_gamma(true, p_zero, k, scale, epsilon=1e-6, seed=42):
