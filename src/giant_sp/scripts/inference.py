@@ -98,24 +98,6 @@ def export_zarr(target_var, pred_ds, truth_ds, files_path, fname, source, chunk_
                     }
                 )
 
-def compute_pit_bernoulli_gamma(true, p_zero, k, scale, epsilon=1e-6, seed=42):
-    """PIT values for a zero-inflated Bernoulli-Gamma predictive distribution.
-
-    The predictive CDF has a jump at zero, so a plain CDF evaluation (as used
-    for continuous likelihoods) is not uniform under a correct model. Follows
-    the non-randomized PIT for discrete/mixed distributions (Czado et al.,
-    2009): values falling in the zero point mass are assigned a value drawn
-    uniformly between 0 and the mass P(Y=0); values above the point mass use
-    the standard Gamma CDF shifted by that mass.
-    """
-    rng = np.random.default_rng(seed)
-    is_zero = np.abs(true) < epsilon
-    pit = np.empty_like(true, dtype=float)
-    pit[is_zero] = rng.uniform(0, p_zero[is_zero])
-    pit[~is_zero] = p_zero[~is_zero] + (1 - p_zero[~is_zero]) * sp.stats.gamma.cdf(
-        true[~is_zero], a=k[~is_zero], scale=scale[~is_zero]
-    )
-    return pit
 
 def main():
     # Arguments
@@ -362,34 +344,9 @@ def main():
 
         # Subselect and flatten datasets
         true_plt = raw_ds[target_var].sel(time=dates_plt).values.flatten()
-        pred_mean_plt_all = val_pred[target_var]['mean'].sel(time=dates_plt).values.flatten()
-        pred_std_plt = val_pred[target_var]['std'].sel(time=dates_plt).values.flatten()
-        valid = ~np.isnan(pred_mean_plt_all)
-        pred_mean_plt = pred_mean_plt_all[valid]
-        pred_std_plt = pred_std_plt[valid]
-        true_plt = true_plt[valid]
+        val_pred_plt = val_pred[target_var].sel(time=dates_plt)
 
-        # PIT histogram (area weighted)
-        # Compute PIT values
-        if likelihood == 'bernoulli-gamma':
-            # Zero-inflated (non-continuous) predictive distribution: PIT must
-            # account for the point mass at zero, not just mean/std.
-            p_zero_plt = val_pred[target_var]['mixture_probs_0'].sel(time=dates_plt).values.flatten()[valid]
-            k_plt = val_pred[target_var]['k'].sel(time=dates_plt).values.flatten()[valid]
-            scale_plt = val_pred[target_var]['scale'].sel(time=dates_plt).values.flatten()[valid]
-            pit_values = compute_pit_bernoulli_gamma(true_plt, p_zero_plt, k_plt, scale_plt)
-        else:
-            pit_values = sp.stats.norm.cdf(true_plt, loc=pred_mean_plt, scale=pred_std_plt)
-        # Plot
-        fig, ax = plt.subplots()
-        ax.hist(pit_values, bins=100, range=(0, 1), density=True,
-                label='ConvNP model')
-        ax.set_xlabel('Probability integral transform')
-        ax.set_ylabel('Density')
-        ax.set_title('PIT histogram')
-        ax.grid()
-        # Plot uniform line
-        ax.axhline(1., color='k', linestyle='--')
+        fig, _ = myplt.PIT_histogram(true_plt, val_pred_plt, likelihood=likelihood)
 
         fig.savefig(os.path.join(figfolder, f'{fname}_pit_histogram.png'))
 
