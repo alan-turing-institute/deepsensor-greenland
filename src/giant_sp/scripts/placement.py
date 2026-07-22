@@ -327,8 +327,8 @@ def main():
     X_new_df, acq_fn_da = greedy_alg(acq_fn, tasks)
 
     # Save
-    acq_fn_da.to_netcdf(os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc'))
-    X_new_df.to_csv(os.path.join(savedir, f'NewPlace_{args.acq_fn}_{args.n_new}-iter_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv'))
+    acq_fn_da.to_netcdf(os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc'))
+    X_new_df.to_csv(os.path.join(savedir, f'NewPlace_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv'))
 
     # Plot
     fig, ax = myplt.new_placements_plot_xy(acq_fn_da, X_new_df, raw_stn_locs[['lat', 'lon']], title=args.acq_fn)
