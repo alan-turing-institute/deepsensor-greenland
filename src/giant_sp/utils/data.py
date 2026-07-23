@@ -12,7 +12,9 @@ import torch
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+from cartopy.io import shapereader
 import matplotlib.pyplot as plt
+from matplotlib.path import Path
 
 from deepsensor.model.convnp import ConvNP
 import scipy as sp
@@ -209,3 +211,57 @@ def find_xy_for_points(ds, gdf_points):
     gdf_points['x'] = X2d.ravel()[idx]
     gdf_points['y'] = Y2d.ravel()[idx]
     return gdf_points
+
+def normalize_lons(lon):
+    # source: https://github.com/eschlager/MeltEmulation/
+    """Convert 0..360 to -180..180 if needed."""
+    lon = np.array(lon)
+    if lon.min() >= 0 and lon.max() > 180:
+        lon = ((lon + 180) % 360) - 180
+    return lon
+
+def load_greenland_shape(resolution='10m'):
+    # source: https://github.com/eschlager/MeltEmulation/
+    """
+    Load the Natural Earth 'admin_0_countries' and return the shapely geometry
+    for Greenland (Polygon or MultiPolygon).
+    """
+    shpname = shapereader.natural_earth(resolution=resolution, category='cultural', name='admin_0_countries')
+    reader = shapereader.Reader(shpname)
+    for rec in reader.records():
+        props = rec.attributes
+        name = props.get('NAME') or props.get('NAME_LONG') or props.get('ADMIN')
+        if name and name.lower() == 'greenland':
+            geom = rec.geometry  # shapely geometry
+            return geom
+    raise RuntimeError("Greenland geometry not found in Natural Earth data.")
+
+def points_in_polygons(lon, lat, polygon):
+    # source: https://github.com/eschlager/MeltEmulation/
+    """
+    lon, lat : arrays (2D) of same shape
+    polygon : shapely geometry (Polygon or MultiPolygon)
+    Returns boolean mask (2D) True where point is inside the polygon.
+    Uses matplotlib.path.Path for each polygon part for speed.
+    """
+    pts = np.column_stack((lon.ravel(), lat.ravel()))
+    inside = np.zeros(pts.shape[0], dtype=bool)
+    # polygon may be MultiPolygon or Polygon
+    if polygon.geom_type == 'Polygon':
+        polys = [polygon.exterior.coords]
+        # include interiors (holes) as negative masks
+        interiors = list(polygon.interiors)
+    else:
+        polys = [poly.exterior.coords for poly in polygon.geoms]
+        interiors = [interior for poly in polygon.geoms for interior in poly.interiors]
+
+    for poly_coords in polys:
+        path = Path(np.array(poly_coords))
+        inside |= path.contains_points(pts)
+
+    # subtract holes
+    for interior in interiors:
+        path_h = Path(np.array(interior.coords))
+        inside &= ~path_h.contains_points(pts)
+
+    return inside.reshape(lon.shape)
