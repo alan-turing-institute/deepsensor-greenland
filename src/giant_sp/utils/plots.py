@@ -1,14 +1,19 @@
+import logging
+
 import numpy as np
 import pandas as pd
 import scipy as sp
-
 import cartopy.crs as ccrs
 import cartopy.feature as cf
+from cartopy.feature import ShapelyFeature
 import matplotlib.pyplot as plt
 
 import xarray as xr
 
 import deepsensor.plot as dsplt
+
+from giant_sp.utils.data import find_lon_lat, normalize_lons, load_greenland_shape, points_in_polygons
+import matplotlib.gridspec as gridspec
 
 
 def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs=None, highlight_negatives=False, task=None, dataproc=None, plot_xc=False):
@@ -141,3 +146,148 @@ def new_placements_plot_xy(acqfn_da, newplace_df, Xc_df, cmap='Greys', title=Non
         spine.set_visible(False)
 
     return fig, ax
+
+
+def plot_greenland_only(gris_data, newplace_df, existing_df, ax=None, masked=True, ocean_color='white', gridlines=False, pcolormesh_kwargs=None):
+    # Modified from: https://github.com/eschlager/MeltEmulation/
+    ds = gris_data
+
+    if ds.ndim != 2:
+        raise ValueError("Expected a 2D field (lat,lon or y,x).")
+
+    lon, lat = find_lon_lat(ds)
+
+    # If lon/lat are 1D, make meshgrid
+    if lon.ndim == 1 and lat.ndim == 1:
+        Lon, Lat = np.meshgrid(lon, lat)
+    elif lon.shape == ds.shape and lat.shape == ds.shape:
+        Lon, Lat = lon, np.array(lat)
+    else:
+        raise ValueError(f"lon/lat shapes {lon.shape},{lat.shape} do not match data shape {ds.shape}")
+
+    # Normalize longitudes to -180..180 to match Natural Earth polygons
+    Lon = normalize_lons(Lon)
+    # load Greenland shapely geometry
+    greenland_geom = load_greenland_shape(resolution='50m')
+
+    # Create mask of points inside Greenland polygons (using cell centers)
+    inside_mask = points_in_polygons(Lon, Lat, greenland_geom)
+
+    # Mask the data outside Greenland
+    data = ds.values
+    if masked:
+        data = np.ma.array(data, mask=~inside_mask)
+
+    # Plot
+    display_crs = ccrs.NorthPolarStereo(central_longitude=-40)
+    data_crs = ccrs.PlateCarree()
+
+    if ax is None:
+        fig = plt.figure(figsize=(8,10), frameon=False)
+        ax = fig.add_subplot(1,1,1, projection=display_crs)
+        plt.axis('off')
+
+    # Make ocean white if not None, otherwise default is transparent!
+    if ocean_color is not None:
+        ax.add_feature(cf.OCEAN.with_scale('50m'), facecolor=ocean_color, zorder=0)
+    # Fill Greenland with light gray (use ShapelyFeature for correct reprojection)
+    greenland_feature = ShapelyFeature([greenland_geom], crs=ccrs.PlateCarree(), facecolor='lightgray', edgecolor='black', linewidth=.5, zorder=3)
+    ax.add_feature(greenland_feature)
+
+    # Set a Greenland-focused extent in lon/lat
+    ax.set_extent((-55, -25, 58, 85), crs=ccrs.PlateCarree())
+
+    # Latitude gridlines visible
+    if gridlines:
+        ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, linewidth=1, color='gray', alpha=0.7, linestyle='--')
+
+    ax.scatter(*newplace_df.values.T[::-1], transform=data_crs, marker='+', s=3 ** 2,  c='r', zorder=5, label='New placements')
+    ax.scatter(*existing_df.values.T[::-1], transform=data_crs, marker='x', s=3 ** 2, c='k', zorder=5, label='Existing placements')
+
+    # annotate new placements with their row index
+    for row_idx, (lat_val, lon_val) in zip(newplace_df.index, newplace_df.values):
+        ax.text(lon_val, lat_val, str(row_idx+1), transform=data_crs, color='r', fontsize=6, fontweight='bold', zorder=6, ha='left', va='bottom')
+
+    pcm = ax.pcolormesh(Lon, Lat, data, transform=data_crs, shading='auto', rasterized=True, zorder=4, **pcolormesh_kwargs)
+
+    return ax, pcm
+
+
+def _get_value_limits(minval, maxval, value_lim):
+    # Source: https://github.com/eschlager/MeltEmulation/
+    """
+    Determine value limits and colorbar extension based on provided value limits.
+    """
+    if value_lim is not None:
+        value_min, value_max = value_lim
+        if value_max is None:
+            value_max = maxval
+        if value_min is None:
+            value_min = minval
+
+        if maxval > value_max:
+            if minval < value_min:
+                extend_colorbar = 'both'
+            else:
+                extend_colorbar = 'max'
+        elif minval < value_min:
+            extend_colorbar = 'min'
+        else:
+            extend_colorbar = 'neither'
+        maxval = value_max
+        minval = value_min
+    else:
+        extend_colorbar = 'neither'
+        
+    return minval, maxval, extend_colorbar
+
+def new_placements_plot_xy_hirham5native(ds, newplace_df, existing_df, cmap='Grays', title=None):
+    # Modified from: https://github.com/eschlager/MeltEmulation/
+    """
+    plot acquisition maps
+    """
+    fig = plt.figure(figsize=(9,3))            
+    axs = [None]*3
+    display_crs = ccrs.NorthPolarStereo(central_longitude=-40)
+    
+    # gap between each subplot
+    gs = gridspec.GridSpec(1, 5, width_ratios=[1, 0.1, 1, 0.1, 1], wspace=0)
+    axs[0] = fig.add_subplot(gs[0, 0], projection=display_crs)
+    axs[1] = fig.add_subplot(gs[0, 2], projection=display_crs)
+    axs[2] = fig.add_subplot(gs[0, 4], projection=display_crs)
+
+    value_lim = None
+
+    cbar_label = 'Acquisition function value'
+
+    iterations = [0, 4, 9]
+    data_by_idx = {idx: ds.isel(iteration=idx).mean(dim='time') for idx in iterations}
+
+    # shared value limits across all subplots
+    min_x = np.nanmin([np.nanmin(xx.values.flatten()) for xx in data_by_idx.values()])
+    max_x = np.nanmax([np.nanmax(xx.values.flatten()) for xx in data_by_idx.values()])
+    minval_x, maxval_x, extend_colorbar_x = _get_value_limits(min_x, max_x, value_lim)
+
+    # plot true
+    for i, idx in enumerate(iterations):
+        xx = data_by_idx[idx]
+
+        axs[i], p0 = plot_greenland_only(xx, newplace_df.iloc[:idx+1], existing_df, ax=axs[i], pcolormesh_kwargs={'cmap': cmap, 'vmin': minval_x, 'vmax': maxval_x})
+        axs[i].set_title(f'Iteration {idx+1}')
+        axs[i].set_axis_off()
+
+    # single shared colorbar spanning all subplots
+    extra_gap = 0.02    # horizontal gap (figure fraction) between axes right edge and colorbar
+    cbar_width = 0.03   # thickness of the colorbar (figure fraction)
+    bbox_last = axs[-1].get_position()
+
+    x0 = bbox_last.x1 + extra_gap
+    y0 = min(ax.get_position().y0 for ax in axs)
+    y1 = max(ax.get_position().y1 for ax in axs)
+    height = y1 - y0
+    cax = fig.add_axes([x0, y0, cbar_width, height])
+    cbar = fig.colorbar(p0, cax=cax, orientation='vertical', extend=extend_colorbar_x)
+    cbar.set_label(cbar_label)
+
+    # plt.suptitle(title)
+    return axs[0]
