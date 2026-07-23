@@ -213,6 +213,7 @@ def find_xy_for_points(ds, gdf_points):
     return gdf_points
 
 def normalize_lons(lon):
+    # source: https://github.com/eschlager/MeltEmulation/
     """Convert 0..360 to -180..180 if needed."""
     lon = np.array(lon)
     if lon.min() >= 0 and lon.max() > 180:
@@ -220,6 +221,7 @@ def normalize_lons(lon):
     return lon
 
 def load_greenland_shape(resolution='10m'):
+    # source: https://github.com/eschlager/MeltEmulation/
     """
     Load the Natural Earth 'admin_0_countries' and return the shapely geometry
     for Greenland (Polygon or MultiPolygon).
@@ -235,6 +237,7 @@ def load_greenland_shape(resolution='10m'):
     raise RuntimeError("Greenland geometry not found in Natural Earth data.")
 
 def points_in_polygons(lon, lat, polygon):
+    # source: https://github.com/eschlager/MeltEmulation/
     """
     lon, lat : arrays (2D) of same shape
     polygon : shapely geometry (Polygon or MultiPolygon)
