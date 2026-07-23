@@ -1,27 +1,26 @@
 import datetime
-from random import randrange
-import os
 import json
-import wandb
-
-import numpy as np
-import xarray as xr
-import pandas as pd
-
-import torch
+import os
+from random import randrange
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
-
-from deepsensor.model.convnp import ConvNP
+import numpy as np
+import pandas as pd
 import scipy as sp
+import torch
+import wandb
+import xarray as xr
+from deepsensor.model.convnp import ConvNP
+
 
 class NumpyFloatValuesEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.float32):
             return float(obj)
         return json.JSONEncoder.default(self, obj)
+
 
 def sample_land_locations(n_obs, lsm=None, seed=None, invert_mask=False):
     """
@@ -32,29 +31,32 @@ def sample_land_locations(n_obs, lsm=None, seed=None, invert_mask=False):
         invert_mask (bool): default False. If True, sample from sea instead of land
     """
     if lsm is None:
-        lsm = dl.load_aux_ds('global', 'lsm', resolution=0.25)['lsm']
+        lsm = dl.load_aux_ds("global", "lsm", resolution=0.25)["lsm"]
         lsm = lsm.where(lsm > 0.5, other=0)
     lsm = lsm.astype(bool)
     if invert_mask:
         lsm = ~lsm
 
-    lat_weights = np.cos(np.radians(lsm['lat']))
+    lat_weights = np.cos(np.radians(lsm["lat"]))
     lsm_weighted = lsm * lat_weights
 
-    lsm_stacked = lsm_weighted.stack(points=('lat', 'lon')).compute()
+    lsm_stacked = lsm_weighted.stack(points=("lat", "lon")).compute()
     land_points = lsm_stacked.where(lsm_stacked, drop=True)
 
     probs = np.abs(land_points) / np.abs(land_points).sum()
 
     rng = np.random.default_rng(seed)
-    sampled_idx = rng.choice(land_points.points.size, n_obs, replace=True, p=probs.values)
+    sampled_idx = rng.choice(
+        land_points.points.size, n_obs, replace=True, p=probs.values
+    )
     sampled_points = land_points.isel(points=sampled_idx)
 
-    lats = sampled_points['lat'].values
-    lons = sampled_points['lon'].values
+    lats = sampled_points["lat"].values
+    lons = sampled_points["lon"].values
     raw_locs = np.array(list(zip(lats, lons))).transpose()  # (2, n_obs)
 
     return raw_locs
+
 
 def sample_station_locations(stn_locs_df, n_obs, seed=None):
     rng = np.random.default_rng(seed)
@@ -65,6 +67,7 @@ def sample_station_locations(stn_locs_df, n_obs, seed=None):
 
     return raw_locs
 
+
 def mixed_sampling_strategy(stn_locs_df, n_obs, frac_stn=0.1, lsm=None, seed=None):
     n_stn = round(frac_stn * n_obs)
     n_land = n_obs - n_stn
@@ -73,6 +76,7 @@ def mixed_sampling_strategy(stn_locs_df, n_obs, frac_stn=0.1, lsm=None, seed=Non
 
     raw_locs = np.concatenate((stn_locs, land_locs), axis=1)
     return raw_locs
+
 
 def construct_circ_and_linear_time_ds(dates, freq):
     """
@@ -111,17 +115,20 @@ def construct_circ_and_linear_time_ds(dates, freq):
     cos_time = np.cos(2 * np.pi * time_var / mod)
     sin_time = np.sin(2 * np.pi * time_var / mod)
     # normalised year
-    year_time = (((dates.year - dates.year.min()) / (dates.year.max() - dates.year.min()) * 2) - 1)
+    year_time = (
+        (dates.year - dates.year.min()) / (dates.year.max() - dates.year.min()) * 2
+    ) - 1
 
     ds = xr.Dataset(
         coords={"time": dates},
         data_vars={
             f"cos_{freq}": ("time", cos_time),
             f"sin_{freq}": ("time", sin_time),
-            f"year": ("time", year_time),
+            "year": ("time", year_time),
         },
     )
     return ds
+
 
 def sample_dates_by_year_chunks(weights, start_date, end_date, n_samples_per_year):
     """
@@ -143,7 +150,7 @@ def sample_dates_by_year_chunks(weights, start_date, end_date, n_samples_per_yea
     sampled_dates = []
 
     # Ensure dates and weights are pandas Series
-    dates = pd.date_range(start=start_date, end=end_date, freq='D')
+    dates = pd.date_range(start=start_date, end=end_date, freq="D")
     weights = weights[dates.dayofyear - 1]
 
     current_start = pd.Timestamp(start_date)
@@ -166,10 +173,7 @@ def sample_dates_by_year_chunks(weights, start_date, end_date, n_samples_per_yea
 
         # Sample without replacement
         sampled = np.random.choice(
-            period_dates,
-            size=n_samples_per_year,
-            replace=False,
-            p=period_weights
+            period_dates, size=n_samples_per_year, replace=False, p=period_weights
         )
 
         sampled_dates.extend(sampled)
@@ -177,16 +181,18 @@ def sample_dates_by_year_chunks(weights, start_date, end_date, n_samples_per_yea
 
     return sampled_dates
 
+
 def find_lon_lat(ds):
     # source: https://github.com/eschlager/MeltEmulation/
     # Try common names (coords)
-    lon_names = [n for n in ds.coords if n.lower() in ('lon', 'longitude', 'long')]
-    lat_names = [n for n in ds.coords if n.lower() in ('lat', 'latitude')]
+    lon_names = [n for n in ds.coords if n.lower() in ("lon", "longitude", "long")]
+    lat_names = [n for n in ds.coords if n.lower() in ("lat", "latitude")]
     if not lon_names or not lat_names:
         raise ValueError("Couldn't find lon/lat variables!")
     lon = ds.coords[lon_names[0]]
     lat = ds.coords[lat_names[0]]
     return lon, lat
+
 
 def find_xy_for_points(ds, gdf_points):
     """
@@ -197,15 +203,17 @@ def find_xy_for_points(ds, gdf_points):
     lon_da, lat_da = find_lon_lat(ds)
     lon2d, lat2d = lon_da.values, lat_da.values
 
-    X2d, Y2d = xr.broadcast(ds.coords['x'], ds.coords['y'])
+    X2d, Y2d = xr.broadcast(ds.coords["x"], ds.coords["y"])
     X2d = X2d.transpose(*lon_da.dims).values
     Y2d = Y2d.transpose(*lon_da.dims).values
 
     tree = sp.spatial.cKDTree(np.column_stack([lon2d.ravel(), lat2d.ravel()]))
-    query_pts = np.column_stack([gdf_points.geometry.x.values, gdf_points.geometry.y.values])
+    query_pts = np.column_stack(
+        [gdf_points.geometry.x.values, gdf_points.geometry.y.values]
+    )
     _, idx = tree.query(query_pts)
 
     gdf_points = gdf_points.copy()
-    gdf_points['x'] = X2d.ravel()[idx]
-    gdf_points['y'] = Y2d.ravel()[idx]
+    gdf_points["x"] = X2d.ravel()[idx]
+    gdf_points["y"] = Y2d.ravel()[idx]
     return gdf_points

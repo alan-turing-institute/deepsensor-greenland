@@ -31,7 +31,7 @@ for ((i=start_year;i<=stop_year;i+=1))
 		cdo -r -f nc -div \
 		 -selvar,ahfl,ahfs,dlwrad,dswrad,evspsbl,rainfall,snfall,tas,snmel,gld,rogl,albedom,sn,tsl ${RAW_DIR}/Daily2D_Merged_$i.nc \
 		 -selvar,glacGRL ${AUX_DIR}/GRLmask_366.nc ${OUT_DIR}/Daily2D_GRL_tmp_$i.nc
-		
+
 		# make files with corrected rainfall and snfall
 		cdo -setrtoc,-inf,0,0 -selvar,rainfall,snfall ${OUT_DIR}/Daily2D_GRL_tmp_$i.nc ${OUT_DIR}/Daily2D_GRL_precip_$i.nc
 		# replace rainfall and snfall in file

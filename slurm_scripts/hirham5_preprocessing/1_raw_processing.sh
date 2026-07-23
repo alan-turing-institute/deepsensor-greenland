@@ -4,7 +4,7 @@
 # Created on 25.06.2025
 # @author: eschlager
 
-# Initial preprocessing of Hirham data: 
+# Initial preprocessing of Hirham data:
 # 1. loop through years
 # 2. Reformat time axis
 # 3. Remap all variables to regional grid
@@ -28,7 +28,7 @@ for year in {1980..2021}; do
 
     files=$(ls ${RAW_DIR}/${year}/Daily2D_${year}*.nc)
     echo "$files"
-    
+
     GRID="$AUX_DIR/curvilinear_grid.nc"
     echo $GRID
     if [ ! -f "$GRID" ]; then
@@ -45,14 +45,14 @@ for year in {1980..2021}; do
             echo "-setmissval,nan -settime,12:00:00 -setgrid,$GRID $f"
             done) \
             "$output_file"
-        
+
         if ncdump -h f"$output_file" | grep -q 'dimensions: rlat'; then
             echo "Rename dimensions (rlat,rlon) to (y,x)..."
             ncrename -D 0 -d rlat,y -d rlon,x "$output_file"
         fi
 
         echo "Saved merged file to $output_file"
-    
+
     else
         echo "No files found for year $year"
     fi
