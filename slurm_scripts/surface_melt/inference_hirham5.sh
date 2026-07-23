@@ -4,7 +4,7 @@
 #SBATCH -o .logs/giantsp-%j.out
 #SBATCH -e .logs/giantsp-%j.err
 #SBATCH --mail-type=begin,end,fail,requeue
-#SBATCH --mail-user=acoca@turing.ac.uk
+#SBATCH --mail-user=GIANT@turing.ac.uk
 #SBATCH --gres=gpu:1
 #SBATCH -t 02:00:00 #15:30:00
 #SBATCH --partition=orchid
