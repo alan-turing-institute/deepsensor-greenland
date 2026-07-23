@@ -10,6 +10,8 @@ import xarray as xr
 
 import deepsensor.plot as dsplt
 
+from giant_sp.utils.metrics import compute_pit_bernoulli_gamma
+
 
 def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs=None, highlight_negatives=False, task=None, dataproc=None, plot_xc=False):
     mean_da, truth_da = xr.align(mean_da, truth_da, join='inner')
@@ -80,17 +82,34 @@ def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs=None
 
     return fig, axes
 
-def PIT_histogram(truth, pred_mean, pred_std, weights=None, **kwargs):
-    # Compute PIT values
-    pit_values = sp.stats.norm.cdf(truth, loc=pred_mean, scale=pred_std)
+def PIT_histogram(truth, val_pred, likelihood, **kwargs):
 
+    pred_mean_plt_all = val_pred['mean'].values.flatten()
+    pred_std_plt = val_pred['std'].values.flatten()
+    valid = ~np.isnan(pred_mean_plt_all)
+    pred_mean_plt = pred_mean_plt_all[valid]
+    pred_std_plt = pred_std_plt[valid]
+    true_plt = truth[valid]
+
+    # PIT histogram (area weighted)
+    # Compute PIT values
+    if likelihood == 'bernoulli-gamma':
+        # Zero-inflated (non-continuous) predictive distribution: PIT must
+        # account for the point mass at zero, not just mean/std.
+        p_zero_plt = val_pred['mixture_probs_0'].values.flatten()[valid]
+        k_plt = val_pred['k'].values.flatten()[valid]
+        scale_plt = val_pred['scale'].values.flatten()[valid]
+        pit_values = compute_pit_bernoulli_gamma(true_plt, p_zero_plt, k_plt, scale_plt)
+    else:
+        pit_values = sp.stats.norm.cdf(true_plt, loc=pred_mean_plt, scale=pred_std_plt)
     # Plot
     fig, ax = plt.subplots()
-    ax.hist(pit_values, bins=100, range=(0,1), weights=weights, density=True, **kwargs)
-    ax.set_xlabel('PIT')
+    ax.hist(pit_values, bins=100, range=(0, 1), density=True,
+            label='ConvNP model')
+    ax.set_xlabel('Probability integral transform')
     ax.set_ylabel('Density')
+    ax.set_title('PIT histogram')
     ax.grid()
-
     # Plot uniform line
     ax.axhline(1., color='k', linestyle='--')
     

@@ -237,6 +237,10 @@ class Trainer:
         target_var = self.config['data']['target_var_IDs']
         batch_size = self.config['training']['batch_size']
         log_stnval = self.config['logging']['log_stnval']
+    
+        self.pred_params = ['mean', 'std']
+        if self.model.config['model']['likelihood'] == 'bernoulli-gamma':
+            self.pred_params += ['mixture_probs', 'k', 'scale']
 
         logger.info(f"Starting training for {num_epochs} epochs")
         logger.info(f"Training samples: {len(task_stream_tr.date_list)}")
@@ -304,7 +308,9 @@ class Trainer:
 
             # Track val metrics
             logger.info(f'Starting val set prediction')
-            val_mean_ds, val_std_ds, val_err_ds = compute_pred_ds(model, val_tasks, truth_ds, target_var, mask=mask)
+            val_pred, val_err_ds = compute_pred_ds(model, val_tasks, truth_ds, target_var, self.pred_params, mask=mask)
+            val_mean_ds = val_pred[target_var]['mean']
+            val_std_ds = val_pred[target_var]['std']
             logger.info(f'Done, computing metrics')
 
             val_nll = (np.log(val_std_ds) + np.power(val_err_ds, 2) / (2 * np.power(val_std_ds, 2))).mean().values.item()
@@ -329,7 +335,8 @@ class Trainer:
                     wandb.save(os.path.join(self.local_save_dir, 'best-weights-stnval.pt'), base_path=self.wandb_run.dir)
                 # Track val metrics
                 logger.info(f'Starting stnval set prediction')
-                stnval_mean_ds, stnval_std_ds, stnval_err_ds = compute_pred_ds(model, stnval_tasks, truth_ds, target_var)
+                stnval_pred, stnval_err_ds = compute_pred_ds(model, stnval_tasks, truth_ds, target_var, self.pred_params)
+                stnval_std_ds = stnval_pred[target_var]['std']
                 logger.info(f'Done, computing metrics')
                 stnval_nll = (np.log(stnval_std_ds) + np.power(stnval_err_ds, 2) / (
                             2 * np.power(stnval_std_ds, 2))).mean().values.item()
@@ -365,12 +372,12 @@ class Trainer:
                 if (wandb_config.get('log_charts', True) and
                     (ep + 1) % wandb_config.get('log_charts_frequency') == 0):
                     # self._log_wandb_predictions(truth_ds, ep)
-                    self._plot_additional_charts('val', val_tasks, truth_ds, val_mean_ds, val_std_ds, ep_log)
+                    self._plot_additional_charts('val', val_tasks, truth_ds, val_pred, ep_log)
                     if 'lead_time' in val_mean_ds.dims:
                         self._plot_additional_charts_forecast(val_rmse_lt, ep_log)
 
                     if log_stnval and ((ep % 2 == 0) or ep == nend - 1):
-                        self._plot_additional_charts('stnval', stnval_tasks, truth_ds, stnval_mean_ds, stnval_std_ds, ep_log)
+                        self._plot_additional_charts('stnval', stnval_tasks, truth_ds, stnval_pred, ep_log)
 
                 # Save last checkpoint weights
                 torch.save(model.model.state_dict(), os.path.join(self.local_save_dir, 'last-weights.pt'))
@@ -387,7 +394,9 @@ class Trainer:
 
     def _plot_additional_maps(self, partition, tasks, model, truth_ds, mask_ds, epoch):
         target_var = self.model.config["data"]["target_var_IDs"]
-        mean_ds, std_ds, _ = compute_pred_ds(model, tasks, truth_ds, target_var, mask=mask_ds, res_factor=self.res_factor_maps)
+        pred, _ = compute_pred_ds(model, tasks, truth_ds, target_var, self.pred_params, mask=mask_ds, res_factor=self.res_factor_maps)
+        mean_ds = pred[target_var]['mean']
+        std_ds = pred[target_var]['std']
         # Multiple dates prediction plots
         self._log_wandb_predictions_task(partition, tasks, truth_ds[target_var], mean_ds, std_ds, epoch, cmap=self.cmap, crs=self.projection, plot_xc=False)
         # Averaged prediction plots
@@ -395,7 +404,7 @@ class Trainer:
         wandb.log({f'predictions/plot_{partition}_average': wandb.Image(fig)}, step=epoch)
         plt.close(fig)
 
-    def _plot_additional_charts(self, partition, tasks, truth_ds, mean_ds, std_ds, epoch):
+    def _plot_additional_charts(self, partition, tasks, truth_ds, val_pred, epoch):
         target_var = self.model.config["data"]["target_var_IDs"]
         val_dates = [tasks[i]['time'] for i in range(len(tasks))]
         # Randomly select dates
@@ -404,17 +413,15 @@ class Trainer:
         dates_plt = np.random.choice(val_dates, n_dates, replace=False)
         # Subselect and flatten datasets
         true_plt = truth_ds[target_var].sel(time=dates_plt).values.flatten()
-        pred_mean_plt_all = mean_ds.sel(time=dates_plt).values.flatten()
-        pred_std_plt = std_ds.sel(time=dates_plt).values.flatten()
-        pred_mean_plt = pred_mean_plt_all[~np.isnan(pred_mean_plt_all)]
-        pred_std_plt = pred_std_plt[~np.isnan(pred_mean_plt_all)]
-        true_plt = true_plt[~np.isnan(pred_mean_plt_all)]
+        pred_plt = val_pred[target_var].sel(time=dates_plt)
+        pred_mean_plt = pred_plt['mean'].values.flatten()
+
         # Parity plot (hexbin)
-        fig, ax = myplt.hexbin_parity_plot(true_plt, pred_mean_plt)
+        fig, _ = myplt.hexbin_parity_plot(true_plt, pred_mean_plt)
         wandb.log({f'predictions/hexbin_{partition}_{n_dates}_dates': wandb.Image(fig)}, step=epoch)
         plt.close(fig)
         # PIT histogram (uncertainty calibration)
-        fig, ax = myplt.PIT_histogram(true_plt, pred_mean_plt, pred_std_plt)
+        fig, _ = myplt.PIT_histogram(true_plt, pred_plt, likelihood=self.model.config['model']['likelihood'])
         wandb.log({f'predictions/pit_{partition}_{n_dates}_dates': wandb.Image(fig)}, step=epoch)
         plt.close(fig)
 
