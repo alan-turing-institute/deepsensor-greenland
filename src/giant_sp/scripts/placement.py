@@ -376,7 +376,7 @@ def main():
         raw_stn_locs_plot['lon'] = lonlat_lookup_stn['lon'].values
         raw_stn_locs_plot['lat'] = lonlat_lookup_stn['lat'].values
 
-        ax = myplt.plot_map_hirham5(acq_fn_da_plot, X_new_df_plot, raw_stn_locs_plot[['lat', 'lon']], cmap='YlGnBu', title=args.acq_fn)
+        ax = myplt.new_placements_plot_xy_hirham5native(acq_fn_da_plot, X_new_df_plot, raw_stn_locs_plot[['lat', 'lon']], cmap='YlGnBu', title=args.acq_fn)
         ax.get_figure().savefig(os.path.join(figdir, f'newplacements_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg'), bbox_inches="tight", dpi=300)
 
     else:
