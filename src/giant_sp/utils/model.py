@@ -1,19 +1,24 @@
+from matplotlib.pyplot import plot
 import xarray as xr
 
 from giant_sp.utils.training import batched
 
+  # Bernoulli-Gamma predictions are zero-inflated (non-continuous): PIT needs
+    # the zero-mass probability and Gamma parameters, not just mean/std.
+    # Must be a list: deepsensor's Model.predict mutates pred_params in place
+    # (list.remove/.append) when "mixture_probs" is requested.
 
-def compute_pred_ds(model, tasks, truth_ds, varname, mask=None, res_factor=1):
-    pred = model.predict(tasks, X_t=truth_ds[varname], X_t_mask=mask, resolution_factor=res_factor)
+
+def compute_pred_ds(model, tasks, truth_ds, varname, pred_params, mask=None, res_factor=1):
+    pred = model.predict(tasks, X_t=truth_ds[varname], X_t_mask=mask, resolution_factor=res_factor, pred_params=pred_params)
     mean_ds = pred[varname]['mean'].assign_coords(dict(latitude=truth_ds.lat, longitude=truth_ds.lon))
-    std_ds = pred[varname]['std'].assign_coords(dict(latitude=truth_ds.lat, longitude=truth_ds.lon))
     if pred.forecasting_mode:
         cutout = pred[varname].init_time
     else:
         cutout = pred[varname].time
     mean_ds, truth_ds = xr.align(mean_ds, truth_ds[varname].sel(time=cutout), join='inner')
     err_ds = mean_ds - truth_ds
-    return mean_ds, std_ds, err_ds
+    return pred, err_ds
 
 def get_pred_DAs_taskstream(model, task_stream, batch_size, truth_ds, varname, mask=None):
     mean_arrays = []
