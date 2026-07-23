@@ -98,7 +98,11 @@ def main():
 
     # Path and files
     output_path = f'outputs/{run_id}'
-
+    savedir = os.path.join(output_path, 'placement', args.acq_fn)
+    figdir = os.path.join(output_path, 'placement', 'figures')
+    if not os.path.exists(savedir): os.makedirs(savedir)
+    if not os.path.exists(figdir): os.makedirs(figdir)
+    
     # Args
     config = load_config(config_file)
     coords_path = config['data']['data_path']
@@ -326,14 +330,20 @@ def main():
         **greedy_gt_args
     )
 
-    # Checkpointing parameters
-    savedir = os.path.join(output_path, 'placement', args.acq_fn)
-    figdir = os.path.join(output_path, 'placement', 'figures')
-    if not os.path.exists(savedir): os.makedirs(savedir)
-    if not os.path.exists(figdir): os.makedirs(figdir)
+    if not os.path.exists(os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc')):
+        # New placements
+        X_new_df, acq_fn_da = greedy_alg(acq_fn, tasks)
+        
+        # Save
+        acq_fn_da.to_netcdf(os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc'))
+        X_new_df.to_csv(os.path.join(savedir, f'NewPlace_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv'))
 
-    # New placements
-    X_new_df, acq_fn_da = greedy_alg(acq_fn, tasks)
+    else:
+        print(f"Acquisition function file already exists. Skipping computation: {os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc')}")
+        print(f"Plotting existing acquisition function file.")
+        search_grid_is_default = True
+        acq_fn_da = xr.open_dataarray(os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc'))
+        X_new_df = pd.read_csv(os.path.join(savedir, f'NewPlace_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv'))[['lat','lon']]
 
     if source == 'hirham5zarr' and search_grid_is_default:
         # acq_fn_da's lat/lon coords are native-grid-index averages from coarsening
@@ -382,10 +392,7 @@ def main():
     else:
         fig, ax = myplt.new_placements_plot_xy(acq_fn_da, X_new_df, raw_stn_locs[['lat', 'lon']], title=args.acq_fn)
         fig.savefig(os.path.join(figdir, f'newplacements_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg'))
-
-    # Save
-    acq_fn_da.to_netcdf(os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc'))
-    X_new_df.to_csv(os.path.join(savedir, f'NewPlace_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv'))
+        fig.savefig(os.path.join(figdir, f'newplacements_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg'))
 
 if __name__ == "__main__":
     main()
