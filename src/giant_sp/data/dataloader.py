@@ -14,9 +14,8 @@ import pandas as pd
 import xarray as xr
 from deepsensor.data.loader import TaskLoader
 from deepsensor.data.processor import DataProcessor
-from deepsensor.data.sources import get_earthenv_auxiliary_data, get_gldas_land_mask
-from deepsensor.data.utils import construct_circ_time_ds, construct_x1x2_ds
-from scipy.ndimage import interpolation
+from deepsensor.data.sources import get_gldas_land_mask
+from deepsensor.data.utils import construct_x1x2_ds
 
 from giant_sp.utils.constants import region_extents
 from giant_sp.utils.data import construct_circ_and_linear_time_ds
@@ -123,7 +122,7 @@ class BaseDataLoader:
         anom = self.compute_gridded_anomalies(var, abs)
 
         ds[var + "_anm"] = anom
-        ds = ds.chunk({dim: chunk for dim, chunk in zip(dims, chunks)})
+        ds = ds.chunk(dict(zip(dims, chunks, strict=True)))
 
         return ds
 
@@ -179,7 +178,7 @@ class CARRA2DataLoader(BaseDataLoader):
         if not isinstance(self.context_vars, list):
             self.variables = [self.context_vars]
         if any(isinstance(el, list) for el in self.context_vars):
-            self.variables = [var for l in self.context_vars for var in l]
+            self.variables = [var for group in self.context_vars for var in group]
 
         files = glob.glob(f"{self.source}/{self.region}/{self.data_pattern}")
         ds = xr.open_mfdataset(files)
@@ -229,10 +228,10 @@ class CARRA2DataLoader(BaseDataLoader):
         # Download static auxiliary features (elevation/land mask)
         if resolution == "public":
             reg_extent = region_extents[self.region]
-            aux_var_IDs = ["elevation"]
-            aux_raw_ds = get_earthenv_auxiliary_data(
-                aux_var_IDs, reg_extent, "100KM", cache=True, cache_dir=cache_dir
-            )
+            # aux_var_IDs = ["elevation"]
+            # aux_raw_ds = get_earthenv_auxiliary_data(
+            #     aux_var_IDs, reg_extent, "100KM", cache=True, cache_dir=cache_dir
+            # )
             lsm_raw_ds = get_gldas_land_mask(
                 reg_extent, cache=True, cache_dir=cache_dir
             )
@@ -277,7 +276,7 @@ class CARRA2DataLoader(BaseDataLoader):
         if len(self.variables) > 1:
             context = [ds[sublist] for sublist in self.context_vars] + [aux_ds]
         else:
-            context = [ds[self.context_vars]] + [aux_ds]
+            context = [ds[self.context_vars], aux_ds]
         target = [ds[self.target_vars]]
 
         if task is None:
@@ -319,7 +318,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
         if not isinstance(self.context_vars, list):
             self.variables = [self.context_vars]
         if any(isinstance(el, list) for el in self.context_vars):
-            self.variables = [var for l in self.context_vars for var in l]
+            self.variables = [var for group in self.context_vars for var in group]
 
         files = glob.glob(f"{self.source}/{self.region}/{self.data_pattern}")
         ds = xr.open_mfdataset(files)
@@ -371,10 +370,10 @@ class HIRHAM5DataLoader(BaseDataLoader):
         # Download static auxiliary features (elevation/land mask)
         if resolution == "public":
             reg_extent = region_extents[self.region]
-            aux_var_IDs = ["elevation"]
-            aux_raw_ds = get_earthenv_auxiliary_data(
-                aux_var_IDs, reg_extent, "100KM", cache=True, cache_dir=cache_dir
-            )
+            # aux_var_IDs = ["elevation"]
+            # aux_raw_ds = get_earthenv_auxiliary_data(
+            #     aux_var_IDs, reg_extent, "100KM", cache=True, cache_dir=cache_dir
+            # )
             lsm_raw_ds = get_gldas_land_mask(
                 reg_extent, cache=True, cache_dir=cache_dir
             )
@@ -423,9 +422,9 @@ class HIRHAM5DataLoader(BaseDataLoader):
 
         # Make task loader
         if len(self.variables) > 1:
-            context = [ds_target] + [ds_others] + [aux_ds]
+            context = [ds_target, ds_others, aux_ds]
         else:
-            context = [ds[self.context_vars]] + [aux_ds]
+            context = [ds[self.context_vars], aux_ds]
         target = [ds_target[self.target_vars]]
 
         if task is None:
@@ -468,7 +467,7 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         if not isinstance(self.context_vars, list):
             self.variables = [self.context_vars]
         if any(isinstance(el, list) for el in self.context_vars):
-            self.variables = [var for l in self.context_vars for var in l]
+            self.variables = [var for group in self.context_vars for var in group]
 
         ds = xr.open_zarr(os.path.join(self.source, self.data_pattern), chunks="auto")
         ds = ds.set_index(z=["y", "x"]).unstack("z")
@@ -568,9 +567,9 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
 
         # Make task loader
         if len(self.variables) > 1:
-            context = [ds_target] + [ds_others] + [aux_ds]
+            context = [ds_target, ds_others, aux_ds]
         else:
-            context = [ds[self.context_vars]] + [aux_ds]
+            context = [ds[self.context_vars], aux_ds]
         target = [ds_target[self.target_vars]]
 
         if task is None:

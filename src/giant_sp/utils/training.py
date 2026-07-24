@@ -1,10 +1,9 @@
 import itertools
 
-import deepsensor.torch as deepsensor
+import deepsensor.torch as deepsensor  # noqa: F401
 import numpy as np
 import pandas as pd
 import torch
-import xarray as xr
 from deepsensor import backend
 from deepsensor.data.loader import TaskLoader
 from deepsensor.data.task import Task, concat_tasks
@@ -59,11 +58,12 @@ class TaskStreamDataset(IterableDataset):
         self.min_targets = min_targets
         self.max_targets = max_targets
 
-        if aod_sampling_strat in ["land_obs", "mixed_obs"]:
-            if data_processor is None or lsm is None:
-                raise ValueError(
-                    "The chosen aod_sampling_strat requires data_processor and lsm to be passed!"
-                )
+        if aod_sampling_strat in ["land_obs", "mixed_obs"] and (
+            data_processor is None or lsm is None
+        ):
+            raise ValueError(
+                "The chosen aod_sampling_strat requires data_processor and lsm to be passed!"
+            )
         self.lsm = lsm
         self.data_processor = data_processor
         self.stations_location = stations_location

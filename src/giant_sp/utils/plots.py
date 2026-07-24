@@ -1,25 +1,35 @@
-import logging
-
-import numpy as np
-import pandas as pd
-import scipy as sp
 import cartopy.crs as ccrs
 import cartopy.feature as cf
-from cartopy.feature import ShapelyFeature
+import deepsensor.plot as dsplt
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy as sp
 import xarray as xr
+from cartopy.feature import ShapelyFeature
 
-import deepsensor.plot as dsplt
-
-from giant_sp.utils.data import find_lon_lat, normalize_lons, load_greenland_shape, points_in_polygons
-import matplotlib.gridspec as gridspec
+from giant_sp.utils.data import (
+    find_lon_lat,
+    load_greenland_shape,
+    normalize_lons,
+    points_in_polygons,
+)
 from giant_sp.utils.metrics import compute_pit_bernoulli_gamma
 
-def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs=None, highlight_negatives=False, task=None, dataproc=None, plot_xc=False):
-    mean_da, truth_da = xr.align(mean_da, truth_da, join='inner')
+
+def averaged_prediction_plot(
+    truth_da,
+    mean_da,
+    std_da,
+    cmap="seismic",
+    crs=None,
+    highlight_negatives=False,
+    task=None,
+    dataproc=None,
+    plot_xc=False,
+):
+    mean_da, truth_da = xr.align(mean_da, truth_da, join="inner")
     # Calculate prediction errors
     err_da = mean_da - truth_da
 
@@ -61,7 +71,7 @@ def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs=None
         cmap=cmap,
         vmin=var_clim[0],
         vmax=var_clim[1],
-        cbar_kwargs=dict(fraction=0.046 * im_ratio, pad=0.04, label=None),
+        cbar_kwargs={"fraction": 0.046 * im_ratio, "pad": 0.04, "label": None},
     )
     axes[0].set_title(f"{truth_da.name}")
 
@@ -72,7 +82,7 @@ def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs=None
             cmap=cmap,
             vmin=var_clim[0],
             vmax=var_clim[1],
-            cbar_kwargs=dict(fraction=0.046 * im_ratio, pad=0.04, label=None),
+            cbar_kwargs={"fraction": 0.046 * im_ratio, "pad": 0.04, "label": None},
         )
     else:
         cmap = plt.get_cmap("viridis").copy()
@@ -84,7 +94,7 @@ def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs=None
             vmax=img_truth.colorbar.vmax,
             cmap=cmap,
             norm=norm,
-            cbar_kwargs=dict(fraction=0.046 * im_ratio, pad=0.04, label=None),
+            cbar_kwargs={"fraction": 0.046 * im_ratio, "pad": 0.04, "label": None},
         )
     axes[1].set_title("ConvNP mean")
 
@@ -93,7 +103,7 @@ def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs=None
         ax=axes[2],
         #    vmin=0.,
         cmap="Greys",
-        cbar_kwargs=dict(fraction=0.046 * im_ratio, pad=0.04, label=None),
+        cbar_kwargs={"fraction": 0.046 * im_ratio, "pad": 0.04, "label": None},
     )
     axes[2].set_title("ConvNP uncertainty (std)")
 
@@ -101,12 +111,12 @@ def averaged_prediction_plot(truth_da, mean_da, std_da, cmap='seismic', crs=None
     err_da.mean(dim="time").plot(
         ax=axes[3],
         cmap="seismic",  # "RdBu_r"
-        cbar_kwargs=dict(fraction=0.046 * im_ratio, pad=0.04, label=None),
+        cbar_kwargs={"fraction": 0.046 * im_ratio, "pad": 0.04, "label": None},
     )
     axes[3].set_title("ConvNP error")
 
     # Plot context locations on ground truth plot
-    if plot_xc == True:
+    if plot_xc:
         dsplt.offgrid_context(
             axes[0],
             task,
@@ -173,7 +183,7 @@ def hexbin_parity_plot(x, y):
         mincnt=1,
         vmin=1,
     )
-    cb = fig.colorbar(hb, ax=ax, label="counts")
+    fig.colorbar(hb, ax=ax, label="counts")
     ax.set_xlabel("True")
     ax.set_ylabel("Pred.")
     ax.grid()
@@ -227,7 +237,16 @@ def new_placements_plot_xy(acqfn_da, newplace_df, Xc_df, cmap="Greys", title=Non
     return fig, ax
 
 
-def plot_greenland_only(gris_data, newplace_df, existing_df, ax=None, masked=True, ocean_color='white', gridlines=False, pcolormesh_kwargs=None):
+def plot_greenland_only(
+    gris_data,
+    newplace_df,
+    existing_df,
+    ax=None,
+    masked=True,
+    ocean_color="white",
+    gridlines=False,
+    pcolormesh_kwargs=None,
+):
     # Modified from: https://github.com/eschlager/MeltEmulation/
     ds = gris_data
 
@@ -242,12 +261,14 @@ def plot_greenland_only(gris_data, newplace_df, existing_df, ax=None, masked=Tru
     elif lon.shape == ds.shape and lat.shape == ds.shape:
         Lon, Lat = lon, np.array(lat)
     else:
-        raise ValueError(f"lon/lat shapes {lon.shape},{lat.shape} do not match data shape {ds.shape}")
+        raise ValueError(
+            f"lon/lat shapes {lon.shape},{lat.shape} do not match data shape {ds.shape}"
+        )
 
     # Normalize longitudes to -180..180 to match Natural Earth polygons
     Lon = normalize_lons(Lon)
     # load Greenland shapely geometry
-    greenland_geom = load_greenland_shape(resolution='50m')
+    greenland_geom = load_greenland_shape(resolution="50m")
 
     # Create mask of points inside Greenland polygons (using cell centers)
     inside_mask = points_in_polygons(Lon, Lat, greenland_geom)
@@ -262,15 +283,22 @@ def plot_greenland_only(gris_data, newplace_df, existing_df, ax=None, masked=Tru
     data_crs = ccrs.PlateCarree()
 
     if ax is None:
-        fig = plt.figure(figsize=(8,10), frameon=False)
-        ax = fig.add_subplot(1,1,1, projection=display_crs)
-        plt.axis('off')
+        fig = plt.figure(figsize=(8, 10), frameon=False)
+        ax = fig.add_subplot(1, 1, 1, projection=display_crs)
+        plt.axis("off")
 
     # Make ocean white if not None, otherwise default is transparent!
     if ocean_color is not None:
-        ax.add_feature(cf.OCEAN.with_scale('50m'), facecolor=ocean_color, zorder=0)
+        ax.add_feature(cf.OCEAN.with_scale("50m"), facecolor=ocean_color, zorder=0)
     # Fill Greenland with light gray (use ShapelyFeature for correct reprojection)
-    greenland_feature = ShapelyFeature([greenland_geom], crs=ccrs.PlateCarree(), facecolor='lightgray', edgecolor='black', linewidth=.5, zorder=3)
+    greenland_feature = ShapelyFeature(
+        [greenland_geom],
+        crs=ccrs.PlateCarree(),
+        facecolor="lightgray",
+        edgecolor="black",
+        linewidth=0.5,
+        zorder=3,
+    )
     ax.add_feature(greenland_feature)
 
     # Set a Greenland-focused extent in lon/lat
@@ -278,16 +306,61 @@ def plot_greenland_only(gris_data, newplace_df, existing_df, ax=None, masked=Tru
 
     # Latitude gridlines visible
     if gridlines:
-        ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, linewidth=1, color='gray', alpha=0.7, linestyle='--')
+        ax.gridlines(
+            crs=ccrs.PlateCarree(),
+            draw_labels=False,
+            linewidth=1,
+            color="gray",
+            alpha=0.7,
+            linestyle="--",
+        )
 
-    ax.scatter(*newplace_df.values.T[::-1], transform=data_crs, marker='+', s=3 ** 2,  c='r', zorder=5, label='New placements')
-    ax.scatter(*existing_df.values.T[::-1], transform=data_crs, marker='x', s=3 ** 2, c='k', zorder=5, label='Existing placements')
+    ax.scatter(
+        *newplace_df.values.T[::-1],
+        transform=data_crs,
+        marker="+",
+        s=3**2,
+        c="r",
+        zorder=5,
+        label="New placements",
+    )
+    ax.scatter(
+        *existing_df.values.T[::-1],
+        transform=data_crs,
+        marker="x",
+        s=3**2,
+        c="k",
+        zorder=5,
+        label="Existing placements",
+    )
 
     # annotate new placements with their row index
-    for row_idx, (lat_val, lon_val) in zip(newplace_df.index, newplace_df.values):
-        ax.text(lon_val, lat_val, str(row_idx+1), transform=data_crs, color='r', fontsize=6, fontweight='bold', zorder=6, ha='left', va='bottom')
+    for row_idx, (lat_val, lon_val) in zip(
+        newplace_df.index, newplace_df.values, strict=True
+    ):
+        ax.text(
+            lon_val,
+            lat_val,
+            str(row_idx + 1),
+            transform=data_crs,
+            color="r",
+            fontsize=6,
+            fontweight="bold",
+            zorder=6,
+            ha="left",
+            va="bottom",
+        )
 
-    pcm = ax.pcolormesh(Lon, Lat, data, transform=data_crs, shading='auto', rasterized=True, zorder=4, **pcolormesh_kwargs)
+    pcm = ax.pcolormesh(
+        Lon,
+        Lat,
+        data,
+        transform=data_crs,
+        shading="auto",
+        rasterized=True,
+        zorder=4,
+        **pcolormesh_kwargs,
+    )
 
     return ax, pcm
 
@@ -305,30 +378,30 @@ def _get_value_limits(minval, maxval, value_lim):
             value_min = minval
 
         if maxval > value_max:
-            if minval < value_min:
-                extend_colorbar = 'both'
-            else:
-                extend_colorbar = 'max'
+            extend_colorbar = "both" if minval < value_min else "max"
         elif minval < value_min:
-            extend_colorbar = 'min'
+            extend_colorbar = "min"
         else:
-            extend_colorbar = 'neither'
+            extend_colorbar = "neither"
         maxval = value_max
         minval = value_min
     else:
-        extend_colorbar = 'neither'
-        
+        extend_colorbar = "neither"
+
     return minval, maxval, extend_colorbar
 
-def new_placements_plot_xy_hirham5native(ds, newplace_df, existing_df, cmap='Grays', title=None):
+
+def new_placements_plot_xy_hirham5native(
+    ds, newplace_df, existing_df, cmap="Grays", title=None
+):
     # Modified from: https://github.com/eschlager/MeltEmulation/
     """
     plot acquisition maps
     """
-    fig = plt.figure(figsize=(9,3))            
-    axs = [None]*3
+    fig = plt.figure(figsize=(9, 3))
+    axs = [None] * 3
     display_crs = ccrs.NorthPolarStereo(central_longitude=-40)
-    
+
     # gap between each subplot
     gs = gridspec.GridSpec(1, 5, width_ratios=[1, 0.1, 1, 0.1, 1], wspace=0)
     axs[0] = fig.add_subplot(gs[0, 0], projection=display_crs)
@@ -337,10 +410,10 @@ def new_placements_plot_xy_hirham5native(ds, newplace_df, existing_df, cmap='Gra
 
     value_lim = None
 
-    cbar_label = 'Acquisition function value'
+    cbar_label = "Acquisition function value"
 
     iterations = [0, 4, 9]
-    data_by_idx = {idx: ds.isel(iteration=idx).mean(dim='time') for idx in iterations}
+    data_by_idx = {idx: ds.isel(iteration=idx).mean(dim="time") for idx in iterations}
 
     # shared value limits across all subplots
     min_x = np.nanmin([np.nanmin(xx.values.flatten()) for xx in data_by_idx.values()])
@@ -351,13 +424,21 @@ def new_placements_plot_xy_hirham5native(ds, newplace_df, existing_df, cmap='Gra
     for i, idx in enumerate(iterations):
         xx = data_by_idx[idx]
 
-        axs[i], p0 = plot_greenland_only(xx, newplace_df.iloc[:idx+1], existing_df, ax=axs[i], pcolormesh_kwargs={'cmap': cmap, 'vmin': minval_x, 'vmax': maxval_x})
-        axs[i].set_title(f'Iteration {idx+1}')
+        axs[i], p0 = plot_greenland_only(
+            xx,
+            newplace_df.iloc[: idx + 1],
+            existing_df,
+            ax=axs[i],
+            pcolormesh_kwargs={"cmap": cmap, "vmin": minval_x, "vmax": maxval_x},
+        )
+        axs[i].set_title(f"Iteration {idx + 1}")
         axs[i].set_axis_off()
 
     # single shared colorbar spanning all subplots
-    extra_gap = 0.02    # horizontal gap (figure fraction) between axes right edge and colorbar
-    cbar_width = 0.03   # thickness of the colorbar (figure fraction)
+    extra_gap = (
+        0.02  # horizontal gap (figure fraction) between axes right edge and colorbar
+    )
+    cbar_width = 0.03  # thickness of the colorbar (figure fraction)
     bbox_last = axs[-1].get_position()
 
     x0 = bbox_last.x1 + extra_gap
@@ -365,7 +446,7 @@ def new_placements_plot_xy_hirham5native(ds, newplace_df, existing_df, cmap='Gra
     y1 = max(ax.get_position().y1 for ax in axs)
     height = y1 - y0
     cax = fig.add_axes([x0, y0, cbar_width, height])
-    cbar = fig.colorbar(p0, cax=cax, orientation='vertical', extend=extend_colorbar_x)
+    cbar = fig.colorbar(p0, cax=cax, orientation="vertical", extend=extend_colorbar_x)
     cbar.set_label(cbar_label)
 
     # plt.suptitle(title)

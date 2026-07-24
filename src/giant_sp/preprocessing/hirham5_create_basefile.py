@@ -11,7 +11,6 @@ import os
 import sys
 
 import dask
-import numpy as np
 import xarray as xr
 from dask.diagnostics import ProgressBar
 
@@ -73,7 +72,7 @@ if __name__ == "__main__":
     print(meta)
     meta.attrs = src.attrs
     filepath = os.path.sep.join([out_path, "coords_only.zarr"])
-    logging.info(f"GRL mask saved to {filepath}")
+    logging.info("GRL mask saved to %s", filepath)
     meta.to_zarr(filepath, mode="w", consolidated=True)
 
     # %% -------------------- Create stacked nc files for AuxFiles --------------------
@@ -84,7 +83,7 @@ if __name__ == "__main__":
     ds = ds.stack(z=("x", "y")).reset_index("z")  # flatten spatial dimension
     ds = ds.dropna(dim="z", how="all")  # drop all NaN values
     ds.to_zarr(filepath, mode="w", consolidated=True)
-    logging.info(f"GRL mask saved to {filepath}")
+    logging.info("GRL mask saved to %s", filepath)
     ds.close()
 
     # -------------------- Create file with zones --------------------
@@ -96,7 +95,7 @@ if __name__ == "__main__":
     ds = ds.stack(z=("x", "y")).reset_index("z")  # flatten spatial dimension
     ds = ds.dropna(dim="z", how="all")  # drop all NaN values
     ds.to_zarr(filepath, mode="w", consolidated=True)
-    logging.info(f"GRL mask saved to {filepath}")
+    logging.info("GRL mask saved to %s", filepath)
     ds_zones.close()
 
     # %% Correct daily files: clip to valid ranges, correct runoff values using available water estimates
@@ -120,7 +119,7 @@ if __name__ == "__main__":
     for var, (vmin, vmax) in vars_ranges.items():
         if var in ds_all.data_vars:
             data = ds_all[var]
-            logging.info(f" check if {var} in [{vmin}, {vmax}]...")
+            logging.info(" check if %s in [%d, %d]...", var, vmin, vmax)
             clipped_at_min = (
                 (data < vmin) if vmin is not None else xr.zeros_like(data, dtype=bool)
             )
@@ -131,13 +130,13 @@ if __name__ == "__main__":
             n_clipped_max = clipped_at_max.sum().compute().item()
 
             if n_clipped_min > 0:
-                logging.info(f"   # samples clipped at min: {n_clipped_min}")
+                logging.info("   # samples clipped at min: %d", n_clipped_min)
             if n_clipped_max > 0:
-                logging.info(f"   # samples clipped at max: {n_clipped_max}")
+                logging.info("   # samples clipped at max: %d", n_clipped_max)
             ds_all[var] = data.clip(min=vmin, max=vmax)
 
         else:
-            logging.info(f"{var}: not found in dataset")
+            logging.info("%s: not found in dataset", var)
 
     # %% -------------------- Restructure dataset, and save daily data to zarr files --------------------
     filepath = os.path.sep.join([out_path, "base_dataset.zarr"])
@@ -152,15 +151,15 @@ if __name__ == "__main__":
     nan_mask = (
         ~ds["tas"].isnull().all(dim=["time"]).compute()
     )  # compute null only from tas, because either all vars or none are nan for a specific location!
-    logging.info(f"Shape of nan-maks: {nan_mask.shape}")
-    logging.info(f"amount of all z: {len(ds.z)}")
+    logging.info("Shape of nan-maks: %s", nan_mask.shape)
+    logging.info("amount of all z: %d", len(ds.z))
     ds = ds.isel(z=nan_mask)
-    logging.info(f"amount of non-nan z: {len(ds.z)}")
+    logging.info("amount of non-nan z: %d", len(ds.z))
 
     logging.info("Rechunk time dimension...")
     ds = ds.chunk(chunksize)
 
-    logging.info(f"Saving data to {filepath}...")
+    logging.info("Saving data to %s...", filepath)
 
     with ProgressBar():
         ds.to_zarr(filepath, mode="w", consolidated=True)
@@ -171,7 +170,7 @@ if __name__ == "__main__":
 
     ds_sel = ds[vars_to_roll]
 
-    logging.info(f"Create 10yrs rolling mean for {vars_to_roll}...)")
+    logging.info("Create 10yrs rolling mean for %s...", vars_to_roll)
     window_size = 3652
     rolling_10yr = ds_sel.rolling(time=window_size, min_periods=window_size)
 

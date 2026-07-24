@@ -2,23 +2,16 @@
 Training manager for DeepSensor models
 """
 
-import glob
 import json
 import logging
 import os
 import random
 from collections.abc import Callable
-from pathlib import Path
-from typing import Optional
 
 import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-import colorcet as cc
 import matplotlib
-import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 import torch
 import torch.optim as optim
 import wandb
@@ -30,8 +23,6 @@ matplotlib.use("Agg")
 import deepsensor.plot as dsplt
 import pandas as pd
 import xarray as xr
-from deepsensor.data.processor import DataProcessor
-from deepsensor.model import ConvNP
 
 import giant_sp.utils.plots as myplt
 import giant_sp.utils.training as tu
@@ -114,7 +105,9 @@ class Trainer:
         else:
             raise ValueError(f"Unknown optimizer: {self.train_config['optimizer']}")
 
-        logger.info(f"Created {self.train_config['optimizer']} optimizer with lr={lr}")
+        logger.info(
+            "Created %s optimizer with lr=%f", self.train_config["optimizer"], lr
+        )
         return optimizer
 
     def _restore_wandb(self):
@@ -135,12 +128,12 @@ class Trainer:
         latest_model_epoch = self.wandb_run.summary["epoch"]
 
         # Load model weights
-        logger.info(f"Loading model weights of epoch {latest_model_epoch:02}...")
+        logger.info("Loading model weights of epoch %02d...", latest_model_epoch)
         weights_file = wandb.restore("files/last-weights.pt")
         self.model.model.model.load_state_dict(torch.load(weights_file.name))
 
-        logger.info(f"Restore W&B run: {self.wandb_run.name}")
-        logger.info(f"W&B URL: {self.wandb_run.url}")
+        logger.info("Restore W&B run: %s", self.wandb_run.name)
+        logger.info("W&B URL: %s", self.wandb_run.url)
 
     def _setup_existing_wandb_run(self):
         """Configure a W&B run that was already initialized before Trainer construction"""
@@ -218,8 +211,8 @@ class Trainer:
         self.local_save_dir = os.path.join(self.wandb_run.dir, "files")
         os.makedirs(self.local_save_dir)
 
-        logger.info(f"Initialized W&B run: {self.wandb_run.name}")
-        logger.info(f"W&B URL: {self.wandb_run.url}")
+        logger.info("Initialized W&B run: %s", self.wandb_run.name)
+        logger.info("W&B URL: %s", self.wandb_run.url)
 
         # Save norm params
         logger.info("Saving data processor config")
@@ -256,7 +249,7 @@ class Trainer:
         """
         num_epochs = self.train_config["num_epochs"]
         model = self.model.model
-        lr = self.train_config["learning_rate"]
+        self.train_config["learning_rate"]
         target_var = self.config["data"]["target_var_IDs"]
         batch_size = self.config["training"]["batch_size"]
         log_stnval = self.config["logging"]["log_stnval"]
@@ -265,9 +258,9 @@ class Trainer:
         if self.model.config["model"]["likelihood"] == "bernoulli-gamma":
             self.pred_params += ["mixture_probs", "k", "scale"]
 
-        logger.info(f"Starting training for {num_epochs} epochs")
-        logger.info(f"Training samples: {len(task_stream_tr.date_list)}")
-        logger.info(f"Validation samples: {len(val_tasks)}")
+        logger.info("Starting training for %d epochs", num_epochs)
+        logger.info("Training samples: %d", len(task_stream_tr.date_list))
+        logger.info("Validation samples: %d", len(val_tasks))
 
         # Plot encoding and log it to wandb
         fig = dsplt.context_encoding(model, val_tasks[0], model.task_loader)
@@ -343,7 +336,7 @@ class Trainer:
                 self.train_config.get("early_stopping", False)
                 and self.epochs_without_improvement >= self.train_config["patience"]
             ):
-                logger.info(f"Early stopping triggered after {ep + 1} epochs")
+                logger.info("Early stopping triggered after %d epochs", ep + 1)
                 break
 
             # Periodic checkpointing
@@ -523,7 +516,7 @@ class Trainer:
             plot_xc=False,
         )
         # Averaged prediction plots
-        fig, ax = myplt.averaged_prediction_plot(
+        fig, _ax = myplt.averaged_prediction_plot(
             truth_ds[target_var],
             mean_ds,
             std_ds,
@@ -596,7 +589,7 @@ class Trainer:
         std_da,
         epoch: int,
         cmap="seismic",
-        crs=ccrs.PlateCarree(),
+        crs=None,
         plot_xc=True,
     ):
         """
@@ -606,6 +599,8 @@ class Trainer:
             truth_ds: Xarray Dataset containing the ground truth data for error computation
             epoch: Current epoch number
         """
+        if crs is None:
+            crs = ccrs.PlateCarree()
 
         try:
             # Make predictions
@@ -629,7 +624,7 @@ class Trainer:
                 nrows=len(dates),
                 ncols=4,
                 figsize=(4 * self.fig_size, len(dates) * self.fig_size),
-                subplot_kw=dict(projection=crs),
+                subplot_kw={"projection": crs},
             )
 
             fig1.suptitle(
@@ -637,7 +632,7 @@ class Trainer:
             )
 
             for row_i, date in enumerate(dates):
-                task = [t for t in tasks if t["time"] == date][0]
+                task = next(t for t in tasks if t["time"] == date)
                 N_c = task["X_c"][0].shape[1]
 
                 vmin = min(
@@ -679,7 +674,7 @@ class Trainer:
                 ax.set_title("ConvNP error")
 
                 # Plot context locations on ground truth plot
-                if plot_xc == True:
+                if plot_xc:
                     dsplt.offgrid_context(
                         axes[row_i, 0],
                         task,
@@ -704,4 +699,4 @@ class Trainer:
             plt.close(fig1)
 
         except Exception as e:
-            logger.warning(f"Failed to log predictions to W&B: {e}")
+            logger.warning("Failed to log predictions to W&B: %s", e)

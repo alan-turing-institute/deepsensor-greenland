@@ -6,9 +6,8 @@ Main training script for DeepSensor spatial interpolation
 import argparse
 import logging
 import os
-from pathlib import Path
 
-import deepsensor.torch
+import deepsensor.torch  # noqa: F401
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -75,13 +74,15 @@ def main(args):
                 "data": config["data"],
             },
         )
-        logger.info(f"Initialized W&B run: {wandb_run.name}")
-        logger.info(f"W&B URL: {wandb_run.url}")
+        logger.info("Initialized W&B run: %s", wandb_run.name)
+        logger.info("W&B URL: %s", wandb_run.url)
 
-    logger.info(f"Active devices before updating default: {torch.get_default_device()}")
+    logger.info(
+        "Active devices before updating default: %s", torch.get_default_device()
+    )
     set_gpu_default_device() if torch.cuda.is_available() else torch.device("cpu")
-    logger.info(f"Active devices after updating default: {torch.get_default_device()}")
-    logger.info(f"Configuration: {args.config}")
+    logger.info("Active devices after updating default: %s", torch.get_default_device())
+    logger.info("Configuration: %s", args.config)
 
     # Initialize data loader
     if source == "carra2":
@@ -124,16 +125,18 @@ def main(args):
         doy = np.arange(1, 367)  # days 1 to 366
         mu = 205  # 24th of July ~ peak of melt season
         sigma = 60
-        min_weight_doy = 0.0
+        # min_weight_doy = 0.0
         logger.info(
-            f"Subsample training dates using seasonal weighting following gaussian distribution with mu {mu} and sigma {sigma}"
+            "Subsample training dates using seasonal weighting following gaussian distribution with mu %f and sigma %f",
+            mu,
+            sigma,
         )
         gauss_weights = np.exp(-0.5 * ((doy - mu) / sigma) ** 2)
-        weights = min_weight_doy + (1 - min_weight_doy) * gauss_weights
+        # weights = min_weight_doy + (1 - min_weight_doy) * gauss_weights
         weights_doy = gauss_weights / gauss_weights.sum()
 
         n_samples_per_year = temporal_sampling_every
-        logger.info(f"Sample {n_samples_per_year} dates per year")
+        logger.info("Sample %d dates per year", n_samples_per_year)
 
         np.random.seed(42)
         train_sampled_dates = sample_dates_by_year_chunks(
@@ -344,9 +347,9 @@ def main(args):
             .remove_target_nans()
             for date in val_dates
         ]
-    logger.info(f"Finished val task generation ({len(val_dates)})")
+    logger.info("Finished val task generation (%d)", len(val_dates))
 
-    logger.info(f"Starting stnval task generation ({len(val_dates)})")
+    logger.info("Starting stnval task generation (%d)", len(val_dates))
     stnval_tasks = [
         task_loader(
             date, context_sampling=(stn_locs, "all", "all"), target_sampling="all"
@@ -355,14 +358,14 @@ def main(args):
         .remove_target_nans()
         for date in val_dates
     ]
-    logger.info(f"Finished stnval task generation ({len(val_dates)})")
+    logger.info("Finished stnval task generation (%d)", len(val_dates))
 
     # Build model
     logger.info("Building model...")
     model_wrapper = DeepSensorModel(config)
     model_wrapper.build_model(data_processor, task_loader)
 
-    logger.info(f"Model parameters: {model_wrapper.count_parameters():,}")
+    logger.info("Model parameters: %d", model_wrapper.count_parameters())
 
     # Create trainer
     trainer = Trainer(model_wrapper, config, wandb_run=wandb_run)
@@ -374,7 +377,7 @@ def main(args):
     )
 
     logger.info("Training complete!")
-    logger.info(f"Best validation loss: {trainer.best_val_loss:.6f}")
+    logger.info("Best validation loss: %.6f", trainer.best_val_loss)
 
 
 if __name__ == "__main__":

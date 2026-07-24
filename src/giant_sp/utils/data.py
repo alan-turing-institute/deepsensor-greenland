@@ -1,20 +1,11 @@
-import datetime
 import json
-import os
-from random import randrange
 
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-from cartopy.io import shapereader
-import matplotlib.pyplot as plt
-from matplotlib.path import Path
-
-from deepsensor.model.convnp import ConvNP
+import numpy as np
+import pandas as pd
 import scipy as sp
-import torch
-import wandb
 import xarray as xr
-from deepsensor.model.convnp import ConvNP
+from cartopy.io import shapereader
+from matplotlib.path import Path
 
 
 class NumpyFloatValuesEncoder(json.JSONEncoder):
@@ -55,7 +46,7 @@ def sample_land_locations(n_obs, lsm=None, seed=None, invert_mask=False):
 
     lats = sampled_points["lat"].values
     lons = sampled_points["lon"].values
-    raw_locs = np.array(list(zip(lats, lons))).transpose()  # (2, n_obs)
+    raw_locs = np.array(list(zip(lats, lons, strict=True))).transpose()  # (2, n_obs)
 
     return raw_locs
 
@@ -216,9 +207,10 @@ def find_xy_for_points(ds, gdf_points):
     _, idx = tree.query(query_pts)
 
     gdf_points = gdf_points.copy()
-    gdf_points['x'] = X2d.ravel()[idx]
-    gdf_points['y'] = Y2d.ravel()[idx]
+    gdf_points["x"] = X2d.ravel()[idx]
+    gdf_points["y"] = Y2d.ravel()[idx]
     return gdf_points
+
 
 def normalize_lons(lon):
     # source: https://github.com/eschlager/MeltEmulation/
@@ -228,21 +220,25 @@ def normalize_lons(lon):
         lon = ((lon + 180) % 360) - 180
     return lon
 
-def load_greenland_shape(resolution='10m'):
+
+def load_greenland_shape(resolution="10m"):
     # source: https://github.com/eschlager/MeltEmulation/
     """
     Load the Natural Earth 'admin_0_countries' and return the shapely geometry
     for Greenland (Polygon or MultiPolygon).
     """
-    shpname = shapereader.natural_earth(resolution=resolution, category='cultural', name='admin_0_countries')
+    shpname = shapereader.natural_earth(
+        resolution=resolution, category="cultural", name="admin_0_countries"
+    )
     reader = shapereader.Reader(shpname)
     for rec in reader.records():
         props = rec.attributes
-        name = props.get('NAME') or props.get('NAME_LONG') or props.get('ADMIN')
-        if name and name.lower() == 'greenland':
+        name = props.get("NAME") or props.get("NAME_LONG") or props.get("ADMIN")
+        if name and name.lower() == "greenland":
             geom = rec.geometry  # shapely geometry
             return geom
     raise RuntimeError("Greenland geometry not found in Natural Earth data.")
+
 
 def points_in_polygons(lon, lat, polygon):
     # source: https://github.com/eschlager/MeltEmulation/
@@ -255,7 +251,7 @@ def points_in_polygons(lon, lat, polygon):
     pts = np.column_stack((lon.ravel(), lat.ravel()))
     inside = np.zeros(pts.shape[0], dtype=bool)
     # polygon may be MultiPolygon or Polygon
-    if polygon.geom_type == 'Polygon':
+    if polygon.geom_type == "Polygon":
         polys = [polygon.exterior.coords]
         # include interiors (holes) as negative masks
         interiors = list(polygon.interiors)

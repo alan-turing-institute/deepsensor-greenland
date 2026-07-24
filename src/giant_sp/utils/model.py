@@ -1,5 +1,4 @@
 import xarray as xr
-from matplotlib.pyplot import plot
 
 from giant_sp.utils.training import batched
 
@@ -20,12 +19,9 @@ def compute_pred_ds(
         pred_params=pred_params,
     )
     mean_ds = pred[varname]["mean"].assign_coords(
-        dict(latitude=truth_ds.lat, longitude=truth_ds.lon)
+        {"latitude": truth_ds.lat, "longitude": truth_ds.lon}
     )
-    if pred.forecasting_mode:
-        cutout = pred[varname].init_time
-    else:
-        cutout = pred[varname].time
+    cutout = pred[varname].init_time if pred.forecasting_mode else pred[varname].time
     mean_ds, truth_ds = xr.align(
         mean_ds, truth_ds[varname].sel(time=cutout), join="inner"
     )
@@ -44,13 +40,12 @@ def get_pred_DAs_taskstream(
         batch_std_da = pred[varname]["std"]
         mean_arrays.append(batch_mean_da)
         std_arrays.append(batch_std_da)
-    if pred.forecasting_mode:
-        dim = "init_time"
-    else:
-        dim = "time"
+    dim = "init_time" if pred.forecasting_mode else "time"
     mean_da = xr.concat(mean_arrays, dim=dim)
     std_da = xr.concat(std_arrays, dim=dim)
-    mean_da = mean_da.assign_coords(dict(latitude=truth_ds.lat, longitude=truth_ds.lon))
+    mean_da = mean_da.assign_coords(
+        {"latitude": truth_ds.lat, "longitude": truth_ds.lon}
+    )
     mean_da, truth_ds = xr.align(mean_da, truth_ds[varname], join="inner")
     err_da = mean_da - truth_ds
 

@@ -7,7 +7,6 @@ import io
 import logging
 
 import torch
-import torch.nn as nn
 from deepsensor.data import DataProcessor, TaskLoader
 from deepsensor.model import ConvNP
 
@@ -39,7 +38,7 @@ class DeepSensorModel:
         model_config = self.config["model"]
 
         logger.info("Building ConvNP model with PyTorch backend...")
-        logger.info(f"Model likehood: {model_config['likelihood']}")
+        logger.info("Model likelihood: %s", model_config["likelihood"])
 
         # Initialize ConvNP model, capturing verbose print() output into logger
         buf = io.StringIO()
@@ -68,7 +67,7 @@ class DeepSensorModel:
 
         # Model summary will be printed by DeepSensor
         logger.info("Model architecture:")
-        logger.info(f"Parameters: {self.count_parameters()}")
+        logger.info("Parameters: %d", self.count_parameters())
 
     def count_parameters(self) -> int:
         """Count total trainable parameters in model"""
@@ -91,7 +90,7 @@ class DeepSensorModel:
         if self.model is None:
             raise ValueError("No model to save")
 
-        logger.info(f"Saving model to {filepath}")
+        logger.info("Saving model to %s", filepath)
         torch.save(self.model.model.state_dict(), filepath)
 
     def load_model(self, filepath: str):
@@ -104,7 +103,7 @@ class DeepSensorModel:
         if self.model is None:
             raise ValueError("Model must be built before loading weights")
 
-        logger.info(f"Loading model from {filepath}")
+        logger.info("Loading model from %s", filepath)
         model_state_dict = torch.load(filepath)
         self.model.model.load_state_dict(model_state_dict)
 
@@ -122,7 +121,7 @@ class DeepSensorModel:
         if self.model is None:
             raise ValueError("Model not built yet")
 
-        logger.info(f"Making predictions with {num_samples} samples")
+        logger.info("Making predictions with %d samples", num_samples)
 
         # Sample from posterior
         pred_dist = self.model(task, n_samples=num_samples)

@@ -4,12 +4,10 @@ import glob
 import json
 import os
 
-import deepsensor.torch
+import deepsensor.torch  # noqa: F401
 import geopandas as gpd
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import scipy as sp
 import torch
 import wandb
 import xarray as xr
@@ -42,11 +40,11 @@ def load_wandb_model(data_processor, task_loader, config_path, weights_path):
         config = json.load(f)
 
     # Build model from config
-    model_args = dict(
-        unet_channels=config["unet_channels"],
-        unet_kernels=config["unet_kernels"],
-        likelihood=config["likelihood"],
-    )
+    model_args = {
+        "unet_channels": config["unet_channels"],
+        "unet_kernels": config["unet_kernels"],
+        "likelihood": config["likelihood"],
+    }
 
     model = ConvNP(data_processor, task_loader, **model_args)
 
@@ -394,11 +392,11 @@ def main():
     # Averaged prediction plots
     if plot:
         date = pd.Timestamp(dates[0])
-        task = [t for t in val_tasks if t["time"] == date][0]
-        mean_da, raw_da = xr.align(
+        task = next(t for t in val_tasks if t["time"] == date)
+        _mean_da, raw_da = xr.align(
             val_pred[target_var]["mean"], raw_ds[target_var], join="inner"
         )
-        fig, ax = myplt.averaged_prediction_plot(
+        fig, _ax = myplt.averaged_prediction_plot(
             raw_da,
             val_pred[target_var]["mean"],
             val_pred[target_var]["std"],

@@ -4,14 +4,11 @@ import json
 import os
 
 # src
-import sys
-
 import deepsensor.active_learning.acquisition_fns as acq
-import deepsensor.torch as deepsensor
+import deepsensor.torch as deepsensor  # noqa: F401
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import scipy as sp
 import torch
 import wandb
 import xarray as xr
@@ -24,7 +21,7 @@ from deepsensor.train.train import set_gpu_default_device
 import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
-from giant_sp.utils.data import find_xy_for_points, sample_dates_by_year_chunks
+from giant_sp.utils.data import sample_dates_by_year_chunks
 
 set_gpu_default_device() if torch.cuda.is_available() else torch.device("cpu")
 
@@ -49,11 +46,11 @@ def load_wandb_model(data_processor, task_loader, config_path, weights_path):
         config = json.load(f)
 
     # Build model from config
-    model_args = dict(
-        unet_channels=config["unet_channels"],
-        unet_kernels=config["unet_kernels"],
-        likelihood=config["likelihood"],
-    )
+    model_args = {
+        "unet_channels": config["unet_channels"],
+        "unet_kernels": config["unet_kernels"],
+        "likelihood": config["likelihood"],
+    }
 
     model = ConvNP(data_processor, task_loader, **model_args)
 
@@ -98,17 +95,19 @@ def main():
     run_id = run_ref.split("/")[-1]
 
     # Path and files
-    output_path = f'outputs/{run_id}'
-    savedir = os.path.join(output_path, 'placement', args.acq_fn)
-    figdir = os.path.join(output_path, 'placement', 'figures')
-    if not os.path.exists(savedir): os.makedirs(savedir)
-    if not os.path.exists(figdir): os.makedirs(figdir)
-    
+    output_path = f"outputs/{run_id}"
+    savedir = os.path.join(output_path, "placement", args.acq_fn)
+    figdir = os.path.join(output_path, "placement", "figures")
+    if not os.path.exists(savedir):
+        os.makedirs(savedir)
+    if not os.path.exists(figdir):
+        os.makedirs(figdir)
+
     # Args
     config = load_config(config_file)
-    coords_path = config["data"]["data_path"]
+    # coords_path = config["data"]["data_path"]
     source = config["data"]["source"]
-    chunk_size = 100
+    # chunk_size = 100
 
     # Initialize data loader
     if source == "carra2":
@@ -134,9 +133,9 @@ def main():
         doy = np.arange(1, 367)  # days 1 to 366
         mu = 205  # 24th of July ~ peak of melt season
         sigma = 60
-        min_weight_doy = 0.0
+        # min_weight_doy = 0.0
         gauss_weights = np.exp(-0.5 * ((doy - mu) / sigma) ** 2)
-        weights = min_weight_doy + (1 - min_weight_doy) * gauss_weights
+        # weights = min_weight_doy + (1 - min_weight_doy) * gauss_weights
         weights_doy = gauss_weights / gauss_weights.sum()
 
         n_samples_per_year = temporal_sampling_every
@@ -210,11 +209,11 @@ def main():
         # synthetic 0-based index on access. Materialize it as a real coordinate so
         # later .sel(..., method='nearest') lookups against this grid work.
         coords_ref = coords_ref.assign_coords(
-            x=np.arange(coords_ref.sizes['x']),
-            y=np.arange(coords_ref.sizes['y']),
+            x=np.arange(coords_ref.sizes["x"]),
+            y=np.arange(coords_ref.sizes["y"]),
         )
-        xy_coords_ref = (coords_ref['x'], coords_ref['y'])
-        lonlat_coords_ref = (coords_ref['lon'], coords_ref['lat'])
+        xy_coords_ref = (coords_ref["x"], coords_ref["y"])
+        lonlat_coords_ref = (coords_ref["lon"], coords_ref["lat"])
 
         rename_map = {"lon": "x", "lat": "y"}
 
@@ -287,11 +286,15 @@ def main():
 
     # Search space definition
     search_grid_is_default = False
-    if args.search_mask_file == '':
+    if args.search_mask_file == "":
         coarsen_factor = int(search_resolution / 1.0)
         lsm = data_loader.load_aux_ds(resolution="bedmachine")
-        aux_raw_ds = lsm.coarsen({'lat': coarsen_factor, 'lon': coarsen_factor}, boundary='trim').mean()
-        search_mask = aux_raw_ds.where(aux_raw_ds > args.min_land, other=0)  # search where True
+        aux_raw_ds = lsm.coarsen(
+            {"lat": coarsen_factor, "lon": coarsen_factor}, boundary="trim"
+        ).mean()
+        search_mask = aux_raw_ds.where(
+            aux_raw_ds > args.min_land, other=0
+        )  # search where True
         search_grid_is_default = True
     else:
         search_mask = xr.open_dataarray(args.search_mask_file)
@@ -356,69 +359,124 @@ def main():
         **greedy_gt_args,
     )
 
-    if not os.path.exists(os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc')):
+    if not os.path.exists(
+        os.path.join(
+            savedir,
+            f"AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
+        )
+    ):
         # New placements
         X_new_df, acq_fn_da = greedy_alg(acq_fn, tasks)
-        
+
         # Save
-        acq_fn_da.to_netcdf(os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc'))
-        X_new_df.to_csv(os.path.join(savedir, f'NewPlace_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv'))
+        acq_fn_da.to_netcdf(
+            os.path.join(
+                savedir,
+                f"AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
+            )
+        )
+        X_new_df.to_csv(
+            os.path.join(
+                savedir,
+                f"NewPlace_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv",
+            )
+        )
 
     else:
-        print(f"Acquisition function file already exists. Skipping computation: {os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc')}")
-        print(f"Plotting existing acquisition function file.")
+        print(
+            f"Acquisition function file already exists. Skipping computation: {os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc')}"
+        )
+        print("Plotting existing acquisition function file.")
         search_grid_is_default = True
-        acq_fn_da = xr.open_dataarray(os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc'))
-        X_new_df = pd.read_csv(os.path.join(savedir, f'NewPlace_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv'))[['lat','lon']]
+        acq_fn_da = xr.open_dataarray(
+            os.path.join(
+                savedir,
+                f"AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
+            )
+        )
+        X_new_df = pd.read_csv(
+            os.path.join(
+                savedir,
+                f"NewPlace_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv",
+            )
+        )[["lat", "lon"]]
 
-    if source == 'hirham5zarr' and search_grid_is_default:
+    if source == "hirham5zarr" and search_grid_is_default:
         # acq_fn_da's lat/lon coords are native-grid-index averages from coarsening
         # lsm (which is cropped to land pixels), so they don't share block
         # boundaries with an independently-coarsened coords_ref and a label-based
         # reindex against it returns all NaN. Look up the nearest matching lon/lat
         # degrees directly from the full-resolution reference grid instead.
         acq_fn_da_plot = acq_fn_da.rename(rename_map)
-        lonlat_lookup = coords_ref.sel(x=acq_fn_da_plot['x'], y=acq_fn_da_plot['y'], method='nearest')
+        lonlat_lookup = coords_ref.sel(
+            x=acq_fn_da_plot["x"], y=acq_fn_da_plot["y"], method="nearest"
+        )
         # lonlat_lookup's x/y coords are coords_ref's matched (integer) grid indices,
         # not acq_fn_da_plot's (coarsened, non-integer) ones, so assigning the
         # DataArrays directly would realign by label and produce NaN again. Attach
         # the raw values positionally instead.
         acq_fn_da_plot = acq_fn_da_plot.assign_coords(
-            lon=(('y', 'x'), lonlat_lookup['lon'].data),
-            lat=(('y', 'x'), lonlat_lookup['lat'].data),
+            lon=(("y", "x"), lonlat_lookup["lon"].data),
+            lat=(("y", "x"), lonlat_lookup["lat"].data),
         )
 
         # X_new_df's lat/lon columns are the same native-grid-index values as
         # acq_fn_da's original coords, so look up their real lon/lat the same
         # way to match acq_fn_da_plot's geographic coords when plotting.
         lonlat_lookup_new = coords_ref.sel(
-            x=xr.DataArray(X_new_df[greedy_alg.x2_name].values, dims='points'),
-            y=xr.DataArray(X_new_df[greedy_alg.x1_name].values, dims='points'),
-            method='nearest'
+            x=xr.DataArray(X_new_df[greedy_alg.x2_name].values, dims="points"),
+            y=xr.DataArray(X_new_df[greedy_alg.x1_name].values, dims="points"),
+            method="nearest",
         )
         X_new_df_plot = X_new_df.copy()
-        X_new_df_plot[greedy_alg.x2_name] = lonlat_lookup_new['lon'].values
-        X_new_df_plot[greedy_alg.x1_name] = lonlat_lookup_new['lat'].values
+        X_new_df_plot[greedy_alg.x2_name] = lonlat_lookup_new["lon"].values
+        X_new_df_plot[greedy_alg.x1_name] = lonlat_lookup_new["lat"].values
 
         # raw_stn_locs's lat/lon columns are likewise the full-resolution
         # grid-index values used to build X_stn (map_coord_array needs them
         # in that space), so look up their real lon/lat for plotting too.
         lonlat_lookup_stn = coords_ref.sel(
-            x=xr.DataArray(raw_stn_locs['lon'].values, dims='points'),
-            y=xr.DataArray(raw_stn_locs['lat'].values, dims='points'),
-            method='nearest'
+            x=xr.DataArray(raw_stn_locs["lon"].values, dims="points"),
+            y=xr.DataArray(raw_stn_locs["lat"].values, dims="points"),
+            method="nearest",
         )
         raw_stn_locs_plot = raw_stn_locs.copy()
-        raw_stn_locs_plot['lon'] = lonlat_lookup_stn['lon'].values
-        raw_stn_locs_plot['lat'] = lonlat_lookup_stn['lat'].values
+        raw_stn_locs_plot["lon"] = lonlat_lookup_stn["lon"].values
+        raw_stn_locs_plot["lat"] = lonlat_lookup_stn["lat"].values
 
-        ax = myplt.new_placements_plot_xy_hirham5native(acq_fn_da_plot, X_new_df_plot, raw_stn_locs_plot[['lat', 'lon']], cmap='YlGnBu', title=args.acq_fn)
-        ax.get_figure().savefig(os.path.join(figdir, f'newplacements_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg'), bbox_inches="tight", dpi=300)
+        ax = myplt.new_placements_plot_xy_hirham5native(
+            acq_fn_da_plot,
+            X_new_df_plot,
+            raw_stn_locs_plot[["lat", "lon"]],
+            cmap="YlGnBu",
+            title=args.acq_fn,
+        )
+        ax.get_figure().savefig(
+            os.path.join(
+                figdir,
+                f"newplacements_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg",
+            ),
+            bbox_inches="tight",
+            dpi=300,
+        )
 
     else:
-        fig, ax = myplt.new_placements_plot_xy(acq_fn_da, X_new_df, raw_stn_locs[['lat', 'lon']], title=args.acq_fn)
-        fig.savefig(os.path.join(figdir, f'newplacements_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg'))
-        fig.savefig(os.path.join(figdir, f'newplacements_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg'))
+        fig, ax = myplt.new_placements_plot_xy(
+            acq_fn_da, X_new_df, raw_stn_locs[["lat", "lon"]], title=args.acq_fn
+        )
+        fig.savefig(
+            os.path.join(
+                figdir,
+                f"newplacements_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg",
+            )
+        )
+        fig.savefig(
+            os.path.join(
+                figdir,
+                f"newplacements_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg",
+            )
+        )
+
 
 if __name__ == "__main__":
     main()
