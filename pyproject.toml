@@ -107,7 +107,7 @@ select = [
   "PGH",  # pygrep-hooks
   "RUF",  # Ruff-specific rules
 ]
-ignore = ["E501"]
+ignore = ["E501"] # line-too-long
 unfixable = [
   "F401",   # Would remove unused imports
   "F841",   # Would remove unused variables
