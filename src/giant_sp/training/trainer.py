@@ -264,7 +264,9 @@ class Trainer:
 
         # Plot encoding and log it to wandb
         fig = dsplt.context_encoding(model, val_tasks[0], model.task_loader)
-        wandb.log({"encoding": wandb.Image(fig)})
+        if self.use_wandb:
+            wandb.log({"encoding": wandb.Image(fig)})
+        plt.close(fig)
 
         # Wrap with torch DataLoader for training loop
         task_dataloader_tr = DataLoader(
