@@ -119,7 +119,7 @@ if __name__ == "__main__":
     for var, (vmin, vmax) in vars_ranges.items():
         if var in ds_all.data_vars:
             data = ds_all[var]
-            logging.info(" check if %s in [%d, %d]...", var, vmin, vmax)
+            logging.info(" check if %s in [%s, %s]...", var, vmin, vmax)
             clipped_at_min = (
                 (data < vmin) if vmin is not None else xr.zeros_like(data, dtype=bool)
             )
