@@ -344,10 +344,11 @@ class Trainer:
                     model.model.state_dict(),
                     os.path.join(self.local_save_dir, f"weights-ep{ep:02}.pt"),
                 )
-                wandb.save(
-                    os.path.join(self.local_save_dir, f"weights-ep{ep:02}.pt"),
-                    base_path=self.wandb_run.dir,
-                )
+                if self.use_wandb:
+                    wandb.save(
+                        os.path.join(self.local_save_dir, f"weights-ep{ep:02}.pt"),
+                        base_path=self.wandb_run.dir,
+                    )
 
             # Track val metrics
             logger.info("Starting val set prediction")
