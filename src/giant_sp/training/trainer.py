@@ -386,15 +386,13 @@ class Trainer:
                 # Save best val loss weights
                 if epoch_loss_stnval < self.best_stnval_loss:
                     self.best_stnval_loss = epoch_loss_stnval
-                    wandb.run.summary["best_stnval_loss"] = self.best_stnval_loss
-                    torch.save(
-                        model.model.state_dict(),
-                        os.path.join(self.local_save_dir, "best-weights-stnval.pt"),
+                    weights_path = os.path.join(
+                        self.local_save_dir, "best-weights-stnval.pt"
                     )
-                    wandb.save(
-                        os.path.join(self.local_save_dir, "best-weights-stnval.pt"),
-                        base_path=self.wandb_run.dir,
-                    )
+                    torch.save(model.model.state_dict(), weights_path)
+                    if self.use_wandb:
+                        wandb.run.summary["best_stnval_loss"] = self.best_stnval_loss
+                        wandb.save(weights_path, base_path=self.wandb_run.dir)
                 # Track val metrics
                 logger.info("Starting stnval set prediction")
                 stnval_pred, stnval_err_ds = compute_pred_ds(
