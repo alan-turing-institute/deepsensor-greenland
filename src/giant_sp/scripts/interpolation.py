@@ -80,7 +80,9 @@ def main(args):
     logger.info(
         "Active devices before updating default: %s", torch.get_default_device()
     )
-    set_gpu_default_device() if torch.cuda.is_available() else torch.device("cpu")
+    if torch.cuda.is_available():
+        set_gpu_default_device()
+
     logger.info("Active devices after updating default: %s", torch.get_default_device())
     logger.info("Configuration: %s", args.config)
 

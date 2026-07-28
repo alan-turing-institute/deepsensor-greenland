@@ -10,19 +10,19 @@ from collections.abc import Callable
 
 import cartopy.crs as ccrs
 import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
-import torch
-import torch.optim as optim
-import wandb
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 matplotlib.use("Agg")
 
 import deepsensor.plot as dsplt
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+import torch
+import torch.optim as optim
+import wandb
 import xarray as xr
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 import giant_sp.utils.plots as myplt
 import giant_sp.utils.training as tu
@@ -74,9 +74,9 @@ class Trainer:
         else:
             self.projection = ccrs.PlateCarree()
 
-        if self.use_wandb & self.config["training"]["resume"]:
+        if self.use_wandb and self.config["training"]["resume"]:
             self._restore_wandb()
-        elif self.use_wandb & (not self.config["training"]["resume"]):
+        elif self.use_wandb and (not self.config["training"]["resume"]):
             if self.wandb_run is not None:
                 self._setup_existing_wandb_run()
             else:
@@ -264,7 +264,9 @@ class Trainer:
 
         # Plot encoding and log it to wandb
         fig = dsplt.context_encoding(model, val_tasks[0], model.task_loader)
-        wandb.log({"encoding": wandb.Image(fig)})
+        if self.use_wandb:
+            wandb.log({"encoding": wandb.Image(fig)})
+        plt.close(fig)
 
         # Wrap with torch DataLoader for training loop
         task_dataloader_tr = DataLoader(
@@ -320,16 +322,13 @@ class Trainer:
                 self.epochs_without_improvement = 0
 
                 if self.train_config.get("save_best_only", True):
-                    wandb.run.summary["best_val_loss"] = self.best_val_loss
-                    self.model.save_model(
-                        os.path.join(self.local_save_dir, "best-weights.pt")
-                    )
-                    wandb.save(
-                        os.path.join(self.local_save_dir, "best-weights.pt"),
-                        base_path=self.wandb_run.dir,
-                    )
-                else:
-                    self.epochs_without_improvement += 1
+                    weights_path = os.path.join(self.local_save_dir, "best-weights.pt")
+                    self.model.save_model(weights_path)
+                    if self.use_wandb:
+                        wandb.run.summary["best_val_loss"] = self.best_val_loss
+                        wandb.save(weights_path, base_path=self.wandb_run.dir)
+            else:
+                self.epochs_without_improvement += 1
 
             # Early stopping
             if (
@@ -345,10 +344,11 @@ class Trainer:
                     model.model.state_dict(),
                     os.path.join(self.local_save_dir, f"weights-ep{ep:02}.pt"),
                 )
-                wandb.save(
-                    os.path.join(self.local_save_dir, f"weights-ep{ep:02}.pt"),
-                    base_path=self.wandb_run.dir,
-                )
+                if self.use_wandb:
+                    wandb.save(
+                        os.path.join(self.local_save_dir, f"weights-ep{ep:02}.pt"),
+                        base_path=self.wandb_run.dir,
+                    )
 
             # Track val metrics
             logger.info("Starting val set prediction")
@@ -387,15 +387,13 @@ class Trainer:
                 # Save best val loss weights
                 if epoch_loss_stnval < self.best_stnval_loss:
                     self.best_stnval_loss = epoch_loss_stnval
-                    wandb.run.summary["best_stnval_loss"] = self.best_stnval_loss
-                    torch.save(
-                        model.model.state_dict(),
-                        os.path.join(self.local_save_dir, "best-weights-stnval.pt"),
+                    weights_path = os.path.join(
+                        self.local_save_dir, "best-weights-stnval.pt"
                     )
-                    wandb.save(
-                        os.path.join(self.local_save_dir, "best-weights-stnval.pt"),
-                        base_path=self.wandb_run.dir,
-                    )
+                    torch.save(model.model.state_dict(), weights_path)
+                    if self.use_wandb:
+                        wandb.run.summary["best_stnval_loss"] = self.best_stnval_loss
+                        wandb.save(weights_path, base_path=self.wandb_run.dir)
                 # Track val metrics
                 logger.info("Starting stnval set prediction")
                 stnval_pred, stnval_err_ds = compute_pred_ds(
