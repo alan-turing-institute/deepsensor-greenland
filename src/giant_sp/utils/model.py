@@ -2,6 +2,7 @@ import xarray as xr
 
 from giant_sp.utils.training import batched
 
+
 def compute_pred_ds(
     model, tasks, truth_ds, varname, pred_params, mask=None, res_factor=1
 ):

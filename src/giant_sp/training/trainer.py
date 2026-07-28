@@ -10,19 +10,19 @@ from collections.abc import Callable
 
 import cartopy.crs as ccrs
 import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
-import torch
-import torch.optim as optim
-import wandb
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 matplotlib.use("Agg")
 
 import deepsensor.plot as dsplt
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+import torch
+import torch.optim as optim
+import wandb
 import xarray as xr
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 import giant_sp.utils.plots as myplt
 import giant_sp.utils.training as tu
