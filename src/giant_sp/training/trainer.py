@@ -322,16 +322,13 @@ class Trainer:
                 self.epochs_without_improvement = 0
 
                 if self.train_config.get("save_best_only", True):
-                    wandb.run.summary["best_val_loss"] = self.best_val_loss
-                    self.model.save_model(
-                        os.path.join(self.local_save_dir, "best-weights.pt")
-                    )
-                    wandb.save(
-                        os.path.join(self.local_save_dir, "best-weights.pt"),
-                        base_path=self.wandb_run.dir,
-                    )
-                else:
-                    self.epochs_without_improvement += 1
+                    weights_path = os.path.join(self.local_save_dir, "best-weights.pt")
+                    self.model.save_model(weights_path)
+                    if self.use_wandb:
+                        wandb.run.summary["best_val_loss"] = self.best_val_loss
+                        wandb.save(weights_path, base_path=self.wandb_run.dir)
+            else:
+                self.epochs_without_improvement += 1
 
             # Early stopping
             if (
