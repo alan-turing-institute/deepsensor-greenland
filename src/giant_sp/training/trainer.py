@@ -74,9 +74,9 @@ class Trainer:
         else:
             self.projection = ccrs.PlateCarree()
 
-        if self.use_wandb & self.config["training"]["resume"]:
+        if self.use_wandb and self.config["training"]["resume"]:
             self._restore_wandb()
-        elif self.use_wandb & (not self.config["training"]["resume"]):
+        elif self.use_wandb and (not self.config["training"]["resume"]):
             if self.wandb_run is not None:
                 self._setup_existing_wandb_run()
             else:
