@@ -418,7 +418,8 @@ class HIRHAM5DataLoader(BaseDataLoader):
         # Make task loader
         if len(self.variables) > 1:
             ds_target = data_processor(
-            raw_ds[self.context_vars[0]].sel(time=dates), method="positive_semidefinite"
+                raw_ds[self.context_vars[0]].sel(time=dates),
+                method="positive_semidefinite",
             )
             ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=dates))
             context = [ds_target, ds_others, aux_ds]
@@ -566,7 +567,8 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         # Make task loader
         if len(self.variables) > 1:
             ds_target = data_processor(
-            raw_ds[self.context_vars[0]].sel(time=dates), method="positive_semidefinite"
+                raw_ds[self.context_vars[0]].sel(time=dates),
+                method="positive_semidefinite",
             )
             ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=dates))
             context = [ds_target, ds_others, aux_ds]

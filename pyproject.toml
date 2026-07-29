@@ -48,8 +48,8 @@ test = [
   "pytest-cov>=6.0",
 ]
 lint = [
+  "mypy>=1.15",
   "ruff>=0.15",
-  "ty>=0.0.1a7",
 ]
 
 [project.urls]
@@ -78,14 +78,15 @@ port.exclude_lines = [
   'if typing.TYPE_CHECKING:',
 ]
 
-[tool.ty.environment]
-python-version = "3.11"
-
-[tool.ty.rules]
-unused-ignore-comment = "warn"
-
-[tool.ty.src]
-include = ["src"]
+[tool.mypy]
+python_version = "3.11"
+files = ["src/giant_sp"]
+explicit_package_bases = true
+mypy_path = ["src"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+ignore_missing_imports = true
 
 [tool.ruff]
 line-length = 88
