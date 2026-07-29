@@ -412,9 +412,6 @@ class HIRHAM5DataLoader(BaseDataLoader):
         # Apply/learn
         aux_ds = data_processor(lsm_raw_ds, method="min_max")
 
-        # Spatiotemporal aux
-        aux_ds = self.add_spatiotemporal_aux(aux_ds.to_dataset(), ds_target)
-
         # Make task loader
         if len(self.variables) > 1:
             ds_target = data_processor(
@@ -422,10 +419,12 @@ class HIRHAM5DataLoader(BaseDataLoader):
                 method="positive_semidefinite",
             )
             ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=dates))
+            aux_ds = self.add_spatiotemporal_aux(aux_ds.to_dataset(), ds_target)
             context = [ds_target, ds_others, aux_ds]
             target = [ds_target[self.target_vars]]
         else:
             ds = data_processor(raw_ds.sel(time=dates))
+            aux_ds = self.add_spatiotemporal_aux(aux_ds.to_dataset(), ds)
             context = [ds[self.context_vars], aux_ds]
             target = [ds[self.target_vars]]
 
@@ -558,11 +557,6 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         # Apply/learn
         aux_ds = data_processor(lsm_raw_ds, method="min_max")
 
-        # Spatiotemporal aux
-        aux_ds = self.add_spatiotemporal_aux(
-            aux_ds.to_dataset(name="GRLmask"), ds_target
-        )
-
         # Make task loader
         # Make task loader
         if len(self.variables) > 1:
@@ -571,10 +565,14 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
                 method="positive_semidefinite",
             )
             ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=dates))
+            aux_ds = self.add_spatiotemporal_aux(
+                aux_ds.to_dataset(name="GRLmask"), ds_target
+            )
             context = [ds_target, ds_others, aux_ds]
             target = [ds_target[self.target_vars]]
         else:
             ds = data_processor(raw_ds.sel(time=dates))
+            aux_ds = self.add_spatiotemporal_aux(aux_ds.to_dataset(name="GRLmask"), ds)
             context = [ds[self.context_vars], aux_ds]
             target = [ds[self.target_vars]]
 
