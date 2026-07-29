@@ -558,6 +558,19 @@ class Trainer:
         )
         plt.close(fig)
 
+    def _plot_additional_charts_forecast(self, rmse_lt, epoch):
+        fig, ax = plt.subplots(figsize=(4, 3))
+        rmse_lt.plot(ax=ax, marker='o')
+        lead_time_nanoseconds = rmse_lt.lead_time.data.astype(int)
+        ax.set_xticks(lead_time_nanoseconds)
+        lead_time_days = rmse_lt.lead_time.dt.days.data
+        ax.set_xticklabels(lead_time_days)
+        ax.set_ylabel('RMSE (m $d^-1$)')
+        ax.set_xlabel('Lead time (months)')
+        ax.set_title('Forecast skill')
+        wandb.log({f'predictions/forecastskill': wandb.Image(fig)}, step=epoch)
+        plt.close(fig)
+
     def _log_wandb_metrics(self, epoch: int, train_loss: float, val_loss: float):
         """
         Log metrics to Weights & Biases
