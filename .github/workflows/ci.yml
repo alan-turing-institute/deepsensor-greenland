@@ -18,12 +18,13 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - run: uv run pre-commit run --all-files
 
-  typecheck:
+  mypy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v7
-      - run: uv run ty check
+      - run: uv sync --locked --group lint
+      - run: uv run mypy
 
   test:
     runs-on: ubuntu-latest
