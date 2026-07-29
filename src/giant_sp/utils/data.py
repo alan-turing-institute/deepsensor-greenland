@@ -24,8 +24,7 @@ def sample_land_locations(n_obs, lsm=None, seed=None, invert_mask=False):
         invert_mask (bool): default False. If True, sample from sea instead of land
     """
     if lsm is None:
-        lsm = dl.load_aux_ds("global", "lsm", resolution=0.25)["lsm"]
-        lsm = lsm.where(lsm > 0.5, other=0)
+        raise ValueError("Land-sea mask (lsm) must be provided.")
     lsm = lsm.astype(bool)
     if invert_mask:
         lsm = ~lsm
