@@ -162,7 +162,7 @@ class GapFillTaskStreamDataset(IterableDataset):
         if shuffle:
             self.date_list = np.random.permutation(date_list)
         else:
-            self.date_list = date_list
+            self.date_list = np.array(date_list)
         self.min_date = min_date
         self.max_date = max_date
         self.freq = frequency

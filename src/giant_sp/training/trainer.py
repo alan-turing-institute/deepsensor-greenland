@@ -51,7 +51,7 @@ class Trainer:
         self.optimizer = self._create_optimizer()
 
         # Training history
-        self.history = {"train_loss": [], "val_loss": [], "epoch": []}
+        self.history: dict[str, list] = {"train_loss": [], "val_loss": [], "epoch": []}
 
         # Best model tracking
         self.best_val_loss = np.inf
@@ -325,6 +325,7 @@ class Trainer:
                     weights_path = os.path.join(self.local_save_dir, "best-weights.pt")
                     self.model.save_model(weights_path)
                     if self.use_wandb:
+                        assert wandb.run is not None
                         wandb.run.summary["best_val_loss"] = self.best_val_loss
                         wandb.save(weights_path, base_path=self.wandb_run.dir)
             else:
@@ -392,6 +393,7 @@ class Trainer:
                     )
                     torch.save(model.model.state_dict(), weights_path)
                     if self.use_wandb:
+                        assert wandb.run is not None
                         wandb.run.summary["best_stnval_loss"] = self.best_stnval_loss
                         wandb.save(weights_path, base_path=self.wandb_run.dir)
                 # Track val metrics

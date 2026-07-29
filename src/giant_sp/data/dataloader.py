@@ -6,7 +6,7 @@ import glob
 import json
 import logging
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -48,7 +48,7 @@ class BaseDataLoader:
         self.val_end = config["data"]["val_end"]
         self.lsm_mask = config["dataloader"]["lsm_mask"]
         self.frequency = config["dataloader"]["frequency"]
-        self.variables = []
+        self.variables: list[str] = []
 
     def add_spatiotemporal_aux(self, aux_ds, ref_ds):
         x1x2_ds = construct_x1x2_ds(aux_ds)
@@ -105,7 +105,7 @@ class BaseDataLoader:
 
     def featurize_vars(
         self, var: str, dims: Sequence[str], chunks: Sequence[str], abs: np.ndarray
-    ) -> Mapping[str, xr.Variable]:
+    ) -> xr.Dataset:
         """Derives features
 
         Args:
@@ -114,7 +114,7 @@ class BaseDataLoader:
           abs: Array of abs values.
 
         Returns:
-          Dictionary of xarray variables derived.
+          Dataset of xarray variables derived.
         """
 
         ds = xr.Dataset()

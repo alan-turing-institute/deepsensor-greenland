@@ -33,7 +33,7 @@ def setup_logging():
 if __name__ == "__main__":
     # Setup logging
     setup_logging()
-    logging = logging.getLogger(__name__)
+    logger = logging.getLogger(__name__)
 
     dask.config.set(scheduler="threads")
 
@@ -72,34 +72,36 @@ if __name__ == "__main__":
     print(meta)
     meta.attrs = src.attrs
     filepath = os.path.sep.join([out_path, "coords_only.zarr"])
-    logging.info("GRL mask saved to %s", filepath)
+    logger.info("GRL mask saved to %s", filepath)
     meta.to_zarr(filepath, mode="w", consolidated=True)
 
     # %% -------------------- Create stacked nc files for AuxFiles --------------------
     # -------------------- Create file with GRL mask --------------------
     filepath = os.path.sep.join([out_path, "GRLmask.zarr"])
     ds_basins = xr.open_dataset(os.path.sep.join([in_path_aux, "GRLmask.nc"]))
-    ds = ds_basins[["glacGRL", "maskbas"]]
-    ds = ds.stack(z=("x", "y")).reset_index("z")  # flatten spatial dimension
-    ds = ds.dropna(dim="z", how="all")  # drop all NaN values
-    ds.to_zarr(filepath, mode="w", consolidated=True)
-    logging.info("GRL mask saved to %s", filepath)
-    ds.close()
+    ds_mask = ds_basins[["glacGRL", "maskbas"]]
+    ds_mask = ds_mask.stack(z=("x", "y")).reset_index("z")  # flatten spatial dimension
+    ds_mask = ds_mask.dropna(dim="z", how="all")  # drop all NaN values
+    ds_mask.to_zarr(filepath, mode="w", consolidated=True)
+    logger.info("GRL mask saved to %s", filepath)
+    ds_mask.close()
 
     # -------------------- Create file with zones --------------------
     filepath = os.path.sep.join(
         [out_path, "GRLzones.zarr"]
     )  # output file from create_spatial_subsampling.py
     ds_zones = xr.open_dataset(os.path.sep.join([in_path_aux, "GRLzones.nc"]))
-    ds = ds_zones["zones"]
-    ds = ds.stack(z=("x", "y")).reset_index("z")  # flatten spatial dimension
-    ds = ds.dropna(dim="z", how="all")  # drop all NaN values
-    ds.to_zarr(filepath, mode="w", consolidated=True)
-    logging.info("GRL mask saved to %s", filepath)
+    da_zones = ds_zones["zones"]
+    da_zones = da_zones.stack(z=("x", "y")).reset_index(
+        "z"
+    )  # flatten spatial dimension
+    da_zones = da_zones.dropna(dim="z", how="all")  # drop all NaN values
+    da_zones.to_zarr(filepath, mode="w", consolidated=True)
+    logger.info("GRL mask saved to %s", filepath)
     ds_zones.close()
 
     # %% Correct daily files: clip to valid ranges, correct runoff values using available water estimates
-    logging.info("Load all daily files ...")
+    logger.info("Load all daily files ...")
     years = range(1980, 2017)
     dropvars = ["tsl", "sn", "evspsbl", "gld"]
     chunks_init = {"time": 1024, "y": 64, "x": 64}
@@ -111,7 +113,7 @@ if __name__ == "__main__":
     ).drop_vars(dropvars)
     ds_all = ds_all.sortby("time")
 
-    logging.info("Correct data ranges ...")
+    logger.info("Correct data ranges ...")
     vars_ranges = {
         "ahfs": (-140, None),
     }
@@ -119,7 +121,7 @@ if __name__ == "__main__":
     for var, (vmin, vmax) in vars_ranges.items():
         if var in ds_all.data_vars:
             data = ds_all[var]
-            logging.info(" check if %s in [%s, %s]...", var, vmin, vmax)
+            logger.info(" check if %s in [%s, %s]...", var, vmin, vmax)
             clipped_at_min = (
                 (data < vmin) if vmin is not None else xr.zeros_like(data, dtype=bool)
             )
@@ -130,36 +132,36 @@ if __name__ == "__main__":
             n_clipped_max = clipped_at_max.sum().compute().item()
 
             if n_clipped_min > 0:
-                logging.info("   # samples clipped at min: %d", n_clipped_min)
+                logger.info("   # samples clipped at min: %d", n_clipped_min)
             if n_clipped_max > 0:
-                logging.info("   # samples clipped at max: %d", n_clipped_max)
+                logger.info("   # samples clipped at max: %d", n_clipped_max)
             ds_all[var] = data.clip(min=vmin, max=vmax)
 
         else:
-            logging.info("%s: not found in dataset", var)
+            logger.info("%s: not found in dataset", var)
 
     # %% -------------------- Restructure dataset, and save daily data to zarr files --------------------
     filepath = os.path.sep.join([out_path, "base_dataset.zarr"])
     chunksize = {"time": 2048, "z": -1}
-    logging.info("Re-structure dataset...")
+    logger.info("Re-structure dataset...")
     # ds = ds.to_dataarray(dim='variable_names') # stack all variables into an extra dimension
     # ds.name = "data"
-    logging.info("Flatten spatial dimension...")
+    logger.info("Flatten spatial dimension...")
     ds = ds_all.stack(z=("x", "y")).reset_index("z")  # flatten spatial dimension
-    logging.info("Drop nans...")
+    logger.info("Drop nans...")
     # ds = ds.dropna(dim='z', how='all')  # drop all NaN values
     nan_mask = (
         ~ds["tas"].isnull().all(dim=["time"]).compute()
     )  # compute null only from tas, because either all vars or none are nan for a specific location!
-    logging.info("Shape of nan-maks: %s", nan_mask.shape)
-    logging.info("amount of all z: %d", len(ds.z))
+    logger.info("Shape of nan-maks: %s", nan_mask.shape)
+    logger.info("amount of all z: %d", len(ds.z))
     ds = ds.isel(z=nan_mask)
-    logging.info("amount of non-nan z: %d", len(ds.z))
+    logger.info("amount of non-nan z: %d", len(ds.z))
 
-    logging.info("Rechunk time dimension...")
+    logger.info("Rechunk time dimension...")
     ds = ds.chunk(chunksize)
 
-    logging.info("Saving data to %s...", filepath)
+    logger.info("Saving data to %s...", filepath)
 
     with ProgressBar():
         ds.to_zarr(filepath, mode="w", consolidated=True)
@@ -170,11 +172,11 @@ if __name__ == "__main__":
 
     ds_sel = ds[vars_to_roll]
 
-    logging.info("Create 10yrs rolling mean for %s...", vars_to_roll)
+    logger.info("Create 10yrs rolling mean for %s...", vars_to_roll)
     window_size = 3652
     rolling_10yr = ds_sel.rolling(time=window_size, min_periods=window_size)
 
-    logging.info("  drop nans ...")
+    logger.info("  drop nans ...")
     means_10yr = rolling_10yr.mean()
     means_10yr = means_10yr.sel(time=slice("1990-01-01", None))
 

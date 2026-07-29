@@ -24,8 +24,8 @@ class DeepSensorModel:
             config: Configuration dictionary
         """
         self.config = config
-        self.model = None
-        self.task_loader = None
+        self.model: ConvNP | None = None
+        self.task_loader: TaskLoader | None = None
         self.normalization_params = None
 
     def build_model(self, data_processor: DataProcessor, task_loader: TaskLoader):
