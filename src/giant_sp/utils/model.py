@@ -1,3 +1,6 @@
+"""Utility functions for model evaluation and prediction.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
