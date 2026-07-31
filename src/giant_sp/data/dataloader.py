@@ -328,7 +328,7 @@ class CARRA2DataLoader(BaseDataLoader):
 
     Attributes
     ----------
-    bm_ancils_path : str
+    ancils_path : str
         Path to the directory containing BedMachine ancillary files (basin
         and land-sea mask rasters).
     basin_x, basin_y : xarray.DataArray
@@ -343,10 +343,10 @@ class CARRA2DataLoader(BaseDataLoader):
         ----------
         config : dict[str, Any]
             Configuration dictionary. Must additionally contain
-            ``config["data"]["bedmachine_ancillary_path"]``.
+            ``config["data"]["ancillary_path"]``.
         """
         super().__init__(config)
-        self.bm_ancils_path: str = config["data"]["bedmachine_ancillary_path"]
+        self.ancils_path: str = config["data"]["ancillary_path"]
         if self.basin is not None:
             self.basin_x, self.basin_y = self.load_basin(target_basin=self.basin)
 
@@ -371,7 +371,7 @@ class CARRA2DataLoader(BaseDataLoader):
             ``y`` coordinate values covered by ``target_basin``.
         """
         basin_ds = xr.open_dataset(
-            os.path.join(self.bm_ancils_path, "basins_2500m.nc")
+            os.path.join(self.ancils_path, "basins_2500m.nc")
         )["subregion"]
         label_to_code = {
             v: int(k) for k, v in json.loads(basin_ds.attrs["subregion_labels"]).items()
@@ -475,7 +475,7 @@ class CARRA2DataLoader(BaseDataLoader):
 
         elif resolution == "bedmachine":
             lsm_raw_ds = xr.open_dataset(
-                os.path.join(self.bm_ancils_path, "lsm_2500m.nc")
+                os.path.join(self.ancils_path, "lsm_2500m.nc")
             )["lsm"]
 
             if self.basin is not None:
@@ -557,7 +557,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
 
     Attributes
     ----------
-    bm_ancils_path : str
+    ancils_path : str
         Path to the directory containing BedMachine ancillary files (basin
         and ablation-zone mask rasters).
     basin_x, basin_y : xarray.DataArray
@@ -572,10 +572,10 @@ class HIRHAM5DataLoader(BaseDataLoader):
         ----------
         config : dict[str, Any]
             Configuration dictionary. Must additionally contain
-            ``config["data"]["bedmachine_ancillary_path"]``.
+            ``config["data"]["ancillary_path"]``.
         """
         super().__init__(config)
-        self.bm_ancils_path: str = config["data"]["bedmachine_ancillary_path"]
+        self.ancils_path: str = config["data"]["ancillary_path"]
         if self.basin is not None:
             self.basin_x, self.basin_y = self.load_basin(target_basin=self.basin)
 
@@ -600,7 +600,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
             ``y`` coordinate values covered by ``target_basin``.
         """
         basin_ds = xr.open_dataset(
-            os.path.join(self.bm_ancils_path, "basins_5500m.nc")
+            os.path.join(self.ancils_path, "basins_5500m.nc")
         )["subregion"]
         label_to_code = {
             v: int(k) for k, v in json.loads(basin_ds.attrs["subregion_labels"]).items()
@@ -710,7 +710,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
 
         elif resolution == "bedmachine":
             lsm_raw_ds = xr.open_dataset(
-                os.path.join(self.bm_ancils_path, "ablation_5500m.nc")
+                os.path.join(self.ancils_path, "ablation_5500m.nc")
             )["ablation"]
 
             if lsm_raw_ds.dims == ("lat", "lon"):
@@ -804,9 +804,8 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
 
     Attributes
     ----------
-    bm_ancils_path : str
-        Path to the directory containing BedMachine ancillary files. Set to
-        the same value as ``self.source`` (see :meth:`__init__`).
+    ancils_path : str
+        Path to the directory containing ancillary files.
     basin_x, basin_y : xarray.DataArray
         ``x``/``y`` coordinate arrays covering the bounding box of
         ``self.basin``. Only set if ``self.basin is not None``.
@@ -819,10 +818,10 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         ----------
         config : dict[str, Any]
             Configuration dictionary. Must additionally contain
-            ``config["data"]["bedmachine_ancillary_path"]``.
+            ``config["data"]["ancillary_path"]``.
         """
         super().__init__(config)
-        self.bm_ancils_path: str = config["data"]["bedmachine_ancillary_path"]
+        self.ancils_path: str = config["data"]["ancillary_path"]
         self.train_start: str = config["data"]["train_start"]
         self.val_end: str = config["data"]["val_end"]
         if self.basin is not None:
@@ -849,7 +848,7 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
             ``y`` coordinate values covered by ``target_basin``.
         """
         basin_ds = xr.open_zarr(
-            os.path.join(self.source, "GRLmask.zarr"), chunks="auto"
+            os.path.join(self.ancils_path, "GRLmask.zarr"), chunks="auto"
         )["maskbas"]
         basin_ds = basin_ds.set_index(z=["y", "x"]).unstack("z").compute()
         label_to_code = {"N": 1, "NE": 2, "CE": 3, "SE": 4, "SW": 5, "NW": 6}
@@ -957,7 +956,7 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
 
         elif resolution == "bedmachine":
             mask_native = xr.open_zarr(
-                os.path.join(self.source, "GRLmask.zarr"), chunks="auto"
+                os.path.join(self.ancils_path, "GRLmask.zarr"), chunks="auto"
             )
             mask_native = mask_native["glacGRL"].set_index(z=["y", "x"]).unstack("z")
             lsm_raw_ds = mask_native.drop_vars(["lat", "lon"]).fillna(0)
