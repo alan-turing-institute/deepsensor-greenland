@@ -1,5 +1,4 @@
-"""Utility functions for computing metrics.
-"""
+"""Utility functions for computing metrics."""
 
 import numpy as np
 import scipy as sp

@@ -1,5 +1,4 @@
-"""Utility functions for data handling and sampling.
-"""
+"""Utility functions for data handling and sampling."""
 
 from __future__ import annotations
 

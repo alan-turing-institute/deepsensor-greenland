@@ -1,5 +1,4 @@
-"""Utility functions for model evaluation and prediction.
-"""
+"""Utility functions for model evaluation and prediction."""
 
 from __future__ import annotations
 
