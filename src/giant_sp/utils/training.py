@@ -236,10 +236,7 @@ class TaskStreamDataset(IterableDataset[Task]):
         for date in self.date_list:
             # Context sampling
             context: SamplingSpec | np.integer[Any]
-            if (
-                isinstance(self.sampling_strat, str)
-                and self.sampling_strat == "n_obs"
-            ):
+            if isinstance(self.sampling_strat, str) and self.sampling_strat == "n_obs":
                 # Number of off-grid context observations to sample
                 context = rng.integers(self.min_obs, self.max_obs)
             elif self.sampling_strat == "land_obs":
