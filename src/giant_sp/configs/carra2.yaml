@@ -5,7 +5,7 @@ data:
   source: "carra2"
   data_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/anemoi/datasets/processed/carra2"
   data_pattern: "carra2-greenland-2p5km-1986-2025-1M-v1-xy-2p5km*.nc"
-  bedmachine_ancillary_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/reference/bedmachinev6"
+  ancillary_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/reference/bedmachinev6"
   station_locations_file: "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations.csv"
   context_var_IDs:  [["2t_abs"],["10u_abs","10v_abs"]]
   target_var_IDs: "2t_abs"
