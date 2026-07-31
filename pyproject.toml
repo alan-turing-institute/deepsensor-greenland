@@ -65,6 +65,10 @@ addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = [
   "error",
+  # deepsensor's `lab` dependency triggers this on import; not actionable from giant_sp.
+  "ignore:numpy.core is deprecated.*:DeprecationWarning:lab",
+  # netCDF4's compiled extension warns about a numpy ABI size mismatch on import.
+  "ignore:numpy.ndarray size changed.*:RuntimeWarning",
 ]
 log_cli_level = "INFO"
 testpaths = [

@@ -1,7 +1,9 @@
+import deepsensor.torch  # noqa: F401  (registers the torch backend with deepsensor)
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+from deepsensor.data import DataProcessor, TaskLoader
 
 
 @pytest.fixture
@@ -41,3 +43,32 @@ def native_grid_ds():
             "lat": (("y", "x"), lat2d),
         }
     )
+
+
+@pytest.fixture(scope="session")
+def tiny_model_config():
+    """A minimal ConvNP config small enough to build/train instantly in tests."""
+    return {"model": {"unet_channels": (4, 4), "likelihood": "cnp"}}
+
+
+@pytest.fixture(scope="session")
+def tiny_dp_and_task_loader():
+    """A DataProcessor + TaskLoader over a tiny synthetic 5x5 lat/lon grid, for
+    building a real (but small/fast) ConvNP without needing real climate data."""
+    lat = np.linspace(0, 1, 5)
+    lon = np.linspace(0, 1, 5)
+    dates = pd.date_range("2020-01-01", periods=3)
+    rng = np.random.default_rng(0)
+    values = rng.normal(size=(len(dates), len(lat), len(lon)))
+    da = xr.DataArray(
+        values,
+        coords={"time": dates, "lat": lat, "lon": lon},
+        dims=("time", "lat", "lon"),
+        name="var",
+    )
+    ds = da.to_dataset()
+
+    data_processor = DataProcessor(x1_name="lat", x2_name="lon", verbose=False)
+    ds_norm = data_processor(ds)
+    task_loader = TaskLoader(context=ds_norm, target=ds_norm)
+    return data_processor, task_loader, dates
