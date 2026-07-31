@@ -1,13 +1,12 @@
-"""
-Data loading and preprocessing utilities for DeepSensor
-"""
+"""Data loading and preprocessing utilities for DeepSensor."""
 
 import glob
 import json
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import Hashable, Sequence
 from pathlib import Path
+from typing import Any, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -26,31 +25,109 @@ cache_dir = ".datacache"
 
 
 class BaseDataLoader:
-    """Base class for data loaders"""
+    """Base class for data loaders.
 
-    def __init__(self, config: dict):
-        """
-        Initialize data loader
+    Reads the common ``data`` and ``dataloader`` sections of a configuration
+    dictionary and exposes helpers shared by all concrete loaders (anomaly
+    computation, feature derivation, spatiotemporal auxiliary variables).
+    Subclasses must implement :meth:`load_ds`, :meth:`load_aux_ds` and
+    :meth:`get_dataproc_taskload`.
 
-        Args:
-            config: Configuration dictionary
+    Parameters
+    ----------
+    config : dict[str, Any]
+        Configuration dictionary, typically loaded from a YAML file. Must
+        contain a ``"data"`` section with keys ``data_path``,
+        ``data_pattern``, ``region``, ``basin``, ``context_var_IDs``,
+        ``target_var_IDs``, ``train_start``, ``train_end``, ``val_start``,
+        ``val_end``, and a ``"dataloader"`` section with keys ``lsm_mask``
+        and ``frequency``.
+
+    Attributes
+    ----------
+    config : dict[str, Any]
+        The configuration dictionary passed at construction.
+    source : pathlib.Path
+        Root path where the source data lives.
+    data_pattern : str
+        Glob pattern (relative to ``source/region``) used to find data files.
+    region : str
+        Region key, used to index ``giant_sp.utils.constants.region_extents``
+        and to build paths under ``source``.
+    basin : str | None
+        Basin code to spatially subset the data to (e.g. ``"SE"``), or
+        ``None`` to keep the full region.
+    context_vars : list[list[str]] | list[str] | str
+        Context variable identifiers, as given in the configuration. May be
+        a flat list, a list of groups (each a list of variable IDs), or a
+        single variable ID.
+    target_vars : str
+        Target variable identifier.
+    train_start, train_end, val_start, val_end : str
+        Date strings (parseable by :class:`pandas.Timestamp`) bounding the
+        training and validation periods.
+    lsm_mask : bool
+        Whether to mask out non-land points using the land-sea mask.
+    frequency : {"D", "H", "MS", "ME"}
+        Frequency code used to derive circular time features.
+    variables : list[str]
+        Flat list of variable IDs to load, populated by :meth:`load_ds` in
+        subclasses.
+    """
+
+    def __init__(self, config: dict[str, Any]) -> None:
+        """Initialize the data loader from a configuration dictionary.
+
+        Parameters
+        ----------
+        config : dict[str, Any]
+            Configuration dictionary. See the class docstring for the
+            required keys.
         """
         self.config = config
         self.source = Path(config["data"]["data_path"])
-        self.data_pattern = config["data"]["data_pattern"]
-        self.region = config["data"]["region"]
-        self.basin = config["data"]["basin"]
-        self.context_vars = config["data"]["context_var_IDs"]
-        self.target_vars = config["data"]["target_var_IDs"]
-        self.train_start = self.config["data"]["train_start"]
-        self.train_end = self.config["data"]["train_end"]
-        self.val_start = config["data"]["val_start"]
-        self.val_end = config["data"]["val_end"]
-        self.lsm_mask = config["dataloader"]["lsm_mask"]
-        self.frequency = config["dataloader"]["frequency"]
+        self.data_pattern: str = config["data"]["data_pattern"]
+        self.region: str = config["data"]["region"]
+        self.basin: str | None = config["data"]["basin"]
+        self.context_vars: list[list[str]] | list[str] | str = config["data"][
+            "context_var_IDs"
+        ]
+        self.target_vars: str = config["data"]["target_var_IDs"]
+        self.train_start: str = self.config["data"]["train_start"]
+        self.train_end: str = self.config["data"]["train_end"]
+        self.val_start: str = config["data"]["val_start"]
+        self.val_end: str = config["data"]["val_end"]
+        self.lsm_mask: bool = config["dataloader"]["lsm_mask"]
+        self.frequency: Literal["D", "H", "MS", "ME"] = config["dataloader"][
+            "frequency"
+        ]
         self.variables: list[str] = []
 
-    def add_spatiotemporal_aux(self, aux_ds, ref_ds):
+    def add_spatiotemporal_aux(
+        self, aux_ds: xr.Dataset, ref_ds: xr.Dataset
+    ) -> xr.Dataset:
+        """Augment auxiliary data with spatial and circular time features.
+
+        Adds normalised spatial coordinate arrays (``x1_arr``, ``x2_arr``)
+        derived from ``aux_ds``, and circular/linear time features (e.g.
+        ``cos_D``/``sin_D``) derived from the time range of ``ref_ds`` at
+        ``self.frequency``.
+
+        Parameters
+        ----------
+        aux_ds : xarray.Dataset
+            Auxiliary dataset to augment in place (e.g. the normalised
+            land-sea mask).
+        ref_ds : xarray.Dataset
+            Reference dataset whose ``time`` coordinate defines the date
+            range used to construct the time features.
+
+        Returns
+        -------
+        xarray.Dataset
+            ``aux_ds`` with ``x1_arr``, ``x2_arr``, ``cos_{frequency}`` and
+            ``sin_{frequency}`` variables added.
+        """
         x1x2_ds = construct_x1x2_ds(aux_ds)
         aux_ds["x1_arr"] = x1x2_ds["x1_arr"]
         aux_ds["x2_arr"] = x1x2_ds["x2_arr"]
@@ -64,14 +141,34 @@ class BaseDataLoader:
 
         return aux_ds
 
-    def compute_gridded_anomalies(self, var_ID, da):
-        """
-        Load or compute the daily climatology of the xarray variable over
-        the training dates, then subtract
-        from the original DataArray to compute anomalies.
+    def compute_gridded_anomalies(self, var_ID: str, da: xr.DataArray) -> xr.DataArray:
+        """Compute anomalies of ``da`` relative to its training climatology.
 
-        TODO:
-        - option for other temporal resolution (don't pin to daily with time.dayofyear)
+        Loads a cached daily climatology (mean over day-of-year, computed
+        over ``[self.train_start, self.train_end]``) if one already exists
+        on disk, otherwise computes and caches it. The climatology is then
+        subtracted from ``da`` to obtain anomalies.
+
+        Parameters
+        ----------
+        var_ID : str
+            Variable identifier, used to build the climatology cache
+            filename.
+        da : xarray.DataArray
+            Absolute-value data array (with a ``time`` dimension) to convert
+            to anomalies.
+
+        Returns
+        -------
+        xarray.DataArray
+            Anomalies of ``da`` relative to its training-period daily
+            climatology.
+
+        Notes
+        -----
+        The climatology is always computed at daily resolution
+        (``time.dayofyear``); there is currently no option for other
+        temporal resolutions.
         """
         # Check if climatology already computed
         climatology_folder = os.path.join(self.source, self.region)
@@ -104,19 +201,37 @@ class BaseDataLoader:
         return da
 
     def featurize_vars(
-        self, var: str, dims: Sequence[str], chunks: Sequence[str], abs: np.ndarray
+        self,
+        var: str,
+        dims: Sequence[Hashable],
+        chunks: Sequence[tuple[int, ...]],
+        abs: xr.DataArray,
     ) -> xr.Dataset:
-        """Derives features
+        """Derive anomaly features for a variable.
 
-        Args:
-          name: Base variable name from which features are derived.
-          dims: List of the output feature dimensions.
-          abs: Array of abs values.
+        Computes the anomaly of ``abs`` (via :meth:`compute_gridded_anomalies`)
+        and returns it as a single-variable dataset, re-chunked along
+        ``dims`` using the given ``chunks``.
 
-        Returns:
-          Dataset of xarray variables derived.
+        Parameters
+        ----------
+        var : str
+            Base variable name from which the anomaly feature is derived.
+            The output variable is named ``f"{var}_anm"``.
+        dims : Sequence[Hashable]
+            Dimension names of ``abs``, in the same order as ``chunks``.
+        chunks : Sequence[tuple[int, ...]]
+            Dask chunk sizes for each dimension in ``dims``, in the same
+            order.
+        abs : xarray.DataArray
+            Absolute-value data array from which the anomaly feature is
+            computed.
+
+        Returns
+        -------
+        xarray.Dataset
+            Dataset containing the single derived variable ``f"{var}_anm"``.
         """
-
         ds = xr.Dataset()
 
         anom = self.compute_gridded_anomalies(var, abs)
@@ -126,7 +241,15 @@ class BaseDataLoader:
 
         return ds
 
-    def init_data_processor(self):
+    def init_data_processor(self) -> DataProcessor:
+        """Create a default :class:`DataProcessor`.
+
+        Returns
+        -------
+        deepsensor.data.processor.DataProcessor
+            A new, unfitted data processor configured with ``x1_name="lat"``
+            and ``x2_name="lon"``.
+        """
         data_processor = DataProcessor(
             x1_name="lat",
             x2_name="lon",
@@ -134,34 +257,119 @@ class BaseDataLoader:
         )
         return data_processor
 
-    def load_ds(self):
+    def load_ds(self) -> xr.Dataset:
+        """Load and preprocess the main gridded dataset.
+
+        Returns
+        -------
+        xarray.Dataset
+            The preprocessed dataset.
+
+        Raises
+        ------
+        NotImplementedError
+            Always; subclasses must override this method.
+        """
         raise NotImplementedError("Subclasses must implement load_ds method")
 
-    def load_aux_ds(self):
+    def load_aux_ds(self) -> xr.DataArray:
+        """Load the auxiliary (land-sea mask) dataset.
+
+        Returns
+        -------
+        xarray.DataArray
+            The auxiliary data array.
+
+        Raises
+        ------
+        NotImplementedError
+            Always; subclasses must override this method.
+        """
         raise NotImplementedError("Subclasses must implement load_aux_ds method")
 
-    def get_dataproc_taskload(self, task=None, data_processor=None):
+    def get_dataproc_taskload(
+        self,
+        dates: Sequence[np.datetime64] | pd.DatetimeIndex | None = None,
+        task: Any | None = None,
+        data_processor: DataProcessor | None = None,
+    ) -> tuple[xr.Dataset, DataProcessor, TaskLoader]:
+        """Build the raw dataset, fitted data processor and task loader.
+
+        Parameters
+        ----------
+        dates : Sequence[numpy.datetime64] | pandas.DatetimeIndex, optional
+            Dates used by subclasses to fit the data processor's
+            normalisation parameters.
+        task : Any, optional
+            Reserved for a pre-built task; not currently used by any
+            subclass implementation.
+        data_processor : deepsensor.data.processor.DataProcessor, optional
+            Existing data processor to reuse. If ``None``, a new one is
+            created via :meth:`init_data_processor`.
+
+        Returns
+        -------
+        tuple[xarray.Dataset, deepsensor.data.processor.DataProcessor, deepsensor.data.loader.TaskLoader]
+            The raw dataset, the (possibly newly-fitted) data processor, and
+            the resulting task loader.
+
+        Raises
+        ------
+        NotImplementedError
+            Always; subclasses must override this method.
+        """
         raise NotImplementedError(
             "Subclasses must implement get_dataproc_taskload method"
         )
 
 
 class CARRA2DataLoader(BaseDataLoader):
-    """Load and preprocess CARRA2 data for DeepSensor models"""
+    """Load and preprocess CARRA2 data for DeepSensor models.
 
-    def __init__(self, config: dict):
-        """
-        Initialize data loader
+    Attributes
+    ----------
+    bm_ancils_path : str
+        Path to the directory containing BedMachine ancillary files (basin
+        and land-sea mask rasters).
+    basin_x, basin_y : xarray.DataArray
+        ``x``/``y`` coordinate arrays covering the bounding box of
+        ``self.basin``. Only set if ``self.basin is not None``.
+    """
 
-        Args:
-            config: Configuration dictionary
+    def __init__(self, config: dict[str, Any]) -> None:
+        """Initialize the CARRA2 data loader.
+
+        Parameters
+        ----------
+        config : dict[str, Any]
+            Configuration dictionary. Must additionally contain
+            ``config["data"]["bedmachine_ancillary_path"]``.
         """
         super().__init__(config)
-        self.bm_ancils_path = config["data"]["bedmachine_ancillary_path"]
+        self.bm_ancils_path: str = config["data"]["bedmachine_ancillary_path"]
         if self.basin is not None:
             self.basin_x, self.basin_y = self.load_basin(target_basin=self.basin)
 
-    def load_basin(self, target_basin="SE"):
+    def load_basin(self, target_basin: str = "SE") -> tuple[xr.DataArray, xr.DataArray]:
+        """Compute the bounding ``x``/``y`` coordinates of a basin.
+
+        Reads the CARRA2 (2500 m) basin mask and returns the ``x`` and ``y``
+        coordinate values for which the given basin's mask is non-zero along
+        at least one row/column.
+
+        Parameters
+        ----------
+        target_basin : str, default "SE"
+            Basin label (as used in the basin mask's ``subregion_labels``
+            attribute), e.g. ``"SE"``.
+
+        Returns
+        -------
+        basin_x : xarray.DataArray
+            ``x`` coordinate values covered by ``target_basin``.
+        basin_y : xarray.DataArray
+            ``y`` coordinate values covered by ``target_basin``.
+        """
         basin_ds = xr.open_dataset(
             os.path.join(self.bm_ancils_path, "basins_2500m.nc")
         )["subregion"]
@@ -174,7 +382,21 @@ class CARRA2DataLoader(BaseDataLoader):
         basin_y = basin_ds.y.where(se_mask.any("x"), drop=True)
         return basin_x, basin_y
 
-    def load_ds(self):
+    def load_ds(self) -> xr.Dataset:
+        """Load and preprocess the CARRA2 gridded dataset.
+
+        Opens all files matching ``source/region/data_pattern``, selects the
+        configured context variables, converts 2 m temperature (``2t``) from
+        Kelvin to Celsius, derives anomaly features for any variable ID
+        ending in ``anm``, renames the remaining (absolute-value) variables
+        to end in ``_abs``, optionally subsets to ``self.basin``'s bounding
+        box, and renames the ``x``/``y`` coordinates to ``lon``/``lat``.
+
+        Returns
+        -------
+        xarray.Dataset
+            The preprocessed dataset, with coordinates ``lon``/``lat``.
+        """
         if not isinstance(self.context_vars, list):
             self.variables = [self.context_vars]
         if any(isinstance(el, list) for el in self.context_vars):
@@ -196,7 +418,7 @@ class CARRA2DataLoader(BaseDataLoader):
                     self.featurize_vars(
                         var=target,
                         dims=ds[target].dims,
-                        chunks=ds[target].chunks,
+                        chunks=cast(tuple[tuple[int, ...], ...], ds[target].chunks),
                         abs=ds[target],
                     )
                 )
@@ -204,10 +426,9 @@ class CARRA2DataLoader(BaseDataLoader):
         rename_map = {
             var: f"{var}_abs"
             for var in ds.data_vars
-            if not (var.endswith("_anm") or var.endswith("_abs"))
+            if not (cast(str, var).endswith("_anm") or cast(str, var).endswith("_abs"))
         }
 
-        # apply rename
         ds = ds.rename(rename_map)
 
         if self.basin is not None:
@@ -224,7 +445,23 @@ class CARRA2DataLoader(BaseDataLoader):
 
         return ds
 
-    def load_aux_ds(self, resolution="public"):
+    def load_aux_ds(self, resolution: str = "public") -> xr.DataArray:
+        """Load the land-sea mask auxiliary data.
+
+        Parameters
+        ----------
+        resolution : str, default "public"
+            Source of the mask. ``"public"`` downloads (and caches) the
+            GLDAS land mask for ``self.region``. ``"bedmachine"`` loads the
+            higher-resolution BedMachine land-sea mask and, if
+            ``self.basin`` is set, subsets it to the basin's bounding box.
+
+        Returns
+        -------
+        xarray.DataArray
+            Land-sea mask, with ``x``/``y`` coordinates renamed to
+            ``lon``/``lat`` when loaded from BedMachine.
+        """
         # Download static auxiliary features (elevation/land mask)
         if resolution == "public":
             reg_extent = region_extents[self.region]
@@ -253,7 +490,37 @@ class CARRA2DataLoader(BaseDataLoader):
 
         return lsm_raw_ds
 
-    def get_dataproc_taskload(self, dates, task=None, data_processor=None):
+    def get_dataproc_taskload(
+        self,
+        dates: Sequence[np.datetime64] | pd.DatetimeIndex | None = None,
+        task: Any | None = None,
+        data_processor: DataProcessor | None = None,
+    ) -> tuple[xr.Dataset, DataProcessor, TaskLoader]:
+        """Build the raw dataset, fitted data processor and task loader.
+
+        Loads the raw dataset and (BedMachine) land-sea mask, optionally
+        applies the land-sea mask, fits/applies the data processor to the
+        selected ``dates`` (to compute normalisation parameters) and to the
+        full dataset, adds spatiotemporal auxiliary features, and assembles
+        a :class:`TaskLoader` from the context and target variables.
+
+        Parameters
+        ----------
+        dates : Sequence[numpy.datetime64] | pandas.DatetimeIndex
+            Dates used to fit the data processor's normalisation parameters
+            (via ``raw_ds.sel(time=dates)``).
+        task : Any, optional
+            Reserved for a pre-built task; not currently used.
+        data_processor : deepsensor.data.processor.DataProcessor, optional
+            Existing data processor to reuse. If ``None``, a new one is
+            created via :meth:`init_data_processor`.
+
+        Returns
+        -------
+        tuple[xarray.Dataset, deepsensor.data.processor.DataProcessor, deepsensor.data.loader.TaskLoader]
+            The raw (unnormalised) dataset, the fitted data processor, and
+            the resulting task loader.
+        """
         # Load all data
         raw_ds = self.load_ds()
         lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
@@ -286,21 +553,52 @@ class CARRA2DataLoader(BaseDataLoader):
 
 
 class HIRHAM5DataLoader(BaseDataLoader):
-    """Load and preprocess HIRHAM5 data for DeepSensor models"""
+    """Load and preprocess HIRHAM5 data for DeepSensor models.
 
-    def __init__(self, config: dict):
-        """
-        Initialize data loader
+    Attributes
+    ----------
+    bm_ancils_path : str
+        Path to the directory containing BedMachine ancillary files (basin
+        and ablation-zone mask rasters).
+    basin_x, basin_y : xarray.DataArray
+        ``x``/``y`` coordinate arrays covering the bounding box of
+        ``self.basin``. Only set if ``self.basin is not None``.
+    """
 
-        Args:
-            config: Configuration dictionary
+    def __init__(self, config: dict[str, Any]) -> None:
+        """Initialize the HIRHAM5 data loader.
+
+        Parameters
+        ----------
+        config : dict[str, Any]
+            Configuration dictionary. Must additionally contain
+            ``config["data"]["bedmachine_ancillary_path"]``.
         """
         super().__init__(config)
-        self.bm_ancils_path = config["data"]["bedmachine_ancillary_path"]
+        self.bm_ancils_path: str = config["data"]["bedmachine_ancillary_path"]
         if self.basin is not None:
             self.basin_x, self.basin_y = self.load_basin(target_basin=self.basin)
 
-    def load_basin(self, target_basin="SE"):
+    def load_basin(self, target_basin: str = "SE") -> tuple[xr.DataArray, xr.DataArray]:
+        """Compute the bounding ``x``/``y`` coordinates of a basin.
+
+        Reads the HIRHAM5 (5500 m) basin mask and returns the ``x`` and ``y``
+        coordinate values for which the given basin's mask is non-zero along
+        at least one row/column.
+
+        Parameters
+        ----------
+        target_basin : str, default "SE"
+            Basin label (as used in the basin mask's ``subregion_labels``
+            attribute), e.g. ``"SE"``.
+
+        Returns
+        -------
+        basin_x : xarray.DataArray
+            ``x`` coordinate values covered by ``target_basin``.
+        basin_y : xarray.DataArray
+            ``y`` coordinate values covered by ``target_basin``.
+        """
         basin_ds = xr.open_dataset(
             os.path.join(self.bm_ancils_path, "basins_5500m.nc")
         )["subregion"]
@@ -313,8 +611,23 @@ class HIRHAM5DataLoader(BaseDataLoader):
         basin_y = basin_ds.y.where(se_mask.any("x"), drop=True)
         return basin_x, basin_y
 
-    # Load gridded
-    def load_ds(self):
+    def load_ds(self) -> xr.Dataset:
+        """Load and preprocess the HIRHAM5 gridded dataset.
+
+        Opens all files matching ``source/region/data_pattern``, clips
+        negative snow-melt (``snmel``) values to zero, selects the
+        configured context variables, converts near-surface air temperature
+        (``tas``) from Kelvin to Celsius, derives anomaly features for any
+        variable ID ending in ``anm``, renames the remaining (absolute-value)
+        variables to end in ``_abs``, optionally subsets to ``self.basin``'s
+        bounding box, and renames the ``x``/``y`` coordinates to
+        ``lon``/``lat``.
+
+        Returns
+        -------
+        xarray.Dataset
+            The preprocessed dataset, with coordinates ``lon``/``lat``.
+        """
         if not isinstance(self.context_vars, list):
             self.variables = [self.context_vars]
         if any(isinstance(el, list) for el in self.context_vars):
@@ -340,7 +653,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
                     self.featurize_vars(
                         var=target,
                         dims=ds[target].dims,
-                        chunks=ds[target].chunks,
+                        chunks=cast(tuple[tuple[int, ...], ...], ds[target].chunks),
                         abs=ds[target],
                     )
                 )
@@ -348,7 +661,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
         rename_map = {
             var: f"{var}_abs"
             for var in ds.data_vars
-            if not (var.endswith("_anm") or var.endswith("_abs"))
+            if not (cast(str, var).endswith("_anm") or cast(str, var).endswith("_abs"))
         }
 
         ds = ds.rename(rename_map)
@@ -366,7 +679,24 @@ class HIRHAM5DataLoader(BaseDataLoader):
 
         return ds
 
-    def load_aux_ds(self, resolution="public"):
+    def load_aux_ds(self, resolution: str = "public") -> xr.DataArray:
+        """Load the land-sea/ablation mask auxiliary data.
+
+        Parameters
+        ----------
+        resolution : str, default "public"
+            Source of the mask. ``"public"`` downloads (and caches) the
+            GLDAS land mask for ``self.region``. ``"bedmachine"`` loads the
+            BedMachine ablation-zone mask, renaming its ``lat``/``lon``
+            coordinates to ``x``/``y`` first if necessary, then, if
+            ``self.basin`` is set, subsets it to the basin's bounding box.
+
+        Returns
+        -------
+        xarray.DataArray
+            Land-sea/ablation mask, with ``x``/``y`` coordinates renamed to
+            ``lon``/``lat`` when loaded from BedMachine.
+        """
         # Download static auxiliary features (elevation/land mask)
         if resolution == "public":
             reg_extent = region_extents[self.region]
@@ -398,7 +728,42 @@ class HIRHAM5DataLoader(BaseDataLoader):
 
         return lsm_raw_ds
 
-    def get_dataproc_taskload(self, dates, task=None, data_processor=None):
+    def get_dataproc_taskload(
+        self,
+        dates: Sequence[np.datetime64] | pd.DatetimeIndex | None = None,
+        task: Any | None = None,
+        data_processor: DataProcessor | None = None,
+    ) -> tuple[xr.Dataset, DataProcessor, TaskLoader]:
+        """Build the raw dataset, fitted data processor and task loader.
+
+        Loads the raw dataset and (BedMachine) mask, optionally applies the
+        mask, fits/applies the data processor, adds spatiotemporal auxiliary
+        features, and assembles a :class:`TaskLoader` from the context and
+        target variables.
+
+        When ``self.context_vars`` contains more than one variable group,
+        the first group is normalised with the ``"positive_semidefinite"``
+        method (used for the target-bearing group, e.g. snow melt) and the
+        remaining group with the default method; otherwise all context
+        variables are normalised together with the default method.
+
+        Parameters
+        ----------
+        dates : Sequence[numpy.datetime64] | pandas.DatetimeIndex
+            Dates to select (via ``.sel(time=dates)``) before fitting/
+            applying the data processor.
+        task : Any, optional
+            Reserved for a pre-built task; not currently used.
+        data_processor : deepsensor.data.processor.DataProcessor, optional
+            Existing data processor to reuse. If ``None``, a new one is
+            created via :meth:`init_data_processor`.
+
+        Returns
+        -------
+        tuple[xarray.Dataset, deepsensor.data.processor.DataProcessor, deepsensor.data.loader.TaskLoader]
+            The raw (unnormalised) dataset, the fitted data processor, and
+            the resulting task loader.
+        """
         # Load all data
         raw_ds = self.load_ds()
         lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
@@ -435,23 +800,54 @@ class HIRHAM5DataLoader(BaseDataLoader):
 
 
 class HIRHAM5ZarrDataLoader(BaseDataLoader):
-    """Load and preprocess HIRHAM5 data for DeepSensor models"""
+    """Load and preprocess HIRHAM5 data stored in Zarr for DeepSensor models.
 
-    def __init__(self, config: dict):
-        """
-        Initialize data loader
+    Attributes
+    ----------
+    bm_ancils_path : str
+        Path to the directory containing BedMachine ancillary files. Set to
+        the same value as ``self.source`` (see :meth:`__init__`).
+    basin_x, basin_y : xarray.DataArray
+        ``x``/``y`` coordinate arrays covering the bounding box of
+        ``self.basin``. Only set if ``self.basin is not None``.
+    """
 
-        Args:
-            config: Configuration dictionary
+    def __init__(self, config: dict[str, Any]) -> None:
+        """Initialize the HIRHAM5 Zarr data loader.
+
+        Parameters
+        ----------
+        config : dict[str, Any]
+            Configuration dictionary. Must additionally contain
+            ``config["data"]["bedmachine_ancillary_path"]``.
         """
         super().__init__(config)
-        self.bm_ancils_path = config["data"]["bedmachine_ancillary_path"]
-        self.train_start = config["data"]["train_start"]
-        self.val_end = config["data"]["val_end"]
+        self.bm_ancils_path: str = config["data"]["bedmachine_ancillary_path"]
+        self.train_start: str = config["data"]["train_start"]
+        self.val_end: str = config["data"]["val_end"]
         if self.basin is not None:
             self.basin_x, self.basin_y = self.load_basin(target_basin=self.basin)
 
-    def load_basin(self, target_basin="SE"):
+    def load_basin(self, target_basin: str = "SE") -> tuple[xr.DataArray, xr.DataArray]:
+        """Compute the bounding ``x``/``y`` coordinates of a basin.
+
+        Reads the ``GRLmask.zarr`` basin mask and returns the ``x`` and ``y``
+        coordinate values for which the given basin's mask is non-zero along
+        at least one row/column.
+
+        Parameters
+        ----------
+        target_basin : str, default "SE"
+            Basin label. One of ``"N"``, ``"NE"``, ``"CE"``, ``"SE"``,
+            ``"SW"``, ``"NW"``.
+
+        Returns
+        -------
+        basin_x : xarray.DataArray
+            ``x`` coordinate values covered by ``target_basin``.
+        basin_y : xarray.DataArray
+            ``y`` coordinate values covered by ``target_basin``.
+        """
         basin_ds = xr.open_zarr(
             os.path.join(self.source, "GRLmask.zarr"), chunks="auto"
         )["maskbas"]
@@ -463,8 +859,24 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         basin_y = basin_ds.y.where(se_mask.any("x"), drop=True)
         return basin_x, basin_y
 
-    # Load gridded
-    def load_ds(self):
+    def load_ds(self) -> xr.Dataset:
+        """Load and preprocess the HIRHAM5 Zarr gridded dataset.
+
+        Opens the Zarr store at ``source/data_pattern``, unstacks the
+        ``z`` multi-index back into ``x``/``y``, drops the redundant
+        ``lat``/``lon`` variables, clips negative snow-melt (``snmel``)
+        values to zero, selects the configured context variables, converts
+        near-surface air temperature (``tas``) from Kelvin to Celsius,
+        derives anomaly features for any variable ID ending in ``anm``,
+        renames the remaining (absolute-value) variables to end in
+        ``_abs``, optionally subsets to ``self.basin``'s bounding box, and
+        renames the ``x``/``y`` coordinates to ``lon``/``lat``.
+
+        Returns
+        -------
+        xarray.Dataset
+            The preprocessed dataset, with coordinates ``lon``/``lat``.
+        """
         if not isinstance(self.context_vars, list):
             self.variables = [self.context_vars]
         if any(isinstance(el, list) for el in self.context_vars):
@@ -491,7 +903,7 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
                     self.featurize_vars(
                         var=target,
                         dims=ds[target].dims,
-                        chunks=ds[target].chunks,
+                        chunks=cast(tuple[tuple[int, ...], ...], ds[target].chunks),
                         abs=ds[target],
                     )
                 )
@@ -499,7 +911,7 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         rename_map = {
             var: f"{var}_abs"
             for var in ds.data_vars
-            if not (var.endswith("_anm") or var.endswith("_abs"))
+            if not (cast(str, var).endswith("_anm") or cast(str, var).endswith("_abs"))
         }
 
         ds = ds.rename(rename_map)
@@ -517,7 +929,25 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
 
         return ds
 
-    def load_aux_ds(self, resolution="public"):
+    def load_aux_ds(self, resolution: str = "public") -> xr.DataArray:
+        """Load the land-sea/glacier mask auxiliary data.
+
+        Parameters
+        ----------
+        resolution : str, default "public"
+            Source of the mask. ``"public"`` downloads (and caches) the
+            GLDAS land mask for ``self.region``. ``"bedmachine"`` loads the
+            ``glacGRL`` mask from ``GRLmask.zarr``, unstacks its ``z``
+            multi-index, drops the ``lat``/``lon`` variables, fills missing
+            values with 0, and, if ``self.basin`` is set, subsets it to the
+            basin's bounding box.
+
+        Returns
+        -------
+        xarray.DataArray
+            Land-sea/glacier mask, with ``x``/``y`` coordinates renamed to
+            ``lon``/``lat`` when loaded from BedMachine.
+        """
         # Download static auxiliary features (elevation/land mask)
         if resolution == "public":
             reg_extent = region_extents[self.region]
@@ -543,7 +973,42 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
 
         return lsm_raw_ds
 
-    def get_dataproc_taskload(self, dates, task=None, data_processor=None):
+    def get_dataproc_taskload(
+        self,
+        dates: Sequence[np.datetime64] | pd.DatetimeIndex | None = None,
+        task: Any | None = None,
+        data_processor: DataProcessor | None = None,
+    ) -> tuple[xr.Dataset, DataProcessor, TaskLoader]:
+        """Build the raw dataset, fitted data processor and task loader.
+
+        Loads the raw dataset and (BedMachine) mask, optionally applies the
+        mask, fits/applies the data processor, adds spatiotemporal auxiliary
+        features, and assembles a :class:`TaskLoader` from the context and
+        target variables.
+
+        When ``self.context_vars`` contains more than one variable group,
+        the first group is normalised with the ``"positive_semidefinite"``
+        method (used for the target-bearing group, e.g. snow melt) and the
+        remaining group with the default method; otherwise all context
+        variables are normalised together with the default method.
+
+        Parameters
+        ----------
+        dates : Sequence[numpy.datetime64] | pandas.DatetimeIndex
+            Dates to select (via ``.sel(time=dates)``) before fitting/
+            applying the data processor.
+        task : Any, optional
+            Reserved for a pre-built task; not currently used.
+        data_processor : deepsensor.data.processor.DataProcessor, optional
+            Existing data processor to reuse. If ``None``, a new one is
+            created via :meth:`init_data_processor`.
+
+        Returns
+        -------
+        tuple[xarray.Dataset, deepsensor.data.processor.DataProcessor, deepsensor.data.loader.TaskLoader]
+            The raw (unnormalised) dataset, the fitted data processor, and
+            the resulting task loader.
+        """
         # Load all data
         raw_ds = self.load_ds()
         lsm_raw_ds = self.load_aux_ds(resolution="bedmachine")
@@ -557,7 +1022,6 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         # Apply/learn
         aux_ds = data_processor(lsm_raw_ds, method="min_max")
 
-        # Make task loader
         # Make task loader
         if len(self.variables) > 1:
             ds_target = data_processor(

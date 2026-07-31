@@ -5,35 +5,70 @@ DeepSensor model definitions and utilities
 import contextlib
 import io
 import logging
+from typing import Any
 
 import torch
-from deepsensor.data import DataProcessor, TaskLoader
+from deepsensor.data import DataProcessor, Task, TaskLoader
 from deepsensor.model import ConvNP
 
 logger = logging.getLogger(__name__)
 
 
 class DeepSensorModel:
-    """Wrapper for DeepSensor ConvNP model with training utilities"""
+    """Wrapper for a DeepSensor ``ConvNP`` model with training utilities.
 
-    def __init__(self, config: dict):
+    Attributes
+    ----------
+    config : dict[str, Any]
+        Configuration dictionary, typically loaded from a YAML config file.
+        Expected to contain a ``"model"`` key holding the keyword arguments
+        passed to :class:`~deepsensor.model.ConvNP` (e.g. ``likelihood``,
+        ``unet_channels``, ``unet_kernels``, ``num_basis_functions``).
+    model : deepsensor.model.ConvNP | None
+        The underlying DeepSensor model, set once :meth:`build_model` has
+        been called.
+    task_loader : deepsensor.data.TaskLoader | None
+        The :class:`~deepsensor.data.TaskLoader` used to build ``model``,
+        set once :meth:`build_model` has been called.
+    normalization_params : None
+        Reserved for normalization parameters. Currently unused.
+    """
+
+    def __init__(self, config: dict[str, Any]) -> None:
         """
-        Initialize DeepSensor model
+        Initialize the DeepSensor model wrapper.
 
-        Args:
-            config: Configuration dictionary
+        Parameters
+        ----------
+        config : dict[str, Any]
+            Configuration dictionary. Must contain a ``"model"`` key whose
+            value is a dictionary of keyword arguments for
+            :class:`~deepsensor.model.ConvNP` (used by :meth:`build_model`).
         """
         self.config = config
         self.model: ConvNP | None = None
         self.task_loader: TaskLoader | None = None
         self.normalization_params = None
 
-    def build_model(self, data_processor: DataProcessor, task_loader: TaskLoader):
+    def build_model(
+        self, data_processor: DataProcessor, task_loader: TaskLoader
+    ) -> ConvNP:
         """
-        Build ConvNP model with specified architecture
+        Build the ``ConvNP`` model with the architecture from ``self.config``.
 
-        Args:
-            task_loader: DeepSensor TaskLoader instance
+        Parameters
+        ----------
+        data_processor : deepsensor.data.DataProcessor
+            The :class:`~deepsensor.data.DataProcessor` used to normalize
+            inputs/outputs for the model.
+        task_loader : deepsensor.data.TaskLoader
+            The :class:`~deepsensor.data.TaskLoader` describing the context
+            and target sets the model should be built for.
+
+        Returns
+        -------
+        deepsensor.model.ConvNP
+            The newly constructed model, also stored on ``self.model``.
         """
         model_config = self.config["model"]
 
@@ -59,8 +94,13 @@ class DeepSensorModel:
 
         return self.model
 
-    def get_model_summary(self):
-        """Print model architecture summary"""
+    def get_model_summary(self) -> None:
+        """
+        Log the model's architecture summary and parameter count.
+
+        Logs a warning and returns without doing anything if the model has
+        not been built yet.
+        """
         if self.model is None:
             logger.warning("Model not built yet")
             return
@@ -70,7 +110,15 @@ class DeepSensorModel:
         logger.info("Parameters: %d", self.count_parameters())
 
     def count_parameters(self) -> int:
-        """Count total trainable parameters in model"""
+        """
+        Count total trainable parameters in the model.
+
+        Returns
+        -------
+        int
+            The number of trainable parameters, or ``0`` if the model has
+            not been built yet.
+        """
         if self.model is None:
             return 0
 
@@ -80,12 +128,19 @@ class DeepSensorModel:
 
         return int(total_params)
 
-    def save_model(self, filepath: str):
+    def save_model(self, filepath: str) -> None:
         """
-        Save model checkpoint
+        Save the model's state dict to disk.
 
-        Args:
-            filepath: Path to save model
+        Parameters
+        ----------
+        filepath : str
+            Path to save the model checkpoint to.
+
+        Raises
+        ------
+        ValueError
+            If the model has not been built yet.
         """
         if self.model is None:
             raise ValueError("No model to save")
@@ -93,12 +148,20 @@ class DeepSensorModel:
         logger.info("Saving model to %s", filepath)
         torch.save(self.model.model.state_dict(), filepath)
 
-    def load_model(self, filepath: str):
+    def load_model(self, filepath: str) -> None:
         """
-        Load model checkpoint
+        Load a model checkpoint's state dict from disk.
 
-        Args:
-            filepath: Path to model checkpoint
+        Parameters
+        ----------
+        filepath : str
+            Path to the model checkpoint to load.
+
+        Raises
+        ------
+        ValueError
+            If the model has not been built yet (weights are loaded into
+            the existing model, so it must exist first).
         """
         if self.model is None:
             raise ValueError("Model must be built before loading weights")
@@ -107,16 +170,30 @@ class DeepSensorModel:
         model_state_dict = torch.load(filepath)
         self.model.model.load_state_dict(model_state_dict)
 
-    def predict(self, task, num_samples: int = 1):
+    def predict(self, task: Task, num_samples: int = 1) -> Any:
         """
-        Make predictions with uncertainty quantification
+        Make predictions with uncertainty quantification.
 
-        Args:
-            task: DeepSensor Task object
-            num_samples: Number of samples for uncertainty estimation
+        Parameters
+        ----------
+        task : deepsensor.data.Task
+            The :class:`~deepsensor.data.Task` (context/target sets) to
+            predict on.
+        num_samples : int, default 1
+            Number of samples to draw from the model's posterior for
+            uncertainty estimation.
 
-        Returns:
-            Predictions with mean and standard deviation
+        Returns
+        -------
+        Any
+            The ``neuralprocesses`` distribution returned by the underlying
+            model, from which samples, mean and standard deviation can be
+            derived.
+
+        Raises
+        ------
+        ValueError
+            If the model has not been built yet.
         """
         if self.model is None:
             raise ValueError("Model not built yet")
