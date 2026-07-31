@@ -1,3 +1,7 @@
+"""
+Main script for placement experiments using a trained ConvNP model.
+"""
+
 import argparse
 import glob
 import json
