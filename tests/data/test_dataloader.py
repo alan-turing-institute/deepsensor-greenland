@@ -194,3 +194,90 @@ class TestHirham5ZarrLoadBasin:
 
         assert not hasattr(loader, "basin_x")
         assert not hasattr(loader, "basin_y")
+
+
+def _make_anomaly_da():
+    """Two years of the same three calendar days, offset by +10 in 2021, so the
+    2020 climatology (trained on 2020 only) reproduces 2020 exactly (anomaly 0)
+    and reveals the +10 offset for 2021 (anomaly 10)."""
+    dates = pd.to_datetime(
+        [
+            "2020-01-01",
+            "2020-01-02",
+            "2020-01-03",
+            "2021-01-01",
+            "2021-01-02",
+            "2021-01-03",
+        ]
+    )
+    dayofyear = dates.dayofyear.values
+    year_offset = np.where(dates.year == 2020, 0, 10)
+    values = (dayofyear + year_offset).astype(float)
+    return xr.DataArray(
+        np.broadcast_to(values[:, None, None], (6, 2, 2)).copy(),
+        coords={"time": dates, "y": [0, 1], "x": [0, 1]},
+        dims=("time", "y", "x"),
+        name="var",
+    )
+
+
+class TestComputeGriddedAnomalies:
+    def test_computes_anomalies_relative_to_training_climatology(self, tmp_path):
+        (tmp_path / "test_region").mkdir()
+        loader = BaseDataLoader(_make_config(data_path=str(tmp_path)))
+
+        anomalies = loader.compute_gridded_anomalies("var", _make_anomaly_da())
+
+        expected = np.array([0.0, 0.0, 0.0, 10.0, 10.0, 10.0])
+        np.testing.assert_allclose(anomalies.mean(("y", "x")).values, expected)
+
+    def test_caches_climatology_to_disk(self, tmp_path):
+        (tmp_path / "test_region").mkdir()
+        loader = BaseDataLoader(_make_config(data_path=str(tmp_path)))
+
+        loader.compute_gridded_anomalies("var", _make_anomaly_da())
+
+        cached_files = list((tmp_path / "test_region").glob("*.nc"))
+        assert len(cached_files) == 1
+
+    def test_reuses_cached_climatology_on_second_call(self, tmp_path):
+        (tmp_path / "test_region").mkdir()
+        loader = BaseDataLoader(_make_config(data_path=str(tmp_path)))
+        da = _make_anomaly_da()
+        loader.compute_gridded_anomalies("var", da)
+
+        # Tamper with the cached climatology so it's all zero; if the second
+        # call reads the cache (rather than recomputing), the "anomaly" it
+        # returns should equal the raw values themselves.
+        cached_file = next((tmp_path / "test_region").glob("*.nc"))
+        tampered = xr.open_dataset(cached_file).load()
+        tampered.close()
+        var_name = next(iter(tampered.data_vars))
+        tampered[var_name] = xr.zeros_like(tampered[var_name])
+        tampered.to_netcdf(cached_file, mode="w")
+
+        anomalies = loader.compute_gridded_anomalies("var", da)
+
+        expected = np.array([1.0, 2.0, 3.0, 11.0, 12.0, 13.0])
+        np.testing.assert_allclose(anomalies.mean(("y", "x")).values, expected)
+
+
+class TestFeaturizeVars:
+    def test_produces_chunked_anomaly_variable(self, tmp_path):
+        (tmp_path / "test_region").mkdir()
+        loader = BaseDataLoader(_make_config(data_path=str(tmp_path)))
+
+        dates = pd.date_range("2020-01-01", "2020-01-03")
+        da = xr.DataArray(
+            np.zeros((3, 2, 2)),
+            coords={"time": dates, "y": [0, 1], "x": [0, 1]},
+            dims=("time", "y", "x"),
+            name="var",
+        )
+
+        result = loader.featurize_vars(
+            var="var", dims=("time", "y", "x"), chunks=(2, 1, 1), abs=da
+        )
+
+        assert "var_anm" in result.data_vars
+        assert dict(result.chunks) == {"time": (2, 1), "y": (1, 1), "x": (1, 1)}
