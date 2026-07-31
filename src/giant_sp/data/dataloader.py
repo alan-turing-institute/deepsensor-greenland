@@ -370,9 +370,9 @@ class CARRA2DataLoader(BaseDataLoader):
         basin_y : xarray.DataArray
             ``y`` coordinate values covered by ``target_basin``.
         """
-        basin_ds = xr.open_dataset(
-            os.path.join(self.ancils_path, "basins_2500m.nc")
-        )["subregion"]
+        basin_ds = xr.open_dataset(os.path.join(self.ancils_path, "basins_2500m.nc"))[
+            "subregion"
+        ]
         label_to_code = {
             v: int(k) for k, v in json.loads(basin_ds.attrs["subregion_labels"]).items()
         }
@@ -599,9 +599,9 @@ class HIRHAM5DataLoader(BaseDataLoader):
         basin_y : xarray.DataArray
             ``y`` coordinate values covered by ``target_basin``.
         """
-        basin_ds = xr.open_dataset(
-            os.path.join(self.ancils_path, "basins_5500m.nc")
-        )["subregion"]
+        basin_ds = xr.open_dataset(os.path.join(self.ancils_path, "basins_5500m.nc"))[
+            "subregion"
+        ]
         label_to_code = {
             v: int(k) for k, v in json.loads(basin_ds.attrs["subregion_labels"]).items()
         }
