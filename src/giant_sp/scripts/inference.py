@@ -1,3 +1,7 @@
+"""
+Main script for inference using a trained ConvNP model.
+"""
+
 import argparse
 import datetime
 import glob
