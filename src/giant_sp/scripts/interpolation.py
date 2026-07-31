@@ -358,7 +358,7 @@ def main(args: argparse.Namespace) -> None:
             target_sampling=target_sampling,
             stations_location=raw_stn_locs,
         )
-    elif train_sampling == "default":  # default random sampling
+    elif train_sampling == "random":  # default random sampling
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
@@ -366,6 +366,7 @@ def main(args: argparse.Namespace) -> None:
             max_obs=400,
             frequency=frequency,
             sampling=temporal_sampling_every,
+            sampling_strat="random",
             change_dates_every_epoch=change_dates_every_epoch,
             target_sampling=target_sampling,
         )

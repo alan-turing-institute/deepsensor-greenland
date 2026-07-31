@@ -96,7 +96,7 @@ class TaskStreamDataset(IterableDataset[Task]):
         date_list: Sequence[pd.Timestamp],
         frequency: str = "D",
         sampling: int = 1,
-        sampling_strat: SamplingSpec = "n_obs",
+        sampling_strat: SamplingSpec = "random",
         min_obs: int = 50,
         max_obs: int = 100,
         target_sampling: SamplingSpec = "all",
@@ -123,8 +123,8 @@ class TaskStreamDataset(IterableDataset[Task]):
         sampling : int, default 1
             Step used to subsample the (re)shuffled date list when
             ``change_dates_every_epoch`` is enabled.
-        sampling_strat : SamplingSpec, default "n_obs"
-            Strategy for sampling context observations. ``"n_obs"``
+        sampling_strat : SamplingSpec, default "random"
+            Strategy for sampling context observations. ``"random"``
             samples a random count between ``min_obs`` and ``max_obs``;
             ``"land_obs"`` samples that many land-only locations from
             ``lsm``; ``"mixed_obs"`` mixes station and land locations; any
@@ -192,15 +192,18 @@ class TaskStreamDataset(IterableDataset[Task]):
         self.min_targets = min_targets
         self.max_targets = max_targets
 
-        if sampling_strat in ["land_obs", "mixed_obs"] and (
-            data_processor is None or lsm is None
+        self.lsm = lsm
+        self.data_processor = data_processor
+        self.stations_location = stations_location
+
+        if (
+            isinstance(self.sampling_strat, str)
+            and self.sampling_strat in ["land_obs", "mixed_obs"]
+            and (self.data_processor is None or self.lsm is None)
         ):
             raise ValueError(
                 "The chosen sampling_strat requires data_processor and lsm to be passed!"
             )
-        self.lsm = lsm
-        self.data_processor = data_processor
-        self.stations_location = stations_location
 
         self.seed = seed
         self.min_obs = min_obs
@@ -236,36 +239,37 @@ class TaskStreamDataset(IterableDataset[Task]):
         for date in self.date_list:
             # Context sampling
             context: SamplingSpec | np.integer[Any]
-            if isinstance(self.sampling_strat, str) and self.sampling_strat == "n_obs":
-                # Number of off-grid context observations to sample
-                context = rng.integers(self.min_obs, self.max_obs)
-            elif self.sampling_strat == "land_obs":
-                # Randomly sample observations from land only
-                n_obs = rng.integers(self.min_obs, self.max_obs)
-                dateseed = (
-                    int(date.strftime("%Y%m%d"))
-                    if self.datewise_deterministic
-                    else None
-                )
-                raw_locs = sample_land_locations(n_obs, lsm=self.lsm, seed=dateseed)
-                obs_locs = cast(DataProcessor, self.data_processor).map_coord_array(
-                    raw_locs
-                )
-                context = obs_locs
-            elif self.sampling_strat == "mixed_obs":
-                n_obs = rng.integers(self.min_obs, self.max_obs)
-                dateseed = (
-                    int(date.strftime("%Y%m%d"))
-                    if self.datewise_deterministic
-                    else None
-                )
-                raw_locs = mixed_sampling_strategy(
-                    self.stations_location, n_obs, lsm=self.lsm, seed=dateseed
-                )
-                obs_locs = cast(DataProcessor, self.data_processor).map_coord_array(
-                    raw_locs
-                )
-                context = obs_locs
+            if isinstance(self.sampling_strat, str):
+                if self.sampling_strat == "random":
+                    # Number of off-grid context observations to sample
+                    context = rng.integers(self.min_obs, self.max_obs)
+                elif self.sampling_strat == "land_obs":
+                    # Randomly sample observations from land only
+                    n_obs = rng.integers(self.min_obs, self.max_obs)
+                    dateseed = (
+                        int(date.strftime("%Y%m%d"))
+                        if self.datewise_deterministic
+                        else None
+                    )
+                    raw_locs = sample_land_locations(n_obs, lsm=self.lsm, seed=dateseed)
+                    obs_locs = cast(DataProcessor, self.data_processor).map_coord_array(
+                        raw_locs
+                    )
+                    context = obs_locs
+                elif self.sampling_strat == "mixed_obs":
+                    n_obs = rng.integers(self.min_obs, self.max_obs)
+                    dateseed = (
+                        int(date.strftime("%Y%m%d"))
+                        if self.datewise_deterministic
+                        else None
+                    )
+                    raw_locs = mixed_sampling_strategy(
+                        self.stations_location, n_obs, lsm=self.lsm, seed=dateseed
+                    )
+                    obs_locs = cast(DataProcessor, self.data_processor).map_coord_array(
+                        raw_locs
+                    )
+                    context = obs_locs
             else:
                 context = self.sampling_strat
             # Target sampling
