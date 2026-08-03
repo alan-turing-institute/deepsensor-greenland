@@ -319,7 +319,10 @@ def main(args: argparse.Namespace) -> None:
     # Create training tasks
     logger.info("Generating training tasks...")
     # Initialise training task generator
-    delta_factor_context = [len(group) for group in context_delta_t]
+    if context_delta_t is None:
+        delta_factor_context = [1] * len(config["data"]["context_var_IDs"])
+    else:   
+        delta_factor_context = [len(group) for group in context_delta_t]
     # Train loader is unseeded so different context sampling is used each epoch
     if train_sampling == "stn_obs":
         task_stream_tr = tu.TaskStreamDataset(
