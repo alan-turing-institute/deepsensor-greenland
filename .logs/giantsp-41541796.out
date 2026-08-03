@@ -1,9 +1,0 @@
-Loading run data from:  wandb/run-4flbw8xy/files
-dim_yc inferred from TaskLoader: (1, 7, 5)
-dim_yt inferred from TaskLoader: 1
-dim_aux_t inferred from TaskLoader: 0
-internal_density inferred from TaskLoader: 430
-encoder_scales inferred from TaskLoader: [0.0011627906933426857, 0.0011627906933426857, 0.0011627906933426857]
-decoder_scale inferred from TaskLoader: 0.002325581395348837
-Acquisition function file already exists. Skipping computation: outputs/4flbw8xy/placement/ContextDist/AcqFn_ContextDist_10-iter_sseasonal_e50_sr9_weights-ep296.nc
-Plotting existing acquisition function file.

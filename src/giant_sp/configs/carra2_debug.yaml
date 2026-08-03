@@ -3,25 +3,24 @@
 # Data settings
 data:
   source: "carra2"
-  data_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/anemoi/datasets/processed/carra2"
+  data_path: "data/anemoi/processed/carra2"
   data_pattern: "carra2-greenland-2p5km-1986-2025-1M-v1-xy-2p5km*.nc"
-  ancillary_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/reference/bedmachinev6"
-  station_locations_file: "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations.csv"
-  context_var_IDs:  [["2t_abs"],["10u_abs","10v_abs"]]
+  ancillary_path: "data/reference/bm_v6"
+  station_locations_file: "data/station/promice/processed/promice_locations.csv"
+  context_var_IDs: [["2t_abs"],["10u_abs","10v_abs"]]
   target_var_IDs: "2t_abs"
   region: "greenland"
-  basin: null #SE, CE
-  train_start: "1988-01-01"
-  train_end: "1988-12-01"
-  val_start: "1989-01-01"
-  val_end: "1989-12-01"
-  test_start: "1990-01-01"
-  test_end: "1990-12-01"
+  basin: "CE" #CE, CW, NE, NO, NW, SE, SW
+  train_start: "1987-01-01"
+  train_end: "1987-12-01"
+  val_start: "1988-01-01"
+  val_end: "1988-12-01"
+  test_start: "1988-01-01"
+  test_end: "1988-12-01"
 
 dataloader:
   lsm_mask: false
   train_sampling: "land_obs"
-  context_delta_t: null
   target_sampling: "all"
   frequency: "MS"
   temporal_sampling_method: "regular"
