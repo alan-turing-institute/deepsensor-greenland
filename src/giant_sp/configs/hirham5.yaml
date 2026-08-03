@@ -21,6 +21,7 @@ data:
 dataloader:
   lsm_mask: true
   train_sampling: "mixed_obs"
+  context_delta_t: [[0], [-1, 0]]
   target_sampling: "all"
   frequency: "D"
   temporal_sampling_method: "seasonal"

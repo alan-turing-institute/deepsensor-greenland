@@ -1,0 +1,10 @@
+Normalisation params for glacGRL not computed. Computing now... Done. glacGRL min_max params={'min': 0.0, 'max': 1.0}
+Inferring x1_map=(87.0, 517.0) and x2_map=(51.0, 481.0) from data min/max
+Normalisation params for snmel_abs not computed. Computing now... Done. snmel_abs positive_semidefinite params={'min': 0.0, 'std': 5.863942623138428}
+Normalisation params for ahfl_abs not computed. Computing now... Done. ahfl_abs mean_std params={'mean': -5.1676106452941895, 'std': 10.985657691955566}
+Normalisation params for ahfs_abs not computed. Computing now... Done. ahfs_abs mean_std params={'mean': 15.587698936462402, 'std': 21.754995346069336}
+Normalisation params for dlwrad_abs not computed. Computing now... Done. dlwrad_abs mean_std params={'mean': 205.86923217773438, 'std': 46.45833969116211}
+Normalisation params for dswrad_abs not computed. Computing now... Done. dswrad_abs mean_std params={'mean': 186.23585510253906, 'std': 123.89094543457031}
+Normalisation params for rainfall_abs not computed. Computing now... Done. rainfall_abs mean_std params={'mean': 0.1872788816690445, 'std': 2.55940580368042}
+Normalisation params for snfall_abs not computed. Computing now... Done. snfall_abs mean_std params={'mean': 1.1657179594039917, 'std': 4.241876125335693}
+Normalisation params for tas_abs not computed. Computing now... Done. tas_abs mean_std params={'mean': -12.535223960876465, 'std': 10.769847869873047}
