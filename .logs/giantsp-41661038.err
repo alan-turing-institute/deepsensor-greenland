@@ -1,8 +1,0 @@
-   Building giant-sp @ file:///home/users/acocac/repos/giant/giant-sp
-      Built giant-sp @ file:///home/users/acocac/repos/giant/giant-sp
-Uninstalled 1 package in 9ms
-Installed 1 package in 24ms
-/home/users/acocac/repos/giant/giant-sp/src/giant_sp/data/dataloader.py:450: UserWarning: The specified chunks separate the stored chunks along dimension "time" starting at index 1084. This could degrade performance. Instead, consider rechunking after loading.
-  ds = xr.open_zarr(os.path.join(self.source, self.data_pattern), chunks='auto')
-/home/users/acocac/repos/giant/giant-sp/src/giant_sp/data/dataloader.py:450: UserWarning: The specified chunks separate the stored chunks along dimension "z" starting at index 30953. This could degrade performance. Instead, consider rechunking after loading.
-  ds = xr.open_zarr(os.path.join(self.source, self.data_pattern), chunks='auto')
