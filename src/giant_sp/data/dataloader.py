@@ -824,6 +824,7 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         self.ancils_path: str = config["data"]["ancillary_path"]
         self.train_start: str = config["data"]["train_start"]
         self.val_end: str = config["data"]["val_end"]
+        self.context_delta_t = config["dataloader"]["context_delta_t"]
         if self.basin is not None:
             self.basin_x, self.basin_y = self.load_basin(target_basin=self.basin)
 
@@ -1018,28 +1019,53 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         if data_processor is None:
             data_processor = self.init_data_processor()
 
+        if self.context_delta_t is None:
+            delta_factor_context = 1
+            flat_context_delta_t = [self.context_delta_t]
+        elif not isinstance(self.context_delta_t, list):
+            delta_factor_context = len(self.context_delta_t)
+            flat_context_delta_t = self.context_delta_t
+        elif any(isinstance(el, list) for el in self.context_delta_t):
+            delta_factor_context = [len(group) for group in self.context_delta_t]
+            flat_context_delta_t = [v for group in self.context_delta_t for v in group]
+
+        max_negative_context_delta_t = min(
+            (v for v in flat_context_delta_t if v is not None and v < 0), default=0
+        )
+
+        if dates is not None and max_negative_context_delta_t < 0:
+            dates_index = pd.DatetimeIndex(dates)
+            negative_deltas = {v for v in flat_context_delta_t if v is not None and v < 0}
+            padding = pd.DatetimeIndex(
+                [date + pd.Timedelta(days=delta) for date in dates_index for delta in negative_deltas]
+            )
+            padded_dates = dates_index.union(padding)
+        else:
+            padded_dates = dates
+
         # Apply/learn
         aux_ds = data_processor(lsm_raw_ds, method="min_max")
 
         # Make task loader
         if len(self.variables) > 1:
             ds_target = data_processor(
-                raw_ds[self.context_vars[0]].sel(time=dates),
+                raw_ds[self.context_vars[0]].sel(time=padded_dates),
                 method="positive_semidefinite",
             )
-            ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=dates))
+            ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=padded_dates))
             aux_ds = self.add_spatiotemporal_aux(
                 aux_ds.to_dataset(name="GRLmask"), ds_target
             )
-            context = [ds_target, ds_others, aux_ds]
+
+            context = [obj for obj, n in zip([ds_target, ds_others, aux_ds], delta_factor_context) for _ in range(n)]
             target = [ds_target[self.target_vars]]
         else:
-            ds = data_processor(raw_ds.sel(time=dates))
+            ds = data_processor(raw_ds.sel(time=padded_dates))
             aux_ds = self.add_spatiotemporal_aux(aux_ds.to_dataset(name="GRLmask"), ds)
-            context = [ds[self.context_vars], aux_ds]
+            context = [obj for obj, n in zip([self.context_vars, aux_ds], delta_factor_context) for _ in range(n)]
             target = [ds[self.target_vars]]
 
         if task is None:
-            task_loader = TaskLoader(context=context, target=target)
+            task_loader = TaskLoader(context=context, target=target, context_delta_t=flat_context_delta_t)
 
         return raw_ds, data_processor, task_loader

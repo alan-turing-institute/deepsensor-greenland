@@ -282,7 +282,7 @@ class TaskStreamDataset(IterableDataset[Task]):
             task = (
                 self.task_loader(
                     date,
-                    context_sampling=(context, "all", "all"),
+                    context_sampling=(context, "all", "all", "all"),
                     target_sampling=target,
                     datewise_deterministic=self.datewise_deterministic,
                 )

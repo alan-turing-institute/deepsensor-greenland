@@ -389,7 +389,8 @@ def main(args: argparse.Namespace) -> None:
                         )
                     ),
                     "all",
-                    "all",
+                    "all",                     
+                    "all",  
                 ),
                 target_sampling="all",
                 datewise_deterministic=True,
@@ -402,7 +403,7 @@ def main(args: argparse.Namespace) -> None:
         val_tasks = [
             task_loader(
                 date,
-                context_sampling=(rng.integers(100, 400), "all", "all"),
+                context_sampling=(rng.integers(100, 400), "all", "all", "all"),
                 target_sampling="all",
                 datewise_deterministic=True,
             )
@@ -415,7 +416,7 @@ def main(args: argparse.Namespace) -> None:
     logger.info("Starting stnval task generation (%d)", len(val_dates))
     stnval_tasks = [
         task_loader(
-            date, context_sampling=(stn_locs, "all", "all"), target_sampling="all"
+            date, context_sampling=(stn_locs, "all", "all", "all"), target_sampling="all"
         )
         .remove_context_nans()
         .remove_target_nans()
