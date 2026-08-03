@@ -1,7 +1,12 @@
+"""
+Main script for placement experiments using a trained ConvNP model.
+"""
+
 import argparse
 import glob
 import json
 import os
+from typing import Any
 
 # src
 import deepsensor.active_learning.acquisition_fns as acq
@@ -14,6 +19,7 @@ import wandb
 import xarray as xr
 import yaml
 from deepsensor.active_learning.algorithms import GreedyAlgorithm
+from deepsensor.data.loader import TaskLoader
 from deepsensor.data.processor import DataProcessor
 from deepsensor.model.convnp import ConvNP
 from deepsensor.train.train import set_gpu_default_device
@@ -21,27 +27,84 @@ from deepsensor.train.train import set_gpu_default_device
 import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
+from giant_sp.data.dataloader import BaseDataLoader
 from giant_sp.utils.data import sample_dates_by_year_chunks
 
 set_gpu_default_device() if torch.cuda.is_available() else torch.device("cpu")
 
 
-def load_config(config_path):
-    """Load configuration from YAML file"""
+def load_config(config_path: str) -> dict[str, Any]:
+    """Load a configuration from a YAML file.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to the YAML configuration file.
+
+    Returns
+    -------
+    dict[str, Any]
+        Parsed configuration as a nested dictionary.
+    """
     with open(config_path) as f:
         config = yaml.safe_load(f)
     return config
 
 
-def download_wandb_file(run_ref, files_path, file):
+def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
+    """Download a single file logged to a Weights & Biases run.
+
+    Parameters
+    ----------
+    run_ref : str
+        Weights & Biases run reference, e.g. ``"entity/project/run_id"``.
+    files_path : str
+        Local directory to download the file into (passed as ``root`` to
+        the W&B download call).
+    file : str
+        Name of the file to download, relative to the run's ``files/``
+        directory.
+
+    Returns
+    -------
+    None
+        The file is downloaded to disk as a side effect; nothing is
+        returned.
+    """
     api = wandb.Api()
     therun = api.run(run_ref)
 
     therun.file(os.path.join("files", file)).download(root=files_path, exist_ok=True)
 
 
-def load_wandb_model(data_processor, task_loader, config_path, weights_path):
+def load_wandb_model(
+    data_processor: DataProcessor,
+    task_loader: TaskLoader,
+    config_path: str,
+    weights_path: str,
+) -> ConvNP:
+    """Reconstruct a trained ConvNP model from a Weights & Biases run.
 
+    Builds a `ConvNP` model using the architecture recorded in the run's
+    model config, then loads its trained weights onto the CUDA device if
+    one is available, otherwise the CPU.
+
+    Parameters
+    ----------
+    data_processor : DataProcessor
+        Fitted DeepSensor data processor used to construct the model.
+    task_loader : TaskLoader
+        Task loader describing the model's context/target sets.
+    config_path : str
+        Path to the run's ``model_config.json`` file.
+    weights_path : str
+        Path to the ``.pt`` file containing the trained model weights.
+
+    Returns
+    -------
+    ConvNP
+        The reconstructed model with weights loaded from `weights_path`.
+    """
     with open(config_path) as f:
         config = json.load(f)
 
@@ -64,7 +127,71 @@ def load_wandb_model(data_processor, task_loader, config_path, weights_path):
     return model
 
 
-def main():
+def main() -> None:
+    """Run a greedy active-learning search for new station placements.
+
+    Parses CLI arguments, loads a trained ConvNP model together with its
+    data processor and task loader from a Weights & Biases run, builds the
+    target prediction grid and search-space mask, samples evaluation dates,
+    and runs deepsensor's `GreedyAlgorithm` with the requested acquisition
+    function to propose `n_new` new station locations. Results (the
+    acquisition function values and proposed placements) are saved to disk
+    and a summary figure is produced, unless a previous run's output
+    already exists on disk, in which case that output is loaded and only
+    re-plotted.
+
+    Returns
+    -------
+    None
+        Outputs are written under ``outputs/<run_id>/placement/<acq_fn>/``
+        (acquisition function NetCDF and new-placements CSV) and
+        ``outputs/<run_id>/placement/figures/`` (plot).
+
+    Raises
+    ------
+    ValueError
+        If ``config["data"]["source"]`` is not one of ``"carra2"``,
+        ``"hirham5"``, ``"hirham5zarr"``; if the temporal sampling method is
+        not ``"seasonal"`` or ``"regular"``; or if no station locations
+        remain after filtering to the model domain/land mask.
+    NotImplementedError
+        If ``--acq_fn`` does not match a known deepsensor acquisition
+        function name.
+
+    Notes
+    -----
+    CLI Arguments
+        --config_file : str
+            Path to the YAML experiment configuration file.
+        --run_ref : str
+            Weights & Biases run reference (``"entity/project/run_id"``)
+            to load the trained model from.
+        --weights_filename : str
+            Filename of the model weights within the run's files.
+        --acq_fn : str
+            Name of the deepsensor acquisition function to use.
+        --n_new : int
+            Number of new station locations to propose.
+        --search_start_date, --search_end_date : str
+            Date range (inclusive) over which evaluation dates are sampled.
+        --temporal_subsampling_method : str
+            Either ``"seasonal"`` (Gaussian-weighted by day of year) or
+            ``"regular"`` (fixed-stride date range).
+        --temporal_subsampling_every : int
+            Number of dates sampled per year (seasonal) or stride between
+            dates (regular).
+        --pred_resolution : int
+            Coarsening factor for the target prediction grid; ``0`` uses
+            the native model grid.
+        --search_mask_file : str
+            Optional path to a pre-computed search-space mask; if empty, a
+            default mask is derived from the land-sea mask.
+        --search_resolution : int
+            Coarsening factor used to build the default search-space mask.
+        --min_land : float
+            Minimum land fraction for a grid cell to be included in the
+            target/search masks.
+    """
     # Trained model args
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -110,6 +237,7 @@ def main():
     # chunk_size = 100
 
     # Initialize data loader
+    data_loader: BaseDataLoader
     if source == "carra2":
         data_loader = CARRA2DataLoader(config)
         td = np.timedelta64(0, "ms")
@@ -145,7 +273,10 @@ def main():
             weights_doy, dates_start, dates_end, n_samples_per_year
         )
 
-        dates = list(np.sort(dates + td).astype("datetime64[ns]"))
+        # numpy resolves list[np.datetime64] + np.timedelta64 via timedelta64's
+        # __radd__ at runtime (broadcasting the list to an array), which
+        # mypy's operator overload resolution does not model.
+        dates = list(np.sort(dates + td).astype("datetime64[ns]"))  # type: ignore[operator]
     elif temporal_sampling_method == "regular":
         dates = pd.date_range(start=dates_start, end=dates_end, freq=frequency)[
             ::temporal_sampling_every
@@ -191,9 +322,11 @@ def main():
     else:
         lsm = data_loader.load_aux_ds(resolution="bedmachine")
         coarsen_factor = int(args.pred_resolution / 1.0)
+        # xarray-stubs does not expose reduction methods (e.g. `.mean()`) on
+        # DataArrayCoarsen, though they exist at runtime.
         target_grid = lsm.coarsen(
             {"lat": coarsen_factor, "lon": coarsen_factor}, boundary="trim"
-        ).mean()
+        ).mean()  # type: ignore[attr-defined]
         target_mask = target_grid.where(target_grid > args.min_land, other=0)
 
     stn_file = config["data"]["station_locations_file"]
@@ -242,6 +375,9 @@ def main():
         lat_max = float(lonlat_coords_ref[1].max().values)
         gdf_points = gdf_points.cx[lon_min:lon_max, lat_min:lat_max]
 
+        # find_xy_for_points is typed for xr.Dataset, but only ever accesses
+        # attributes (coords, dims) that xr.DataArray shares with Dataset, so
+        # passing the DataArray mask_reference here works at runtime.
         gdf_points = du.find_xy_for_points(mask_reference, gdf_points)
 
         gdf_points["mask_val"] = mask_reference.sel(
@@ -289,9 +425,11 @@ def main():
     if args.search_mask_file == "":
         coarsen_factor = int(search_resolution / 1.0)
         lsm = data_loader.load_aux_ds(resolution="bedmachine")
+        # xarray-stubs does not expose reduction methods (e.g. `.mean()`) on
+        # DataArrayCoarsen, though they exist at runtime.
         aux_raw_ds = lsm.coarsen(
             {"lat": coarsen_factor, "lon": coarsen_factor}, boundary="trim"
-        ).mean()
+        ).mean()  # type: ignore[attr-defined]
         search_mask = aux_raw_ds.where(
             aux_raw_ds > args.min_land, other=0
         )  # search where True
