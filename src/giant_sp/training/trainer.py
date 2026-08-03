@@ -452,6 +452,11 @@ class Trainer:
         weights are saved there unconditionally).
         """
         num_epochs = self.train_config["num_epochs"]
+
+        if not hasattr(self, "local_save_dir"):
+            self.local_save_dir = os.path.join("outputs", "training")
+            os.makedirs(self.local_save_dir, exist_ok=True)
+
         assert self.model.model is not None, "model.model must be built before training"
         model = self.model.model
         self.train_config["learning_rate"]
