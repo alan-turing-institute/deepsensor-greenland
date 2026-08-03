@@ -1,0 +1,67 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+            {
+                "name": "train_debug",
+                "type": "debugpy",
+                "request": "launch",
+                "python": "${workspaceFolder}/.venv/bin/python",
+                "cwd": "${workspaceFolder}",
+                "module": "giant_sp.scripts.interpolation",
+                "args": [
+                        "--config=src/giant_sp/configs/carra2_debug.yaml",
+                ],
+                "env": {
+                        "PYTHONPATH": "${workspaceRoot}"
+                },
+                "console": "integratedTerminal",
+                "justMyCode": false
+        },
+        {
+                "name": "inference_debug",
+                "type": "debugpy",
+                "request": "launch",
+                "python": "${workspaceFolder}/.venv/bin/python",
+                "cwd": "${workspaceFolder}",
+                "module": "giant_sp.scripts.inference",
+                "args": [
+                        "--run_ref=turing-giant/present-train/q7nn0lxf",
+                        "--config_file=src/giant_sp/configs/hirham5zarr_debug.yaml",
+                        "--val_set=station",
+                        "--every=200",
+                        "--weights_filename=best-weights.pt",
+                        "--plot"
+                ],
+                "env": {
+                        "PYTHONPATH": "${workspaceRoot}"
+                },
+                "console": "integratedTerminal",
+                "justMyCode": false
+        },
+        {
+                "name": "placement_debug",
+                "type": "debugpy",
+                "request": "launch",
+                "python": "${workspaceFolder}/.venv/bin/python",
+                "cwd": "${workspaceFolder}",
+                "module": "giant_sp.scripts.placement",
+                "args": [
+                        "--acq_fn=ContextDist",
+                        "--n_new=1",
+                        "--run_ref=turing-giant/present-train/q7nn0lxf",
+                        "--config_file=src/giant_sp/configs/hirham5zarr_debug.yaml",
+                        "--temporal_subsampling_method=seasonal",
+                        "--temporal_subsampling_every=2",
+                        "--search_resolution=30"
+                ],
+                "env": {
+                        "PYTHONPATH": "${workspaceRoot}"
+                },
+                "console": "integratedTerminal",
+                "justMyCode": false
+        },
+    ]
+}
