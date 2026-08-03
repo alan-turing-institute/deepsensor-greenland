@@ -59,7 +59,7 @@ class TaskStreamDataset(IterableDataset[Task]):
         is enabled.
     sampling_strat : SamplingSpec
         Strategy used to choose the number/location of context
-        observations. One of ``"n_obs"``, ``"land_obs"``, ``"mixed_obs"``, or
+        observations. One of ``"random"``, ``"land_obs"``, ``"mixed_obs"``, or
         any value accepted directly as DeepSensor context sampling.
     target_sampling : SamplingSpec
         Strategy used to choose targets. ``"random"`` samples a random
