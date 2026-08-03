@@ -97,6 +97,7 @@ class TaskStreamDataset(IterableDataset[Task]):
         frequency: str = "D",
         sampling: int = 1,
         sampling_strat: SamplingSpec = "random",
+        delta_factor_context: list[int] | None = None,
         min_obs: int = 50,
         max_obs: int = 100,
         target_sampling: SamplingSpec = "all",
@@ -129,6 +130,10 @@ class TaskStreamDataset(IterableDataset[Task]):
             ``"land_obs"`` samples that many land-only locations from
             ``lsm``; ``"mixed_obs"`` mixes station and land locations; any
             other value is used directly as the context sampling spec.
+        delta_factor_context : list[int] | None, default None
+            Number of context sets to generate per context group (e.g. the
+            group sizes from ``context_delta_t``). ``None`` defaults to
+            ``[1, 1]``.
         min_obs : int, default 50
             Lower bound (inclusive) for random context observation counts.
         max_obs : int, default 100
@@ -188,6 +193,9 @@ class TaskStreamDataset(IterableDataset[Task]):
         self.sampling = sampling
 
         self.sampling_strat = sampling_strat
+        self.delta_factor_context = (
+            delta_factor_context if delta_factor_context is not None else [1, 1]
+        )
         self.target_sampling = target_sampling
         self.min_targets = min_targets
         self.max_targets = max_targets
@@ -279,10 +287,18 @@ class TaskStreamDataset(IterableDataset[Task]):
             else:
                 target = self.target_sampling
 
+            context_sampling_tr = [
+                obj
+                for obj, n in zip(
+                    [context, "all"], self.delta_factor_context, strict=False
+                )
+                for _ in range(n)
+            ] + ["all"]
+
             task = (
                 self.task_loader(
                     date,
-                    context_sampling=(context, "all", "all", "all"),
+                    context_sampling=context_sampling_tr,
                     target_sampling=target,
                     datewise_deterministic=self.datewise_deterministic,
                 )

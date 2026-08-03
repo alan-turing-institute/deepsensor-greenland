@@ -1019,15 +1019,20 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         if data_processor is None:
             data_processor = self.init_data_processor()
 
-        if self.context_delta_t is None:
-            delta_factor_context = 1
-            flat_context_delta_t = [self.context_delta_t]
-        elif not isinstance(self.context_delta_t, list):
-            delta_factor_context = len(self.context_delta_t)
-            flat_context_delta_t = self.context_delta_t
-        elif any(isinstance(el, list) for el in self.context_delta_t):
-            delta_factor_context = [len(group) for group in self.context_delta_t]
-            flat_context_delta_t = [v for group in self.context_delta_t for v in group]
+        if isinstance(self.context_delta_t, list) and any(
+            isinstance(el, list) for el in self.context_delta_t
+        ):
+            delta_factor_context: list[int] = [
+                len(group) for group in self.context_delta_t
+            ]
+            flat_context_delta_t: list[int] = [
+                v for group in self.context_delta_t for v in group
+            ] + [0]  # the last 0 is for the aux data
+        else:
+            raise NotImplementedError(
+                "HIRHAM5ZarrDataLoader only supports context_delta_t as a nested "
+                f"list of per-group deltas, e.g. [[0], [-2, -1, 0]], got {self.context_delta_t!r}."
+            )
 
         max_negative_context_delta_t = min(
             (v for v in flat_context_delta_t if v is not None and v < 0), default=0
@@ -1035,11 +1040,17 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
 
         if dates is not None and max_negative_context_delta_t < 0:
             dates_index = pd.DatetimeIndex(dates)
-            negative_deltas = {v for v in flat_context_delta_t if v is not None and v < 0}
+            negative_deltas = {
+                v for v in flat_context_delta_t if v is not None and v < 0
+            }
             padding = pd.DatetimeIndex(
-                [date + pd.Timedelta(days=delta) for date in dates_index for delta in negative_deltas]
+                [
+                    date + pd.Timedelta(days=delta)
+                    for date in dates_index
+                    for delta in negative_deltas
+                ]
             )
-            padded_dates = dates_index.union(padding)
+            padded_dates = dates_index.union(padding).unique()
         else:
             padded_dates = dates
 
@@ -1052,20 +1063,36 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
                 raw_ds[self.context_vars[0]].sel(time=padded_dates),
                 method="positive_semidefinite",
             )
-            ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=padded_dates))
+            ds_others = data_processor(
+                raw_ds[self.context_vars[1]].sel(time=padded_dates)
+            )
             aux_ds = self.add_spatiotemporal_aux(
                 aux_ds.to_dataset(name="GRLmask"), ds_target
             )
 
-            context = [obj for obj, n in zip([ds_target, ds_others, aux_ds], delta_factor_context) for _ in range(n)]
+            context = [
+                obj
+                for obj, n in zip(
+                    [ds_target, ds_others], delta_factor_context, strict=False
+                )
+                for _ in range(n)
+            ] + [aux_ds]
             target = [ds_target[self.target_vars]]
         else:
             ds = data_processor(raw_ds.sel(time=padded_dates))
             aux_ds = self.add_spatiotemporal_aux(aux_ds.to_dataset(name="GRLmask"), ds)
-            context = [obj for obj, n in zip([self.context_vars, aux_ds], delta_factor_context) for _ in range(n)]
+            context = [
+                obj
+                for obj, n in zip(
+                    [self.context_vars], delta_factor_context, strict=False
+                )
+                for _ in range(n)
+            ] + [aux_ds]
             target = [ds[self.target_vars]]
 
         if task is None:
-            task_loader = TaskLoader(context=context, target=target, context_delta_t=flat_context_delta_t)
+            task_loader = TaskLoader(
+                context=context, target=target, context_delta_t=flat_context_delta_t
+            )
 
         return raw_ds, data_processor, task_loader
