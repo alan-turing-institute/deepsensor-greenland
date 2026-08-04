@@ -68,6 +68,10 @@ filterwarnings = [
   # deepsensor's `lab` dependency triggers this on import; not actionable from giant_sp.
   "ignore:numpy.core is deprecated.*:DeprecationWarning:lab",
   # netCDF4's compiled extension warns about a numpy ABI size mismatch on import.
+  # Not module-scoped: CPython attributes warnings from single-phase-init C
+  # extensions (e.g. netCDF4's _netCDF4.pyx) to importlib._bootstrap rather than
+  # the extension itself, so a module filter can't target netCDF4 specifically.
+  # The message pattern is already specific to this exact ABI-mismatch text.
   "ignore:numpy.ndarray size changed.*:RuntimeWarning",
   # netCDF4's compiled extension does an in-place ndarray.shape assignment on
   # write, deprecated under numpy>=2.5; not actionable from giant_sp.
