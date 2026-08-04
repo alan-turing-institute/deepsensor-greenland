@@ -882,20 +882,26 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
             self.variables = [var for group in self.context_vars for var in group]
 
         ds = xr.open_zarr(os.path.join(self.source, self.data_pattern), chunks="auto")
+
         ds = ds.set_index(z=["y", "x"]).unstack("z")
         ds = ds.drop_vars(["lat", "lon"])
 
         # preprocess data to fix negative snmel
         ds["snmel"] = ds["snmel"].where(ds["snmel"] >= 0, 0)
 
-        ds = ds[[var[:-4] for var in self.variables]]
+        # split variables into those that are 10-year averages and those that are not
+        self.long_vars = [var for var in self.variables if var.endswith("_10yr-avg")]
+        self.base_vars = [var for var in self.variables if var not in self.long_vars]
 
-        if any(v.startswith("tas") for v in self.variables):
+        # preprocess base variables (non-10-year averages)
+        ds = ds[[var[:-4] for var in self.base_vars]]
+
+        if any(v.startswith("tas") for v in self.base_vars):
             scale = 1.0
             shift = -273.15
             ds["tas"] = ds["tas"] * scale + shift
 
-        for var in self.variables:
+        for var in self.base_vars:
             if var[-3:] == "anm":
                 target = var[:-4]
                 ds.update(
@@ -915,6 +921,17 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
 
         ds = ds.rename(rename_map)
 
+        # open the 10-year average dataset and merge it with the base dataset
+        if len(self.long_vars) > 0:
+            ds_long = xr.open_zarr(os.path.join(self.source, "base_dataset_10yr.zarr"), chunks="auto")
+            ds_long = ds_long.set_index(z=["y", "x"]).unstack("z")
+            ds_long = ds_long.drop_vars(["lat", "lon"])
+            if any(v.startswith("tas") for v in self.long_vars):
+                scale = 1.0
+                shift = -273.15
+                ds_long["tas_10yr-avg"] = ds_long["tas_10yr-avg"] * scale + shift
+            ds = ds.merge(ds_long[self.long_vars])
+
         if self.basin is not None:
             ds = ds.sel(
                 x=slice(float(self.basin_x.min()), float(self.basin_x.max())),
@@ -925,6 +942,9 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
 
         rename_map = {"x": "lon", "y": "lat"}
         ds = ds.rename(rename_map)
+
+        # update the base_vars list to exclude any target variables, so that they are not included in the context forcing variables
+        self.base_vars = [var for var in self.base_vars if var not in self.target_vars]
 
         return ds
 
@@ -1024,19 +1044,28 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         # Make task loader
         if len(self.variables) > 1:
             ds_target = data_processor(
-                raw_ds[self.context_vars[0]].sel(time=dates),
+                raw_ds[self.target_vars].sel(time=dates),
                 method="positive_semidefinite",
             )
-            ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=dates))
+            ds_others = data_processor(raw_ds[self.base_vars].sel(time=dates))
+
             aux_ds = self.add_spatiotemporal_aux(
                 aux_ds.to_dataset(name="GRLmask"), ds_target
             )
-            context = [ds_target, ds_others, aux_ds]
+            if len(self.long_vars) > 0:
+                ds_others_long = data_processor(raw_ds[self.long_vars].sel(time=dates))
+                context = [ds_target, ds_others, ds_others_long, aux_ds]
+            else:
+                context = [ds_target, ds_others, aux_ds]
             target = [ds_target[self.target_vars]]
         else:
             ds = data_processor(raw_ds.sel(time=dates))
             aux_ds = self.add_spatiotemporal_aux(aux_ds.to_dataset(name="GRLmask"), ds)
-            context = [ds[self.context_vars], aux_ds]
+            if len(self.long_vars) > 0:
+                ds_others_long = data_processor(raw_ds[self.long_vars].sel(time=dates))
+                context = [ds[self.context_vars], ds_others_long, aux_ds]
+            else:
+                context = [ds[self.context_vars], aux_ds]
             target = [ds[self.target_vars]]
 
         if task is None:
