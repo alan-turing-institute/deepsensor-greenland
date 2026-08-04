@@ -7,7 +7,7 @@ data:
   data_pattern: "base_dataset.zarr"
   ancillary_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed/HIRHAM5-ERAInterim/v_02"
   station_locations_file: "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations.csv"
-  context_var_IDs: [["snmel_abs"], ["ahfl_abs", "ahfs_abs", "dlwrad_abs", "dswrad_abs", "rainfall_abs", "snfall_abs", "tas_abs"]]
+  context_var_IDs: [["snmel_abs"], ["ahfl_abs", "ahfs_abs", "dlwrad_abs", "dswrad_abs", "rainfall_abs", "snfall_abs", "tas_abs"], ["rainfall_10yr-avg", "snfall_10yr-avg", "tas_10yr-avg"]]
   target_var_IDs: "snmel_abs"
   region: "greenland"
   basin: null #SE, CE

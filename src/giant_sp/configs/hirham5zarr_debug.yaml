@@ -7,7 +7,7 @@ data:
   data_pattern: "base_dataset.zarr"
   ancillary_path: "data/anemoi/processed/hirham5zarr/greenland"
   station_locations_file: "data/station/promice/processed/promice_locations.csv"
-  context_var_IDs: [["snmel_abs"], ["ahfl_abs", "ahfs_abs", "dlwrad_abs", "dswrad_abs", "rainfall_abs", "snfall_abs", "tas_abs"]]
+  context_var_IDs: [["snmel_abs"], ["ahfl_abs", "ahfs_abs", "dlwrad_abs", "dswrad_abs", "rainfall_abs", "snfall_abs", "tas_abs"], ["rainfall_10yr-avg", "snfall_10yr-avg", "tas_10yr-avg"]]
   target_var_IDs: "snmel_abs"
   region: "greenland"
   basin: "CE" #CE, CW, NE, NO, NW, SE, SW
