@@ -23,35 +23,35 @@ class TestSampleLandLocations:
         with pytest.raises(ValueError, match="Land-sea mask"):
             sample_land_locations(5)
 
-    def test_shape(self, lsm_3x3):
-        raw_locs = sample_land_locations(5, lsm=lsm_3x3, seed=0)
+    def test_shape(self, lsm):
+        raw_locs = sample_land_locations(5, lsm=lsm, seed=0)
         assert raw_locs.shape == (2, 5)
 
-    def test_samples_only_land_cells(self, lsm_3x3):
+    def test_samples_only_land_cells(self, lsm):
         land_cells = {
             (float(lat), float(lon))
-            for lat in lsm_3x3["lat"].values
-            for lon in lsm_3x3["lon"].values
-            if lsm_3x3.sel(lat=lat, lon=lon).item()
+            for lat in lsm["lat"].values
+            for lon in lsm["lon"].values
+            if lsm.sel(lat=lat, lon=lon).item()
         }
-        raw_locs = sample_land_locations(50, lsm=lsm_3x3, seed=0)
+        raw_locs = sample_land_locations(50, lsm=lsm, seed=0)
         sampled = set(zip(raw_locs[0], raw_locs[1], strict=True))
         assert sampled <= land_cells
 
-    def test_invert_mask_samples_only_sea_cells(self, lsm_3x3):
+    def test_invert_mask_samples_only_sea_cells(self, lsm):
         sea_cells = {
             (float(lat), float(lon))
-            for lat in lsm_3x3["lat"].values
-            for lon in lsm_3x3["lon"].values
-            if not lsm_3x3.sel(lat=lat, lon=lon).item()
+            for lat in lsm["lat"].values
+            for lon in lsm["lon"].values
+            if not lsm.sel(lat=lat, lon=lon).item()
         }
-        raw_locs = sample_land_locations(50, lsm=lsm_3x3, seed=0, invert_mask=True)
+        raw_locs = sample_land_locations(50, lsm=lsm, seed=0, invert_mask=True)
         sampled = set(zip(raw_locs[0], raw_locs[1], strict=True))
         assert sampled <= sea_cells
 
-    def test_seed_reproducible(self, lsm_3x3):
-        first = sample_land_locations(10, lsm=lsm_3x3, seed=123)
-        second = sample_land_locations(10, lsm=lsm_3x3, seed=123)
+    def test_seed_reproducible(self, lsm):
+        first = sample_land_locations(10, lsm=lsm, seed=123)
+        second = sample_land_locations(10, lsm=lsm, seed=123)
         np.testing.assert_array_equal(first, second)
 
 
@@ -72,9 +72,9 @@ class TestSampleStationLocations:
 
 
 class TestMixedSamplingStrategy:
-    def test_shape(self, stn_locs_df, lsm_3x3):
+    def test_shape(self, stn_locs_df, lsm):
         raw_locs = mixed_sampling_strategy(
-            stn_locs_df, 10, frac_stn=0.2, lsm=lsm_3x3, seed=0
+            stn_locs_df, 10, frac_stn=0.2, lsm=lsm, seed=0
         )
         assert raw_locs.shape == (2, 10)
 

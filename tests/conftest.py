@@ -7,7 +7,7 @@ from deepsensor.data import DataProcessor, TaskLoader
 
 
 @pytest.fixture
-def lsm_3x3():
+def lsm():
     """A tiny land-sea mask DataArray (land==1, sea==0) on a 3x3 lat/lon grid."""
     lat = np.array([-10.0, 0.0, 10.0])
     lon = np.array([0.0, 10.0, 20.0])
