@@ -14,7 +14,7 @@ from giant_sp.data.dataloader import (
 
 
 def _make_config(
-    bm_ancils_path=None, basin=None, data_path="/nonexistent", data_pattern="*.nc"
+    ancils_path=None, basin=None, data_path="/nonexistent", data_pattern="*.nc"
 ):
     config = {
         "data": {
@@ -31,8 +31,8 @@ def _make_config(
         },
         "dataloader": {"lsm_mask": False, "frequency": "D"},
     }
-    if bm_ancils_path is not None:
-        config["data"]["bedmachine_ancillary_path"] = str(bm_ancils_path)
+    if ancils_path is not None:
+        config["data"]["ancillary_path"] = str(ancils_path)
     return config
 
 
@@ -133,7 +133,7 @@ class TestLoadBasin:
         self, tmp_path, loader_cls, basin_filename
     ):
         _write_basin_netcdf(tmp_path / basin_filename, se_code=1, other_code=2)
-        config = _make_config(bm_ancils_path=tmp_path, basin="SE")
+        config = _make_config(ancils_path=tmp_path, basin="SE")
 
         loader = loader_cls(config)
 
@@ -143,7 +143,7 @@ class TestLoadBasin:
     def test_skips_basin_loading_when_basin_is_none(
         self, tmp_path, loader_cls, basin_filename
     ):
-        config = _make_config(bm_ancils_path=tmp_path, basin=None)
+        config = _make_config(ancils_path=tmp_path, basin=None)
 
         loader = loader_cls(config)
 
@@ -172,7 +172,7 @@ class TestHirham5ZarrLoadBasin:
         ds.to_zarr(tmp_path / "GRLmask.zarr", zarr_format=2)
 
         config = _make_config(
-            bm_ancils_path=tmp_path,
+            ancils_path=tmp_path,
             basin="SE",
             data_path=str(tmp_path),
             data_pattern="data.zarr",
@@ -184,7 +184,7 @@ class TestHirham5ZarrLoadBasin:
 
     def test_skips_basin_loading_when_basin_is_none(self, tmp_path):
         config = _make_config(
-            bm_ancils_path=tmp_path,
+            ancils_path=tmp_path,
             basin=None,
             data_path=str(tmp_path),
             data_pattern="data.zarr",
