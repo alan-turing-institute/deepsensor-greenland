@@ -237,10 +237,12 @@ class Trainer:
         effect.
         """
         run_id = self.config["training"]["wandb_run_id"]
+        entity_id = self.config["logging"]["wandb"]["entity"]
         project_id = self.config["logging"]["wandb"]["project"]
 
         # Restore wandb run
         self.wandb_run = wandb.init(
+            entity=entity_id,
             project=project_id,
             id=run_id,
             resume="auto",
