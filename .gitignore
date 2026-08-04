@@ -45,3 +45,5 @@ logs/
 outputs/
 wandb/
 **/.DS_Store
+.claude/
+.vscode/
