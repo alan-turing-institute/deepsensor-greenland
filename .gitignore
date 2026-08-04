@@ -47,3 +47,4 @@ wandb/
 **/.DS_Store
 .claude/
 .vscode/
+.logs/
