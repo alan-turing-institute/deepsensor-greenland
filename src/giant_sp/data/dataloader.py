@@ -93,6 +93,7 @@ class BaseDataLoader:
             "context_var_IDs"
         ]
         self.context_delta_t = config["dataloader"]["context_delta_t"]
+        self.context_delta_t = config["dataloader"]["context_delta_t"]
         self.target_vars: str = config["data"]["target_var_IDs"]
         self.train_start: str = self.config["data"]["train_start"]
         self.train_end: str = self.config["data"]["train_end"]
@@ -817,6 +818,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
         if len(self.variables) > 1:
             ds_target = data_processor(
                 raw_ds[self.context_vars[0]].sel(time=padded_dates),
+                raw_ds[self.context_vars[0]].sel(time=padded_dates),
                 method="positive_semidefinite",
             )
             ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=padded_dates))
@@ -831,7 +833,15 @@ class HIRHAM5DataLoader(BaseDataLoader):
             target = [ds_target[self.target_vars]]
         else:
             ds = data_processor(raw_ds.sel(time=padded_dates))
+            ds = data_processor(raw_ds.sel(time=padded_dates))
             aux_ds = self.add_spatiotemporal_aux(aux_ds.to_dataset(), ds)
+            context = [
+                obj
+                for obj, n in zip(
+                    [self.context_vars], delta_factor_context, strict=False
+                )
+                for _ in range(n)
+            ] + [aux_ds]
             context = [
                 obj
                 for obj, n in zip(
@@ -1087,6 +1097,41 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         # Data processor
         if data_processor is None:
             data_processor = self.init_data_processor()
+
+        if isinstance(self.context_delta_t, list) and any(
+            isinstance(el, list) for el in self.context_delta_t
+        ):
+            delta_factor_context: list[int] = [
+                len(group) for group in self.context_delta_t
+            ]
+            flat_context_delta_t: list[int] = [
+                v for group in self.context_delta_t for v in group
+            ] + [0]  # the last 0 is for the aux data
+        else:
+            raise NotImplementedError(
+                "HIRHAM5ZarrDataLoader only supports context_delta_t as a nested "
+                f"list of per-group deltas, e.g. [[0], [-2, -1, 0]], got {self.context_delta_t!r}."
+            )
+
+        max_negative_context_delta_t = min(
+            (v for v in flat_context_delta_t if v is not None and v < 0), default=0
+        )
+
+        if dates is not None and max_negative_context_delta_t < 0:
+            dates_index = pd.DatetimeIndex(dates)
+            negative_deltas = {
+                v for v in flat_context_delta_t if v is not None and v < 0
+            }
+            padding = pd.DatetimeIndex(
+                [
+                    date + pd.Timedelta(days=delta)
+                    for date in dates_index
+                    for delta in negative_deltas
+                ]
+            )
+            padded_dates = dates_index.union(padding).unique()
+        else:
+            padded_dates = dates
 
         if isinstance(self.context_delta_t, list) and any(
             isinstance(el, list) for el in self.context_delta_t

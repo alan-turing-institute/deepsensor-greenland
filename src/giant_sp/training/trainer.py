@@ -237,10 +237,12 @@ class Trainer:
         effect.
         """
         run_id = self.config["training"]["wandb_run_id"]
+        entity_id = self.config["logging"]["wandb"]["entity"]
         project_id = self.config["logging"]["wandb"]["project"]
 
         # Restore wandb run
         self.wandb_run = wandb.init(
+            entity=entity_id,
             project=project_id,
             id=run_id,
             resume="auto",
@@ -249,10 +251,15 @@ class Trainer:
         self.local_save_dir = os.path.join(self.wandb_run.dir, "files")
         os.makedirs(self.local_save_dir)
 
-        latest_model_epoch = self.wandb_run.summary["epoch"]
+        # Restore best-loss tracking so post-resume epochs only overwrite
+        # the best checkpoints if they actually improve on the pre-resume best.
+        self.best_val_loss = self.wandb_run.summary.get("best_val_loss", np.inf)
+        self.best_stnval_loss = self.wandb_run.summary.get("best_stnval_loss", np.inf)
+
+        self.latest_model_epoch = self.wandb_run.summary["epoch"]
 
         # Load model weights
-        logger.info("Loading model weights of epoch %02d...", latest_model_epoch)
+        logger.info("Loading model weights of epoch %03d...", self.latest_model_epoch)
         weights_file = wandb.restore("files/last-weights.pt")
         assert weights_file is not None, "wandb.restore did not find the weights file"
         assert self.model.model is not None, "model.model must be built before training"
@@ -487,7 +494,7 @@ class Trainer:
             assert self.wandb_run is not None, (
                 "wandb_run must be set when resuming (see _restore_wandb)"
             )
-            n0 = self.wandb_run.summary["epoch"] + 1
+            n0 = self.latest_model_epoch + 1
             nend = self.train_config["num_epochs"]
         else:
             n0 = 0
@@ -541,6 +548,7 @@ class Trainer:
                         assert wandb.run is not None
                         assert self.wandb_run is not None
                         wandb.run.summary["best_val_loss"] = self.best_val_loss
+                        wandb.run.summary["best_val_loss_epoch"] = ep + 1
                         wandb.save(weights_path, base_path=self.wandb_run.dir)
             else:
                 self.epochs_without_improvement += 1
@@ -615,6 +623,7 @@ class Trainer:
                         assert wandb.run is not None
                         assert self.wandb_run is not None
                         wandb.run.summary["best_stnval_loss"] = self.best_stnval_loss
+                        wandb.run.summary["best_stnval_loss_epoch"] = ep + 1
                         wandb.save(weights_path, base_path=self.wandb_run.dir)
                 # Track val metrics
                 logger.info("Starting stnval set prediction")

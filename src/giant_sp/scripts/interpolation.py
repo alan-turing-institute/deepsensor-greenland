@@ -161,6 +161,7 @@ def main(args: argparse.Namespace) -> None:
     # Define data loader parameters
     train_sampling = config["dataloader"]["train_sampling"]
     context_delta_t = config["dataloader"]["context_delta_t"]
+    context_delta_t = config["dataloader"]["context_delta_t"]
     target_sampling = config["dataloader"]["target_sampling"]
     frequency = config["dataloader"]["frequency"]
     change_dates_every_epoch = config["dataloader"]["change_dates_every_epoch"]
