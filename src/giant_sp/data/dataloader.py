@@ -923,7 +923,9 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
 
         # open the 10-year average dataset and merge it with the base dataset
         if len(self.long_vars) > 0:
-            ds_long = xr.open_zarr(os.path.join(self.source, "base_dataset_10yr.zarr"), chunks="auto")
+            ds_long = xr.open_zarr(
+                os.path.join(self.source, "base_dataset_10yr.zarr"), chunks="auto"
+            )
             ds_long = ds_long.set_index(z=["y", "x"]).unstack("z")
             ds_long = ds_long.drop_vars(["lat", "lon"])
             if any(v.startswith("tas") for v in self.long_vars):
@@ -1057,7 +1059,6 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
                 context = [ds_target, ds_others, ds_others_long, aux_ds]
             else:
                 context = [ds_target, ds_others, aux_ds]
-            target = [ds_target[self.target_vars]]
         else:
             ds = data_processor(raw_ds.sel(time=dates))
             aux_ds = self.add_spatiotemporal_aux(aux_ds.to_dataset(name="GRLmask"), ds)
@@ -1066,9 +1067,9 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
                 context = [ds[self.context_vars], ds_others_long, aux_ds]
             else:
                 context = [ds[self.context_vars], aux_ds]
-            target = [ds[self.target_vars]]
+            ds_target = [ds[self.target_vars]]
 
         if task is None:
-            task_loader = TaskLoader(context=context, target=target)
+            task_loader = TaskLoader(context=context, target=ds_target)
 
         return raw_ds, data_processor, task_loader
