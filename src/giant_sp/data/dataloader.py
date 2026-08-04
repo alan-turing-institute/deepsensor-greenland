@@ -809,7 +809,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
             padded_dates = dates_index.union(padding).unique()
         else:
             padded_dates = dates
-            
+
         # Apply/learn
         aux_ds = data_processor(lsm_raw_ds, method="min_max")
 
@@ -819,15 +819,17 @@ class HIRHAM5DataLoader(BaseDataLoader):
                 raw_ds[self.context_vars[0]].sel(time=padded_dates),
                 method="positive_semidefinite",
             )
-            ds_others = data_processor(raw_ds[self.context_vars[1]].sel(time=padded_dates))
+            ds_others = data_processor(
+                raw_ds[self.context_vars[1]].sel(time=padded_dates)
+            )
             aux_ds = self.add_spatiotemporal_aux(aux_ds.to_dataset(), ds_target)
             context = [
-                            obj
-                            for obj, n in zip(
-                                [ds_target, ds_others], delta_factor_context, strict=False
-                            )
-                            for _ in range(n)
-                        ] + [aux_ds]
+                obj
+                for obj, n in zip(
+                    [ds_target, ds_others], delta_factor_context, strict=False
+                )
+                for _ in range(n)
+            ] + [aux_ds]
             target = [ds_target[self.target_vars]]
         else:
             ds = data_processor(raw_ds.sel(time=padded_dates))
@@ -842,7 +844,9 @@ class HIRHAM5DataLoader(BaseDataLoader):
             target = [ds[self.target_vars]]
 
         if task is None:
-            task_loader = TaskLoader(context=context, target=target, context_delta_t=flat_context_delta_t)
+            task_loader = TaskLoader(
+                context=context, target=target, context_delta_t=flat_context_delta_t
+            )
 
         return raw_ds, data_processor, task_loader
 
