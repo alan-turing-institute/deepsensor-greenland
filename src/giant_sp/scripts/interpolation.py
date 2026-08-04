@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Main training script for DeepSensor spatial interpolation
 """
@@ -6,6 +5,7 @@ Main training script for DeepSensor spatial interpolation
 import argparse
 import logging
 import os
+from typing import Any
 
 import deepsensor.torch  # noqa: F401
 import geopandas as gpd
@@ -19,6 +19,7 @@ from deepsensor.train import set_gpu_default_device
 
 import giant_sp.utils.training as tu
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
+from giant_sp.data.dataloader import BaseDataLoader
 from giant_sp.models import DeepSensorModel
 from giant_sp.training import Trainer
 from giant_sp.utils.data import (
@@ -28,8 +29,20 @@ from giant_sp.utils.data import (
 )
 
 
-def setup_logging(config):
-    """Setup logging configuration"""
+def setup_logging(config: dict[str, Any]) -> None:
+    """Configure the root logger from a run configuration.
+
+    Parameters
+    ----------
+    config : dict[str, Any]
+        Run configuration; ``config["logging"]["log_level"]`` must name a
+        valid `logging` level (e.g. ``"INFO"``).
+
+    Returns
+    -------
+    None
+        Configures the root logger as a side effect; nothing is returned.
+    """
     log_level = getattr(logging, config["logging"]["log_level"])
 
     logging.basicConfig(
@@ -39,15 +52,54 @@ def setup_logging(config):
     )
 
 
-def load_config(config_path):
-    """Load configuration from YAML file"""
+def load_config(config_path: str) -> dict[str, Any]:
+    """Load a configuration from a YAML file.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to the YAML configuration file.
+
+    Returns
+    -------
+    dict[str, Any]
+        Parsed configuration as a nested dictionary.
+    """
     with open(config_path) as f:
         config = yaml.safe_load(f)
     return config
 
 
-def main(args):
-    """Main training function"""
+def main(args: argparse.Namespace) -> None:
+    """Train a DeepSensor model for spatial interpolation.
+
+    Loads the run configuration named by ``args.config``, builds the
+    configured data loader, samples training/validation dates, generates
+    training/validation/station-validation task streams, builds the model,
+    and runs `Trainer.train`.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments; must have a ``config`` attribute giving the
+        path to the YAML configuration file.
+
+    Returns
+    -------
+    None
+        Training progress and results are logged and checkpointed as a
+        side effect (see `Trainer.train`); nothing is returned.
+
+    Raises
+    ------
+    ValueError
+        If ``config["data"]["source"]`` is not one of ``"carra2"``,
+        ``"hirham5"``, ``"hirham5zarr"``; if the temporal sampling method
+        is not ``"seasonal"`` or ``"regular"``; if ``"hirham5zarr"`` is
+        used without a land-sea mask enabled; or if no station locations
+        remain after applying the land mask/domain filter for
+        ``"hirham5zarr"``.
+    """
     # Load configuration
     config = load_config(args.config)
     source = config["data"]["source"]
@@ -87,6 +139,7 @@ def main(args):
     logger.info("Configuration: %s", args.config)
 
     # Initialize data loader
+    data_loader: BaseDataLoader
     if source == "carra2":
         data_loader = CARRA2DataLoader(config)
         td = np.timedelta64(0, "ms")
@@ -149,8 +202,15 @@ def main(args):
             weights_doy, val_start, val_end, n_samples_per_year
         )
 
-        train_dates = list(np.sort(train_sampled_dates + td).astype("datetime64[ns]"))
-        val_dates = list(np.sort(val_sampled_dates + td).astype("datetime64[ns]"))
+        # numpy resolves list[np.datetime64] + np.timedelta64 via timedelta64's
+        # __radd__ at runtime (broadcasting the list to an array), which
+        # mypy's operator overload resolution does not model.
+        train_dates = list(
+            np.sort(train_sampled_dates + td).astype("datetime64[ns]")  # type: ignore[operator]
+        )
+        val_dates = list(
+            np.sort(val_sampled_dates + td).astype("datetime64[ns]")  # type: ignore[operator]
+        )
     elif temporal_sampling_method == "regular":
         train_dates = pd.date_range(start=train_start, end=train_end, freq=frequency)[
             ::temporal_sampling_every
@@ -266,7 +326,7 @@ def main(args):
             frequency=frequency,
             sampling=temporal_sampling_every,
             change_dates_every_epoch=change_dates_every_epoch,
-            aod_sampling_strat=stn_locs,
+            sampling_strat=stn_locs,
             target_sampling=target_sampling,
         )
     elif train_sampling == "land_obs":
@@ -278,7 +338,7 @@ def main(args):
             frequency=frequency,
             sampling=temporal_sampling_every,
             change_dates_every_epoch=change_dates_every_epoch,
-            aod_sampling_strat="land_obs",
+            sampling_strat="land_obs",
             data_processor=data_processor,
             lsm=lsm,
             target_sampling=target_sampling,
@@ -292,13 +352,13 @@ def main(args):
             frequency=frequency,
             sampling=temporal_sampling_every,
             change_dates_every_epoch=change_dates_every_epoch,
-            aod_sampling_strat="mixed_obs",
+            sampling_strat="mixed_obs",
             data_processor=data_processor,
             lsm=lsm,
             target_sampling=target_sampling,
             stations_location=raw_stn_locs,
         )
-    elif train_sampling == "default":  # default random sampling
+    elif train_sampling == "random":  # default random sampling
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
@@ -306,6 +366,7 @@ def main(args):
             max_obs=400,
             frequency=frequency,
             sampling=temporal_sampling_every,
+            sampling_strat="random",
             change_dates_every_epoch=change_dates_every_epoch,
             target_sampling=target_sampling,
         )

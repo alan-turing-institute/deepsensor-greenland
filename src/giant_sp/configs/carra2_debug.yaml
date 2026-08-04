@@ -5,7 +5,7 @@ data:
   source: "carra2"
   data_path: "data/anemoi/processed/carra2"
   data_pattern: "carra2-greenland-2p5km-1986-2025-1M-v1-xy-2p5km*.nc"
-  bedmachine_ancillary_path: "data/reference/bm_v6"
+  ancillary_path: "data/reference/bm_v6"
   station_locations_file: "data/station/promice/processed/promice_locations.csv"
   context_var_IDs: [["2t_abs"],["10u_abs","10v_abs"]]
   target_var_IDs: "2t_abs"

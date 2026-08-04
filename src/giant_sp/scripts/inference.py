@@ -1,8 +1,13 @@
+"""
+Main script for inference using a trained ConvNP model.
+"""
+
 import argparse
 import datetime
 import glob
 import json
 import os
+from typing import Any, cast
 
 import deepsensor.torch  # noqa: F401
 import geopandas as gpd
@@ -12,30 +17,84 @@ import torch
 import wandb
 import xarray as xr
 import yaml
+from deepsensor.data.loader import TaskLoader
 from deepsensor.data.processor import DataProcessor
 from deepsensor.model.convnp import ConvNP
+from deepsensor.model.pred import Prediction
 
 import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
 
 
-def load_config(config_path):
-    """Load configuration from YAML file"""
+def load_config(config_path: str) -> dict[str, Any]:
+    """Load a YAML configuration file.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to the YAML configuration file.
+
+    Returns
+    -------
+    dict[str, Any]
+        Parsed configuration, as a nested dictionary.
+    """
     with open(config_path) as f:
         config = yaml.safe_load(f)
     return config
 
 
-def download_wandb_file(run_ref, files_path, file):
+def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
+    """Download a single file logged to a Weights & Biases run.
+
+    Parameters
+    ----------
+    run_ref : str
+        Fully qualified W&B run reference, e.g. ``"entity/project/run_id"``.
+    files_path : str
+        Local directory to download the file into.
+    file : str
+        Name of the file to download, relative to the run's ``files/``
+        directory (e.g. ``"model_config.json"``).
+    """
     api = wandb.Api()
     therun = api.run(run_ref)
 
     therun.file(os.path.join("files", file)).download(root=files_path, exist_ok=True)
 
 
-def load_wandb_model(data_processor, task_loader, config_path, weights_path):
+def load_wandb_model(
+    data_processor: DataProcessor,
+    task_loader: TaskLoader,
+    config_path: str,
+    weights_path: str,
+) -> ConvNP:
+    """Rebuild a ConvNP model from a saved config and load its trained weights.
 
+    Parameters
+    ----------
+    data_processor : DataProcessor
+        Fitted data processor used by the model to (de)normalise inputs
+        and outputs.
+    task_loader : TaskLoader
+        Task loader describing the context/target variables the model
+        was trained on.
+    config_path : str
+        Path to the model's JSON config file (e.g. ``model_config.json``
+        as saved by W&B), containing ``unet_channels``, ``unet_kernels``
+        and ``likelihood``.
+    weights_path : str
+        Path to the PyTorch checkpoint (``.pt`` file) with the trained
+        model weights.
+
+    Returns
+    -------
+    ConvNP
+        A ConvNP model built from `config_path` with the weights from
+        `weights_path` loaded, mapped onto CUDA if available and
+        otherwise the CPU.
+    """
     with open(config_path) as f:
         config = json.load(f)
 
@@ -59,8 +118,45 @@ def load_wandb_model(data_processor, task_loader, config_path, weights_path):
 
 
 def export_zarr(
-    target_var, pred_ds, truth_ds, files_path, fname, source, chunk_size, data_path=None
-):
+    target_var: str,
+    pred_ds: Prediction,
+    truth_ds: xr.Dataset,
+    files_path: str,
+    fname: str,
+    source: str,
+    chunk_size: int,
+    data_path: str | None = None,
+) -> None:
+    """Align predictions with ground truth and write the result to a Zarr store.
+
+    Parameters
+    ----------
+    target_var : str
+        Name of the target variable to export.
+    pred_ds : Prediction
+        Model predictions keyed by target variable, as returned by
+        ``ConvNP.predict``. Must contain ``"mean"`` and ``"std"`` entries
+        for `target_var`.
+    truth_ds : xr.Dataset
+        Ground-truth dataset containing `target_var`, used to align
+        predictions onto observed grid points and to store the true
+        values alongside the predictions.
+    files_path : str
+        Directory the resulting ``<fname>.zarr`` store is written into.
+    fname : str
+        Base filename (without extension) for the output Zarr store.
+    source : str
+        Data source identifier (e.g. ``"hirham5zarr"``, ``"hirham5"``,
+        ``"carra2"``). When ``"hirham5zarr"``, the output is reindexed
+        onto the reference x/y grid read from ``coords_only.zarr`` under
+        `data_path`; otherwise it keeps its native lat/lon grid.
+    chunk_size : int
+        Chunk size along the ``time`` dimension of the output store.
+        Spatial dimensions are stored as single chunks.
+    data_path : str | None, optional
+        Directory containing ``coords_only.zarr``. Required when `source`
+        is ``"hirham5zarr"``. Default is None.
+    """
     pred_ds, truth_da = xr.align(
         pred_ds[target_var], truth_ds[target_var], join="inner"
     )
@@ -73,7 +169,9 @@ def export_zarr(
     pred_final = pred_final.to_dataset(dim="variable")
 
     if source == "hirham5zarr":
-        coords_file = os.path.sep.join([data_path, "coords_only.zarr"])
+        # `data_path` is required (and always a str) for this source; the
+        # `str | None` annotation only reflects the function's default value.
+        coords_file = os.path.sep.join([cast(str, data_path), "coords_only.zarr"])
         coords_ref = xr.open_zarr(coords_file, chunks="auto")
         xy_coords_ref = (coords_ref["x"], coords_ref["y"])
         lonlat_coords_ref = (coords_ref["lon"], coords_ref["lat"])
@@ -102,7 +200,56 @@ def export_zarr(
     )
 
 
-def main():
+def main() -> None:
+    """Run inference with a trained ConvNP model and export predictions.
+
+    Parses CLI arguments, loads the run's configuration and trained
+    model (downloading checkpoint files from Weights & Biases if they
+    are not already cached locally), builds validation tasks for the
+    requested sampling strategy, generates predictions on the full grid,
+    writes them to a Zarr store, and optionally saves diagnostic plots.
+
+    CLI arguments
+    --------------
+    --config_file : str
+        Path to the YAML experiment configuration file.
+    --val_set : {"station", "random-land", "no-obs"}
+        Task-generation strategy: real station locations, randomly
+        sampled land locations, or no context observations at all.
+    --n_obs : int
+        Number of context observations to sample per task when
+        `val_set` is ``"random-land"``.
+    --run_ref : str
+        W&B run reference (``"entity/project/run_id"``) the model and
+        data processor were logged under.
+    --weights_filename : str
+        Filename of the model weights checkpoint within the run's files.
+    --date_split : str
+        Config key prefix (e.g. ``"test"``) used to look up
+        ``{date_split}_start``/``{date_split}_end`` date-range bounds.
+    --every : int
+        Stride used to subsample the date range (keep every `every`-th
+        date).
+    --seed : int
+        Random seed used for reproducible sampling of random-land
+        locations and, when plotting, of PIT histogram dates.
+    --plot : bool
+        If set, additionally saves an averaged-prediction plot and a PIT
+        histogram plot.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ValueError
+        If the configured data `source` is not one of ``"carra2"``,
+        ``"hirham5"`` or ``"hirham5zarr"``; if no station locations
+        remain after filtering to the model domain/land mask; or if
+        `val_set` is not one of ``"station"``, ``"random-land"`` or
+        ``"no-obs"``.
+    """
     # Arguments
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -150,6 +297,7 @@ def main():
     target_var = config["data"]["target_var_IDs"]
 
     # Initialize data loader
+    data_loader: CARRA2DataLoader | HIRHAM5DataLoader | HIRHAM5ZarrDataLoader
     if source == "carra2":
         data_loader = CARRA2DataLoader(config)
         td = np.timedelta64(0, "ms")
@@ -238,7 +386,11 @@ def main():
                 date,
                 context_sampling=(
                     data_processor.map_coord_array(
-                        du.sample_land_locations(n_obs=n_obs, lsm=lsm, seed=(seed, i))
+                        du.sample_land_locations(
+                            n_obs=n_obs,
+                            lsm=lsm,
+                            seed=(seed, i),
+                        )
                     ),
                     "all",
                     "all",
@@ -312,6 +464,9 @@ def main():
             lat_max = float(lonlat_coords_ref[1].max().values)
             gdf_points = gdf_points.cx[lon_min:lon_max, lat_min:lat_max]
 
+            # mask_reference is a DataArray; find_xy_for_points only uses
+            # coords/dims present on both Dataset and DataArray, but its
+            # signature currently only declares xr.Dataset.
             gdf_points = du.find_xy_for_points(mask_reference, gdf_points)
 
             gdf_points["mask_val"] = mask_reference.sel(

@@ -19,8 +19,13 @@ project_dir = os.path.sep.join([script_dir, "..", ".."])
 sys.path.append(os.path.sep.join([project_dir, "src"]))
 
 
-def setup_logging():
-    """Setup logging configuration"""
+def setup_logging() -> None:
+    """
+    Configure the root logger for console output.
+
+    Sets the root logger level to ``INFO`` and attaches a
+    :class:`logging.StreamHandler` with a timestamped format.
+    """
     log_level = logging.INFO
 
     logging.basicConfig(
