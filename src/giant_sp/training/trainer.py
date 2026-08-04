@@ -543,6 +543,7 @@ class Trainer:
                         assert wandb.run is not None
                         assert self.wandb_run is not None
                         wandb.run.summary["best_val_loss"] = self.best_val_loss
+                        wandb.run.summary["best_val_loss_epoch"] = ep + 1
                         wandb.save(weights_path, base_path=self.wandb_run.dir)
             else:
                 self.epochs_without_improvement += 1
@@ -617,6 +618,7 @@ class Trainer:
                         assert wandb.run is not None
                         assert self.wandb_run is not None
                         wandb.run.summary["best_stnval_loss"] = self.best_stnval_loss
+                        wandb.run.summary["best_stnval_loss_epoch"] = ep + 1
                         wandb.save(weights_path, base_path=self.wandb_run.dir)
                 # Track val metrics
                 logger.info("Starting stnval set prediction")
