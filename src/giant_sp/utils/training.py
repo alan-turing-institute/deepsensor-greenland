@@ -98,7 +98,6 @@ class TaskStreamDataset(IterableDataset[Task]):
         sampling: int = 1,
         sampling_strat: SamplingSpec = "random",
         delta_factor_context: list[int] | None = None,
-        delta_factor_context: list[int] | None = None,
         min_obs: int = 50,
         max_obs: int = 100,
         target_sampling: SamplingSpec = "all",
