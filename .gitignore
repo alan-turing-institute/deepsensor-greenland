@@ -40,7 +40,7 @@ Thumbs.db
 .datacache/
 .idea/
 debug/
-data/
+/data/
 logs/
 outputs/
 wandb/
