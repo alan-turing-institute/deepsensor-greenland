@@ -912,10 +912,6 @@ class HIRHAM5DataLoader(BaseDataLoader):
             task_loader = TaskLoader(
                 context=context, target=target, context_delta_t=flat_context_delta_t
             )
-            task_loader = TaskLoader(
-                context=context, target=target, context_delta_t=flat_context_delta_t
-            )
-
         return raw_ds, data_processor, task_loader
 
 
