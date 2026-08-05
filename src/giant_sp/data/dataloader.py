@@ -1138,10 +1138,10 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         if isinstance(self.context_delta_t, list) and any(
             isinstance(el, list) for el in self.context_delta_t
         ):
-            delta_factor_context: list[int] = [
+            delta_factor_context = [
                 len(group) for group in self.context_delta_t
             ]
-            flat_context_delta_t: list[int] = [
+            flat_context_delta_t = [
                 v for group in self.context_delta_t for v in group
             ] + [0]  # the last 0 is for the aux data
         else:
