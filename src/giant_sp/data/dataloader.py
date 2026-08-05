@@ -1005,10 +1005,14 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         self.long_vars = [var for var in self.variables if var.endswith("_10yr-avg")]
         self.base_vars = [var for var in self.variables if var not in self.long_vars]
 
-        if ('energyin_abs' in self.base_vars) and ('energyin_abs' not in ds.data_vars):
-            logger.info(f"Create energyin from ahfl + ahfs + dlwrad")
-            ds['energyin'] = ds['ahfl'].astype(np.float32) + ds['ahfs'].astype(np.float32) + ds['dlwrad'].astype(np.float32)
-    
+        if ("energyin_abs" in self.base_vars) and ("energyin_abs" not in ds.data_vars):
+            logger.info("Create energyin from ahfl + ahfs + dlwrad")
+            ds["energyin"] = (
+                ds["ahfl"].astype(np.float32)
+                + ds["ahfs"].astype(np.float32)
+                + ds["dlwrad"].astype(np.float32)
+            )
+
         # preprocess base variables (non-10-year averages)
         ds = ds[[var[:-4] for var in self.base_vars]]
 

@@ -9,9 +9,9 @@ Script for creating ZARR-analysis ready base dataset from netcdf files;
 import logging
 import os
 import sys
-import numpy as np
 
 import dask
+import numpy as np
 import xarray as xr
 from dask.diagnostics import ProgressBar
 
@@ -166,7 +166,11 @@ if __name__ == "__main__":
 
     logger.info("Rechunk time dimension...")
     ds = ds.chunk(chunksize)
-    ds['energyin'] = ds['ahfl'].astype(np.float32) + ds['ahfs'].astype(np.float32) + ds['dlwrad'].astype(np.float32)
+    ds["energyin"] = (
+        ds["ahfl"].astype(np.float32)
+        + ds["ahfs"].astype(np.float32)
+        + ds["dlwrad"].astype(np.float32)
+    )
 
     logger.info("Saving data to %s...", filepath)
 
