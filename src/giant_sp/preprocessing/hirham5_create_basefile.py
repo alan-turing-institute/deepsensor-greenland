@@ -11,6 +11,7 @@ import os
 import sys
 
 import dask
+import numpy as np
 import xarray as xr
 from dask.diagnostics import ProgressBar
 
@@ -165,6 +166,11 @@ if __name__ == "__main__":
 
     logger.info("Rechunk time dimension...")
     ds = ds.chunk(chunksize)
+    ds["energyin"] = (
+        ds["ahfl"].astype(np.float32)
+        + ds["ahfs"].astype(np.float32)
+        + ds["dlwrad"].astype(np.float32)
+    )
 
     logger.info("Saving data to %s...", filepath)
 
@@ -173,7 +179,7 @@ if __name__ == "__main__":
 
     # %% -------------------- Create 10yr rolling averages --------------------
     outpath_roll = filepath.replace(".zarr", "_10yr.zarr")
-    vars_to_roll = ["tas", "rainfall", "snfall"]
+    vars_to_roll = ["tas", "rainfall", "snfall", "energyin"]
 
     ds_sel = ds[vars_to_roll]
 

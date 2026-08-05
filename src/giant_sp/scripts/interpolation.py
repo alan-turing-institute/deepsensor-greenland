@@ -160,6 +160,7 @@ def main(args: argparse.Namespace) -> None:
 
     # Define data loader parameters
     train_sampling = config["dataloader"]["train_sampling"]
+    context_delta_t = config["dataloader"]["context_delta_t"]
     target_sampling = config["dataloader"]["target_sampling"]
     frequency = config["dataloader"]["frequency"]
     change_dates_every_epoch = config["dataloader"]["change_dates_every_epoch"]
@@ -318,6 +319,10 @@ def main(args: argparse.Namespace) -> None:
     # Create training tasks
     logger.info("Generating training tasks...")
     # Initialise training task generator
+    if context_delta_t is None:
+        delta_factor_context = [1] * len(config["data"]["context_var_IDs"])
+    else:
+        delta_factor_context = [len(group) for group in context_delta_t]
     # Train loader is unseeded so different context sampling is used each epoch
     if train_sampling == "stn_obs":
         task_stream_tr = tu.TaskStreamDataset(
@@ -325,6 +330,7 @@ def main(args: argparse.Namespace) -> None:
             train_dates,
             frequency=frequency,
             sampling=temporal_sampling_every,
+            delta_factor_context=delta_factor_context,
             change_dates_every_epoch=change_dates_every_epoch,
             sampling_strat=stn_locs,
             target_sampling=target_sampling,
@@ -337,6 +343,7 @@ def main(args: argparse.Namespace) -> None:
             max_obs=400,
             frequency=frequency,
             sampling=temporal_sampling_every,
+            delta_factor_context=delta_factor_context,
             change_dates_every_epoch=change_dates_every_epoch,
             sampling_strat="land_obs",
             data_processor=data_processor,
@@ -351,6 +358,7 @@ def main(args: argparse.Namespace) -> None:
             max_obs=400,
             frequency=frequency,
             sampling=temporal_sampling_every,
+            delta_factor_context=delta_factor_context,
             change_dates_every_epoch=change_dates_every_epoch,
             sampling_strat="mixed_obs",
             data_processor=data_processor,
@@ -366,6 +374,7 @@ def main(args: argparse.Namespace) -> None:
             max_obs=400,
             frequency=frequency,
             sampling=temporal_sampling_every,
+            delta_factor_context=delta_factor_context,
             sampling_strat="random",
             change_dates_every_epoch=change_dates_every_epoch,
             target_sampling=target_sampling,
@@ -375,6 +384,14 @@ def main(args: argparse.Namespace) -> None:
             "Unknown train_sampling mode. Must be one of [default, stn_obs, land_obs, mixed_obs]"
         )
 
+    def context_sampling_with_delta(first_set_obj: Any) -> list[Any]:
+        group_objs = [first_set_obj] + ["all"] * (len(delta_factor_context) - 1)
+        return [
+            obj
+            for obj, n in zip(group_objs, delta_factor_context, strict=True)
+            for _ in range(n)
+        ] + ["all"]
+
     # Initialise validation task generator
     # with seeded rng and datewise_deterministic so tasks remain the same every epoch + for reproducibility
     rng = np.random.default_rng(123)
@@ -382,14 +399,12 @@ def main(args: argparse.Namespace) -> None:
         val_tasks = [
             task_loader(
                 date,
-                context_sampling=(
+                context_sampling=context_sampling_with_delta(
                     data_processor.map_coord_array(
                         sample_land_locations(
                             n_obs=rng.integers(100, 400), lsm=lsm, seed=int(date)
                         )
-                    ),
-                    "all",
-                    "all",
+                    )
                 ),
                 target_sampling="all",
                 datewise_deterministic=True,
@@ -402,7 +417,7 @@ def main(args: argparse.Namespace) -> None:
         val_tasks = [
             task_loader(
                 date,
-                context_sampling=(rng.integers(100, 400), "all", "all"),
+                context_sampling=context_sampling_with_delta(rng.integers(100, 400)),
                 target_sampling="all",
                 datewise_deterministic=True,
             )
@@ -413,10 +428,9 @@ def main(args: argparse.Namespace) -> None:
     logger.info("Finished val task generation (%d)", len(val_dates))
 
     logger.info("Starting stnval task generation (%d)", len(val_dates))
+    context_sampling_stn = context_sampling_with_delta(stn_locs)
     stnval_tasks = [
-        task_loader(
-            date, context_sampling=(stn_locs, "all", "all"), target_sampling="all"
-        )
+        task_loader(date, context_sampling=context_sampling_stn, target_sampling="all")
         .remove_context_nans()
         .remove_target_nans()
         for date in val_dates
