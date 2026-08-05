@@ -18,8 +18,8 @@ Dependency management uses [uv](https://docs.astral.sh/uv/); the project is Pyth
 uv sync                              # install package + dev/test/lint groups, editable
 uv run pytest                        # run tests
 uv run pytest --cov=giant_sp         # run tests with coverage
-uv run pytest tests/path/to/test.py::test_name   # run a single test
-uv run mypy                          # type check src/giant_sp (see [tool.mypy] in pyproject.toml)
+uv run pytest tests/path/to/test.py::[TestClass::]test_name   # run a single test
+uv run mypy                          # type check src/giant_sp and tests (see [tool.mypy] in pyproject.toml)
 uv run pre-commit run --all-files    # ruff lint + format + generic hooks (same as CI)
 uv run ruff check src --fix          # lint only
 uv run ruff format src               # format only
@@ -31,9 +31,9 @@ Adding dependencies: `uv add <package>` (runtime), `uv add --group dev|test|lint
 `uv sync --locked`).
 
 CI (`.github/workflows/ci.yml`) runs three jobs on every push/PR: `pre-commit run --all-files`,
-`mypy`, and `pytest` across Python 3.11/3.12/3.13 (coverage uploaded from the 3.13 run). There is
-currently no `tests/` content (`tests/.gitkeep` only) — new code should come with tests under
-`tests/`.
+`mypy`, and `pytest` across Python 3.11/3.12/3.13 (coverage uploaded from the 3.13 run). Tests live
+under `tests/`, mirroring the `src/giant_sp/` layout (`tests/data/`, `tests/models/`,
+`tests/utils/`) — new code should come with tests there.
 
 Running the actual training/inference/placement scripts requires a YAML config from
 `src/giant_sp/configs/` (e.g. `uv run python -m giant_sp.scripts.interpolation --config
@@ -125,5 +125,7 @@ checkpointing), `logging` (W&B), `visualization`.
 
 - Type hints use PEP 604 unions (`X | None`, not `Optional[X]`/`Union`).
 - Docstrings are NumPy-style (`Parameters`/`Returns`/`Raises`/`Attributes` sections).
-- `mypy` config (`[tool.mypy]` in `pyproject.toml`) type-checks all of `src/giant_sp`; `deepsensor`
-  is exempted from import-following (`follow_imports = "skip"`) since it ships no stubs.
+- `mypy` config (`[tool.mypy]` in `pyproject.toml`) type-checks all of `src/giant_sp` and `tests`;
+  `deepsensor` is exempted from import-following (`follow_imports = "skip"`) since it ships no
+  stubs, and `tests.*` is exempted from `disallow_untyped_defs`/`disallow_untyped_decorators` since
+  pytest fixtures/decorators are commonly untyped.
