@@ -29,7 +29,11 @@ def _make_config(
             "val_start": "2020-01-04",
             "val_end": "2020-01-05",
         },
-        "dataloader": {"lsm_mask": False, "frequency": "D"},
+        "dataloader": {
+            "lsm_mask": False,
+            "frequency": "D",
+            "context_delta_t": None,
+        },
     }
     if ancils_path is not None:
         config["data"]["ancillary_path"] = str(ancils_path)
