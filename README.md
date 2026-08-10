@@ -1,10 +1,9 @@
 # giant-sp
 
-[![Actions Status][actions-badge]][actions-link]
-[![PyPI version][pypi-version]][pypi-link]
-[![PyPI platforms][pypi-platforms]][pypi-link]
+[![Actions Status](https://github.com/alan-turing-institute/giant-sp/workflows/CI/badge.svg)](https://github.com/alan-turing-institute/giant-sp/actions)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
- Sensor placement to aid location planning in GIANT
+Sensor placement to aid location planning in GIANT
 
 ## Installation
 
@@ -20,7 +19,12 @@ python -m pip install .
 ```
 
 ## Usage
+There are a set of scripts in the `/scripts` folder, which can be run as:
 
+```bash
+uv run <path to script> --config <path to config>
+```
+The `interpolation.py` script trains a spatial interpolation model. This model can then be used to run `inference.py` to run / export predictions, or `placement.py` to propose new sensor locations.
 
 ## Contributing
 
@@ -32,9 +36,6 @@ Distributed under the terms of the [MIT license](LICENSE).
 
 
 <!-- prettier-ignore-start -->
-[actions-badge]:            https://github.com/alan-turing-institute/giant-sp/workflows/CI/badge.svg
-[actions-link]:             https://github.com/alan-turing-institute/giant-sp/actions
-[pypi-link]:                https://pypi.org/project/giant-sp/
-[pypi-platforms]:           https://img.shields.io/pypi/pyversions/giant-sp
-[pypi-version]:             https://img.shields.io/pypi/v/giant-sp
+[actions-badge]:            
+[actions-link]:             
 <!-- prettier-ignore-end -->
