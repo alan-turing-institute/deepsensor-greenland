@@ -16,7 +16,7 @@ cd giant-sp
 In this package, we use `uv` for our dependency management. Installation instructions can be found here: https://docs.astral.sh/uv/
 
 ## Usage
-There are a set of scripts in the `/scripts` folder for training and running the model. 
+There are a set of scripts in the `/scripts` folder for training and running the model.
 
 The `interpolation.py ` script trains a spatial interpolation model. It can be run using:
 
@@ -28,7 +28,7 @@ This will save a model to WandB, and produce a path to the model run, for exampl
 This model can then be used to run `inference.py` to run / export predictions, or `placement.py` to propose new sensor locations, using the following format:
 
 ```bash
-uv run <path to script> --config <path to data config> --run_ref <path to wandb run> 
+uv run <path to script> --config <path to data config> --run_ref <path to wandb run>
 ```
 
 The [github wiki](https://github.com/alan-turing-institute/giant-sp/wiki) has some information about the datasets and the infrastructure used in this repo.
