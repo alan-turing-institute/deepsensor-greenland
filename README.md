@@ -25,13 +25,13 @@ uv run src/giant_sp/scripts/interpolation.py --config <path to data config>
 ```
 This will save a model to WandB, and produce a path to the model run, for example: `turing-giant/present-train/runs/5p4odkbr`.
 
-
 This model can then be used to run `inference.py` to run / export predictions, or `placement.py` to propose new sensor locations, using the following format:
 
 ```bash
 uv run <path to script> --config <path to data config> -- run_ref <path to wandb run> 
 ```
 
+The [github wiki](https://github.com/alan-turing-institute/giant-sp/wiki) has some information about the datasets and the infrastructure used in this repo.
 
 ## Contributing
 
