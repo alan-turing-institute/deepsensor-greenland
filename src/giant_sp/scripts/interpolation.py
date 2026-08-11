@@ -414,7 +414,7 @@ def main(args: argparse.Namespace) -> None:
         val_tasks = [
             task_loader(
                 date,
-                context_sampling=context_sampling_with_delta(rng.integers(100, 400)),
+                context_sampling=context_sampling_with_delta(rng.integers(100, 400), delta_factor_context),
                 target_sampling="all",
                 datewise_deterministic=True,
             )
