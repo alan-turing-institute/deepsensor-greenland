@@ -513,3 +513,14 @@ def points_in_polygons(
         inside &= ~path_h.contains_points(pts)
 
     return inside.reshape(lon.shape)
+
+
+def context_sampling_with_delta(
+    first_set_obj: Any, delta_factor_context: list[int]
+) -> list[Any]:
+    group_objs = [first_set_obj] + ["all"] * (len(delta_factor_context) - 1)
+    return [
+        obj
+        for obj, n in zip(group_objs, delta_factor_context, strict=True)
+        for _ in range(n)
+    ] + ["all"]
