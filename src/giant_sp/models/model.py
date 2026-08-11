@@ -10,6 +10,7 @@ from typing import Any
 import torch
 from deepsensor.data import DataProcessor, Task, TaskLoader
 from deepsensor.model import ConvNP
+from omegaconf import DictConfig
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +20,8 @@ class DeepSensorModel:
 
     Attributes
     ----------
-    config : dict[str, Any]
-        Configuration dictionary, typically loaded from a YAML config file.
+    config : DictConfig
+        Configuration, typically composed by Hydra from a YAML config file.
         Expected to contain a ``"model"`` key holding the keyword arguments
         passed to :class:`~deepsensor.model.ConvNP` (e.g. ``likelihood``,
         ``unet_channels``, ``unet_kernels``, ``num_basis_functions``).
@@ -34,14 +35,14 @@ class DeepSensorModel:
         Reserved for normalization parameters. Currently unused.
     """
 
-    def __init__(self, config: dict[str, Any]) -> None:
+    def __init__(self, config: DictConfig) -> None:
         """
         Initialize the DeepSensor model wrapper.
 
         Parameters
         ----------
-        config : dict[str, Any]
-            Configuration dictionary. Must contain a ``"model"`` key whose
+        config : DictConfig
+            Configuration. Must contain a ``"model"`` key whose
             value is a dictionary of keyword arguments for
             :class:`~deepsensor.model.ConvNP` (used by :meth:`build_model`).
         """

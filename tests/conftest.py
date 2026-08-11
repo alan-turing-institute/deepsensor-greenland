@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 from deepsensor.data import DataProcessor, TaskLoader
+from omegaconf import DictConfig, OmegaConf
 
 
 @pytest.fixture
@@ -46,9 +47,9 @@ def native_grid_ds():
 
 
 @pytest.fixture(scope="session")
-def tiny_model_config():
+def tiny_model_config() -> DictConfig:
     """A minimal ConvNP config small enough to build/train instantly in tests."""
-    return {"model": {"unet_channels": (4, 4), "likelihood": "cnp"}}
+    return OmegaConf.create({"model": {"unet_channels": [4, 4], "likelihood": "cnp"}})
 
 
 @pytest.fixture(scope="session")

@@ -13,7 +13,6 @@ import logging
 import os
 import random
 from collections.abc import Callable
-from typing import Any
 
 import cartopy.crs as ccrs
 import matplotlib
@@ -31,6 +30,7 @@ import xarray as xr
 from deepsensor.data.task import Task
 from deepsensor.model import ConvNP
 from deepsensor.model.pred import Prediction
+from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from wandb.sdk.wandb_run import Run
@@ -55,9 +55,9 @@ class Trainer:
     ----------
     model : DeepSensorModel
         The wrapped DeepSensor model being trained.
-    config : dict[str, Any]
-        Full configuration dictionary passed at construction.
-    train_config : dict[str, Any]
+    config : DictConfig
+        Full configuration passed at construction.
+    train_config : DictConfig
         Shortcut to ``config["training"]``.
     optimizer : torch.optim.Optimizer
         Optimizer created from ``train_config``.
@@ -103,7 +103,7 @@ class Trainer:
     def __init__(
         self,
         model: DeepSensorModel,
-        config: dict[str, Any],
+        config: DictConfig,
         wandb_run: Run | None = None,
     ) -> None:
         """Initialize the trainer and configure optimization and experiment logging.
@@ -120,8 +120,8 @@ class Trainer:
             ``model.model`` attribute (the underlying ``ConvNP``) and
             ``model.model.model`` (the underlying `torch.nn.Module`) are
             used for optimization.
-        config : dict[str, Any]
-            Full configuration dictionary, expected to contain
+        config : DictConfig
+            Full configuration, expected to contain
             ``"training"``, ``"logging"``, ``"visualization"``, ``"model"``,
             and ``"data"`` sections.
         wandb_run : wandb.sdk.wandb_run.Run | None, optional

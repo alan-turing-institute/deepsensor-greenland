@@ -15,6 +15,7 @@ from deepsensor.data.loader import TaskLoader
 from deepsensor.data.processor import DataProcessor
 from deepsensor.data.sources import get_gldas_land_mask
 from deepsensor.data.utils import construct_x1x2_ds
+from omegaconf import DictConfig
 
 from giant_sp.utils.constants import region_extents
 from giant_sp.utils.data import construct_circ_and_linear_time_ds
@@ -35,7 +36,7 @@ class BaseDataLoader:
 
     Parameters
     ----------
-    config : dict[str, Any]
+    config : DictConfig
         Configuration dictionary, typically loaded from a YAML file. Must
         contain a ``"data"`` section with keys ``data_path``,
         ``data_pattern``, ``region``, ``basin``, ``context_var_IDs``,
@@ -45,7 +46,7 @@ class BaseDataLoader:
 
     Attributes
     ----------
-    config : dict[str, Any]
+    config : DictConfig
         The configuration dictionary passed at construction.
     source : pathlib.Path
         Root path where the source data lives.
@@ -75,12 +76,12 @@ class BaseDataLoader:
         subclasses.
     """
 
-    def __init__(self, config: dict[str, Any]) -> None:
+    def __init__(self, config: DictConfig) -> None:
         """Initialize the data loader from a configuration dictionary.
 
         Parameters
         ----------
-        config : dict[str, Any]
+        config : DictConfig
             Configuration dictionary. See the class docstring for the
             required keys.
         """
@@ -339,12 +340,12 @@ class CARRA2DataLoader(BaseDataLoader):
         ``self.basin``. Only set if ``self.basin is not None``.
     """
 
-    def __init__(self, config: dict[str, Any]) -> None:
+    def __init__(self, config: DictConfig) -> None:
         """Initialize the CARRA2 data loader.
 
         Parameters
         ----------
-        config : dict[str, Any]
+        config : DictConfig
             Configuration dictionary. Must additionally contain
             ``config["data"]["ancillary_path"]``.
         """
@@ -568,12 +569,12 @@ class HIRHAM5DataLoader(BaseDataLoader):
         ``self.basin``. Only set if ``self.basin is not None``.
     """
 
-    def __init__(self, config: dict[str, Any]) -> None:
+    def __init__(self, config: DictConfig) -> None:
         """Initialize the HIRHAM5 data loader.
 
         Parameters
         ----------
-        config : dict[str, Any]
+        config : DictConfig
             Configuration dictionary. Must additionally contain
             ``config["data"]["ancillary_path"]``.
         """
@@ -923,12 +924,12 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         ``self.basin``. Only set if ``self.basin is not None``.
     """
 
-    def __init__(self, config: dict[str, Any]) -> None:
+    def __init__(self, config: DictConfig) -> None:
         """Initialize the HIRHAM5 Zarr data loader.
 
         Parameters
         ----------
-        config : dict[str, Any]
+        config : DictConfig
             Configuration dictionary. Must additionally contain
             ``config["data"]["ancillary_path"]``.
         """

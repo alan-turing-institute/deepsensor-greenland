@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+from omegaconf import DictConfig, OmegaConf
 
 from giant_sp.data.dataloader import (
     BaseDataLoader,
@@ -15,7 +16,7 @@ from giant_sp.data.dataloader import (
 
 def _make_config(
     ancils_path=None, basin=None, data_path="/nonexistent", data_pattern="*.nc"
-):
+) -> DictConfig:
     config = {
         "data": {
             "data_path": data_path,
@@ -37,7 +38,7 @@ def _make_config(
     }
     if ancils_path is not None:
         config["data"]["ancillary_path"] = str(ancils_path)
-    return config
+    return OmegaConf.create(config)
 
 
 def _write_basin_netcdf(path, se_code=1, other_code=2):
