@@ -59,7 +59,7 @@ uv run pytest --cov=giant_sp
 ## Type checking
 
 ```bash
-uv run ty check
+uv run mypy .
 ```
 
 ## Building
