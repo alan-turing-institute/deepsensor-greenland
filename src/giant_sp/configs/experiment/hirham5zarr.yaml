@@ -1,6 +1,6 @@
-# DeepSensor Model Configuration for HIRHAM5
+# @package _global_
+# DeepSensor Model Configuration for HIRHAM5 (zarr source)
 
-# Data settings
 data:
   source: "hirham5zarr"
   data_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed/HIRHAM5-ERAInterim/v_02"
@@ -53,38 +53,38 @@ training:
   save_best_only: true
 
   # Optimization
-  optimizer: "adam"  # Options: "adam", "adamw", "sgd"
+  optimizer: "adam" # Options: "adam", "adamw", "sgd"
   weight_decay: 0.0001
   gradient_clip: 1.0
 
   # resume training
   resume: false
-  wandb_run_id: "stwjm7cy"  # Run ID to resume(null = latest)
+  wandb_run_id: "stwjm7cy" # Run ID to resume (null = latest)
 
 # Logging
 logging:
   log_level: "INFO"
   tensorboard: true
   wandb:
-    enabled: true  # Set to true to enable W&B logging
-    project: "present-train"  # W&B project name
-    entity: "turing-giant"  # Your W&B username/team (null = default)
-    name: null  # Run name (null = auto-generated)
-    tags: ["spatial-interpolation", "convgnp", "snmel", "hirham5"]  # Tags for organizing runs
-    notes: ""  # Optional docs about this run
-    log_frequency: 1  # Log metrics every N epochs
-    log_maps: true  # Log prediction maps
-    log_maps_frequency: 3  # Log maps every N epochs
-    log_charts: true  # Log charts every N epochs
-    log_charts_frequency: 3  # Log charts every N epochs
-    log_model: true  # Log model checkpoints as artifacts
-    watch_model: false  # Watch model gradients and parameters
-    watch_freq: 100  # Log gradients every N steps
+    enabled: true # Set to true to enable W&B logging
+    project: "present-train" # W&B project name
+    entity: "turing-giant" # Your W&B username/team (null = default)
+    name: null # Run name (null = auto-generated)
+    tags: ["spatial-interpolation", "convgnp", "snmel", "hirham5"] # Tags for organizing runs
+    notes: "" # Optional docs about this run
+    log_frequency: 1 # Log metrics every N epochs
+    log_maps: true # Log prediction maps
+    log_maps_frequency: 3 # Log maps every N epochs
+    log_charts: true # Log charts every N epochs
+    log_charts_frequency: 3 # Log charts every N epochs
+    log_model: true # Log model checkpoints as artifacts
+    watch_model: false # Watch model gradients and parameters
+    watch_freq: 100 # Log gradients every N steps
   log_stnval: true
 
 # Visualization
 visualization:
-  plot_dates: null  # Specific dates to plot
+  plot_dates: null # Specific dates to plot
   res_factor_maps: 1
   crs: north_polar
   cmap: "viridis"

@@ -1,13 +1,13 @@
+# @package _global_
 # DeepSensor Model Configuration for CARRA2
 
-# Data settings
 data:
   source: "carra2"
   data_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/anemoi/datasets/processed/carra2"
   data_pattern: "carra2-greenland-2p5km-1986-2025-1M-v1-xy-2p5km*.nc"
   ancillary_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/reference/bedmachinev6"
   station_locations_file: "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations.csv"
-  context_var_IDs:  [["2t_abs"],["10u_abs","10v_abs"]]
+  context_var_IDs: [["2t_abs"], ["10u_abs", "10v_abs"]]
   target_var_IDs: "2t_abs"
   region: "greenland"
   basin: null #SE, CE
@@ -53,38 +53,38 @@ training:
   save_best_only: true
 
   # Optimization
-  optimizer: "adam"  # Options: "adam", "adamw", "sgd"
+  optimizer: "adam" # Options: "adam", "adamw", "sgd"
   weight_decay: 0.0001
   gradient_clip: 1.0
 
   # resume training
   resume: false
-  wandb_run_id: "stwjm7cy"  # Run ID to resume(null = latest)
+  wandb_run_id: "stwjm7cy" # Run ID to resume (null = latest)
 
 # Logging
 logging:
   log_level: "INFO"
   tensorboard: true
   wandb:
-    enabled: true  # Set to true to enable W&B logging
-    project: "present-train"  # W&B project name
-    entity: "turing-giant"  # Your W&B username/team (null = default)
-    name: null  # Run name (null = auto-generated)
-    tags: ["spatial-interpolation", "convgnp", "t2m", "carra2"]  # Tags for organizing runs
-    notes: ""  # Optional docs about this run
-    log_frequency: 1  # Log metrics every N epochs
-    log_maps: true  # Log prediction maps
-    log_maps_frequency: 5  # Log maps every N epochs
-    log_charts: true  # Log charts every N epochs
-    log_charts_frequency: 5  # Log charts every N epochs
-    log_model: true  # Log model checkpoints as artifacts
-    watch_model: false  # Watch model gradients and parameters
-    watch_freq: 100  # Log gradients every N steps
+    enabled: true # Set to true to enable W&B logging
+    project: "present-train" # W&B project name
+    entity: "turing-giant" # Your W&B username/team (null = default)
+    name: null # Run name (null = auto-generated)
+    tags: ["spatial-interpolation", "convgnp", "t2m", "carra2"] # Tags for organizing runs
+    notes: "" # Optional docs about this run
+    log_frequency: 1 # Log metrics every N epochs
+    log_maps: true # Log prediction maps
+    log_maps_frequency: 5 # Log maps every N epochs
+    log_charts: true # Log charts every N epochs
+    log_charts_frequency: 5 # Log charts every N epochs
+    log_model: true # Log model checkpoints as artifacts
+    watch_model: false # Watch model gradients and parameters
+    watch_freq: 100 # Log gradients every N steps
   log_stnval: true
 
 # Visualization
 visualization:
-  plot_dates: ["1992-01-01", "1992-06-01", "1992-12-01"]  # Specific dates to plot
+  plot_dates: ["1992-01-01", "1992-06-01", "1992-12-01"] # Specific dates to plot
   res_factor_maps: 1
   crs: north_polar
   cmap: "viridis"

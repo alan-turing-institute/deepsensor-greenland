@@ -1,0 +1,7 @@
+defaults:
+  - experiment: carra2_debug
+  - _self_
+
+hydra:
+  job:
+    chdir: false
