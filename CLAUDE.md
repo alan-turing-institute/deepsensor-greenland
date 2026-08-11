@@ -35,11 +35,15 @@ CI (`.github/workflows/ci.yml`) runs three jobs on every push/PR: `pre-commit ru
 under `tests/`, mirroring the `src/giant_sp/` layout (`tests/data/`, `tests/models/`,
 `tests/utils/`) — new code should come with tests there.
 
-Running the actual training/inference/placement scripts requires a YAML config from
-`src/giant_sp/configs/` (e.g. `uv run python -m giant_sp.scripts.interpolation --config
-src/giant_sp/configs/carra2_debug.yaml`) and access to the data referenced in that config (see
-`data.data_path`, `data.station_locations_file`, etc.) — these are not part of the repo and are
-not available in most dev environments.
+Running the actual training/inference/placement scripts requires access to the data referenced in
+the composed config (see `data.data_path`, `data.station_locations_file`, etc.) — these are not
+part of the repo and are not available in most dev environments. Each script is a
+[Hydra](https://hydra.cc/) entry point; run it with no arguments for the default experiment
+(`uv run src/giant_sp/scripts/interpolation.py`), override the experiment with
+`experiment=<name>` (e.g. `experiment=hirham5zarr`), or override any individual value with
+`key=value` (e.g. `training.num_epochs=5`). See "Configuration" below for how the config tree is
+organized, `--help` for the full composed config and available experiments, or `--cfg job` to
+print the resolved config without running anything.
 
 ## Architecture
 
@@ -115,11 +119,22 @@ predictive distribution used to evaluate precipitation-like targets.
 
 ### Configuration
 
-Every script is driven by a YAML file under `src/giant_sp/configs/` (`carra2*.yaml`,
-`hirham5*.yaml`, `hirham5zarr*.yaml`, each with a `_debug` variant for quick runs). Config
-sections map directly onto the pipeline stages above: `data` (source + paths/dates), `dataloader`
-(sampling strategy/frequency), `model` (ConvNP architecture), `training` (optimizer/scheduler/
-checkpointing), `logging` (W&B), `visualization`.
+Every script is a Hydra entry point composing its config from `src/giant_sp/configs/`:
+`config.yaml`/`inference.yaml`/`placement.yaml` are the per-script entry configs (each defaulting
+to one `experiment`), and `configs/experiment/{carra2,hirham5,hirham5zarr}{,_debug}.yaml` hold the
+full `data`/`dataloader`/`model`/`training`/`logging`/`visualization` sections for each data
+source — `_debug` variants compose on top of their prod counterpart via Hydra's defaults list,
+overriding only the fields that differ (paths, date ranges, epoch counts, ...).
+`inference.yaml`/`placement.yaml` additionally carry an `inference:`/`placement:` section for that
+script's run-specific parameters (`run_ref`, `acq_fn`, `n_new`, ...). Config sections map directly
+onto the pipeline stages above: `data` (source + paths/dates), `dataloader` (sampling
+strategy/frequency), `model` (ConvNP architecture), `training` (optimizer/scheduler/checkpointing),
+`logging` (W&B), `visualization`.
+
+To add a new experiment variant or a personal override without touching shared files, add a new
+YAML under `configs/experiment/` that lists the base experiment in its own `defaults:` and overrides
+only the changed keys (same pattern as the `_debug` files), or point `--config-name` at an
+entirely separate top-level config.
 
 ## Typing & docs conventions
 
