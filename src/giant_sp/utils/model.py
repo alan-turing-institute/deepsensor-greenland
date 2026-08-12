@@ -56,6 +56,7 @@ def compute_pred_ds(
         The full `Prediction` object returned by `model.predict`, and the
         prediction error (predicted mean minus truth) as a DataArray aligned
         on the overlapping coordinates.
+
     """
     pred = model.predict(
         tasks,
@@ -122,6 +123,7 @@ def get_pred_DAs_taskstream(
     determined by ``pred.forecasting_mode`` of the *last* batch's
     prediction; if `task_stream` yields no batches, `pred` is undefined and
     this raises `UnboundLocalError`.
+
     """
     mean_arrays = []
     std_arrays = []

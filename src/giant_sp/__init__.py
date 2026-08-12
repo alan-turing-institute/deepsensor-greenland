@@ -1,6 +1,4 @@
-"""
-giant-sp:  Sensor placement to aid location planning in GIANT
-"""
+"""giant-sp: Sensor placement to aid location planning in GIANT."""
 
 from __future__ import annotations
 

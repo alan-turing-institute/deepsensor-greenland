@@ -1,6 +1,4 @@
-"""
-Main script for inference using a trained ConvNP model.
-"""
+"""Main script for inference using a trained ConvNP model."""
 
 import argparse
 import datetime
@@ -39,6 +37,7 @@ def load_config(config_path: str) -> dict[str, Any]:
     -------
     dict[str, Any]
         Parsed configuration, as a nested dictionary.
+
     """
     with open(config_path) as f:
         config = yaml.safe_load(f)
@@ -57,6 +56,7 @@ def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
     file : str
         Name of the file to download, relative to the run's ``files/``
         directory (e.g. ``"model_config.json"``).
+
     """
     api = wandb.Api()
     therun = api.run(run_ref)
@@ -94,6 +94,7 @@ def load_wandb_model(
         A ConvNP model built from `config_path` with the weights from
         `weights_path` loaded, mapped onto CUDA if available and
         otherwise the CPU.
+
     """
     with open(config_path) as f:
         config = json.load(f)
@@ -156,6 +157,7 @@ def export_zarr(
     data_path : str | None, optional
         Directory containing ``coords_only.zarr``. Required when `source`
         is ``"hirham5zarr"``. Default is None.
+
     """
     pred_ds, truth_da = xr.align(
         pred_ds[target_var], truth_ds[target_var], join="inner"
@@ -249,6 +251,7 @@ def main() -> None:
         remain after filtering to the model domain/land mask; or if
         `val_set` is not one of ``"station"``, ``"random-land"`` or
         ``"no-obs"``.
+
     """
     # Arguments
     parser = argparse.ArgumentParser()

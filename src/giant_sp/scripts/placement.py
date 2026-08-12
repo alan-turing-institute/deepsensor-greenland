@@ -1,6 +1,4 @@
-"""
-Main script for placement experiments using a trained ConvNP model.
-"""
+"""Main script for placement experiments using a trained ConvNP model."""
 
 import argparse
 import glob
@@ -45,6 +43,7 @@ def load_config(config_path: str) -> dict[str, Any]:
     -------
     dict[str, Any]
         Parsed configuration as a nested dictionary.
+
     """
     with open(config_path) as f:
         config = yaml.safe_load(f)
@@ -70,6 +69,7 @@ def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
     None
         The file is downloaded to disk as a side effect; nothing is
         returned.
+
     """
     api = wandb.Api()
     therun = api.run(run_ref)
@@ -104,6 +104,7 @@ def load_wandb_model(
     -------
     ConvNP
         The reconstructed model with weights loaded from `weights_path`.
+
     """
     with open(config_path) as f:
         config = json.load(f)
@@ -191,6 +192,7 @@ def main() -> None:
         --min_land : float
             Minimum land fraction for a grid cell to be included in the
             target/search masks.
+
     """
     # Trained model args
     parser = argparse.ArgumentParser()

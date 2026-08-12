@@ -73,6 +73,7 @@ class BaseDataLoader:
     variables : list[str]
         Flat list of variable IDs to load, populated by :meth:`load_ds` in
         subclasses.
+
     """
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -83,6 +84,7 @@ class BaseDataLoader:
         config : dict[str, Any]
             Configuration dictionary. See the class docstring for the
             required keys.
+
         """
         self.config = config
         self.source = Path(config["data"]["data_path"])
@@ -130,6 +132,7 @@ class BaseDataLoader:
         xarray.Dataset
             ``aux_ds`` with ``x1_arr``, ``x2_arr``, ``cos_{frequency}`` and
             ``sin_{frequency}`` variables added.
+
         """
         x1x2_ds = construct_x1x2_ds(aux_ds)
         aux_ds["x1_arr"] = x1x2_ds["x1_arr"]
@@ -172,6 +175,7 @@ class BaseDataLoader:
         The climatology is always computed at daily resolution
         (``time.dayofyear``); there is currently no option for other
         temporal resolutions.
+
         """
         # Check if climatology already computed
         climatology_folder = os.path.join(self.source, self.region)
@@ -234,6 +238,7 @@ class BaseDataLoader:
         -------
         xarray.Dataset
             Dataset containing the single derived variable ``f"{var}_anm"``.
+
         """
         ds = xr.Dataset()
 
@@ -252,6 +257,7 @@ class BaseDataLoader:
         deepsensor.data.processor.DataProcessor
             A new, unfitted data processor configured with ``x1_name="lat"``
             and ``x2_name="lon"``.
+
         """
         data_processor = DataProcessor(
             x1_name="lat",
@@ -272,6 +278,7 @@ class BaseDataLoader:
         ------
         NotImplementedError
             Always; subclasses must override this method.
+
         """
         raise NotImplementedError("Subclasses must implement load_ds method")
 
@@ -287,6 +294,7 @@ class BaseDataLoader:
         ------
         NotImplementedError
             Always; subclasses must override this method.
+
         """
         raise NotImplementedError("Subclasses must implement load_aux_ds method")
 
@@ -320,6 +328,7 @@ class BaseDataLoader:
         ------
         NotImplementedError
             Always; subclasses must override this method.
+
         """
         raise NotImplementedError(
             "Subclasses must implement get_dataproc_taskload method"
@@ -337,6 +346,7 @@ class CARRA2DataLoader(BaseDataLoader):
     basin_x, basin_y : xarray.DataArray
         ``x``/``y`` coordinate arrays covering the bounding box of
         ``self.basin``. Only set if ``self.basin is not None``.
+
     """
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -347,6 +357,7 @@ class CARRA2DataLoader(BaseDataLoader):
         config : dict[str, Any]
             Configuration dictionary. Must additionally contain
             ``config["data"]["ancillary_path"]``.
+
         """
         super().__init__(config)
         self.ancils_path: str = config["data"]["ancillary_path"]
@@ -372,6 +383,7 @@ class CARRA2DataLoader(BaseDataLoader):
             ``x`` coordinate values covered by ``target_basin``.
         basin_y : xarray.DataArray
             ``y`` coordinate values covered by ``target_basin``.
+
         """
         basin_ds = xr.open_dataset(os.path.join(self.ancils_path, "basins_2500m.nc"))[
             "subregion"
@@ -399,6 +411,7 @@ class CARRA2DataLoader(BaseDataLoader):
         -------
         xarray.Dataset
             The preprocessed dataset, with coordinates ``lon``/``lat``.
+
         """
         if not isinstance(self.context_vars, list):
             self.variables = [self.context_vars]
@@ -464,6 +477,7 @@ class CARRA2DataLoader(BaseDataLoader):
         xarray.DataArray
             Land-sea mask, with ``x``/``y`` coordinates renamed to
             ``lon``/``lat`` when loaded from BedMachine.
+
         """
         # Download static auxiliary features (elevation/land mask)
         if resolution == "public":
@@ -523,6 +537,7 @@ class CARRA2DataLoader(BaseDataLoader):
         tuple[xarray.Dataset, deepsensor.data.processor.DataProcessor, deepsensor.data.loader.TaskLoader]
             The raw (unnormalised) dataset, the fitted data processor, and
             the resulting task loader.
+
         """
         # Load all data
         raw_ds = self.load_ds()
@@ -566,6 +581,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
     basin_x, basin_y : xarray.DataArray
         ``x``/``y`` coordinate arrays covering the bounding box of
         ``self.basin``. Only set if ``self.basin is not None``.
+
     """
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -576,6 +592,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
         config : dict[str, Any]
             Configuration dictionary. Must additionally contain
             ``config["data"]["ancillary_path"]``.
+
         """
         super().__init__(config)
         self.ancils_path: str = config["data"]["ancillary_path"]
@@ -601,6 +618,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
             ``x`` coordinate values covered by ``target_basin``.
         basin_y : xarray.DataArray
             ``y`` coordinate values covered by ``target_basin``.
+
         """
         basin_ds = xr.open_dataset(os.path.join(self.ancils_path, "basins_5500m.nc"))[
             "subregion"
@@ -630,6 +648,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
         -------
         xarray.Dataset
             The preprocessed dataset, with coordinates ``lon``/``lat``.
+
         """
         if not isinstance(self.context_vars, list):
             self.variables = [self.context_vars]
@@ -699,6 +718,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
         xarray.DataArray
             Land-sea/ablation mask, with ``x``/``y`` coordinates renamed to
             ``lon``/``lat`` when loaded from BedMachine.
+
         """
         # Download static auxiliary features (elevation/land mask)
         if resolution == "public":
@@ -766,6 +786,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
         tuple[xarray.Dataset, deepsensor.data.processor.DataProcessor, deepsensor.data.loader.TaskLoader]
             The raw (unnormalised) dataset, the fitted data processor, and
             the resulting task loader.
+
         """
         # Load all data
         raw_ds = self.load_ds()
@@ -921,6 +942,7 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
     basin_x, basin_y : xarray.DataArray
         ``x``/``y`` coordinate arrays covering the bounding box of
         ``self.basin``. Only set if ``self.basin is not None``.
+
     """
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -931,6 +953,7 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         config : dict[str, Any]
             Configuration dictionary. Must additionally contain
             ``config["data"]["ancillary_path"]``.
+
         """
         super().__init__(config)
         self.ancils_path: str = config["data"]["ancillary_path"]
@@ -958,6 +981,7 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
             ``x`` coordinate values covered by ``target_basin``.
         basin_y : xarray.DataArray
             ``y`` coordinate values covered by ``target_basin``.
+
         """
         basin_ds = xr.open_zarr(
             os.path.join(self.ancils_path, "GRLmask.zarr"), chunks="auto"
@@ -987,6 +1011,7 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         -------
         xarray.Dataset
             The preprocessed dataset, with coordinates ``lon``/``lat``.
+
         """
         if not isinstance(self.context_vars, list):
             self.variables = [self.context_vars]
@@ -1088,6 +1113,7 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         xarray.DataArray
             Land-sea/glacier mask, with ``x``/``y`` coordinates renamed to
             ``lon``/``lat`` when loaded from BedMachine.
+
         """
         # Download static auxiliary features (elevation/land mask)
         if resolution == "public":
@@ -1149,6 +1175,7 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         tuple[xarray.Dataset, deepsensor.data.processor.DataProcessor, deepsensor.data.loader.TaskLoader]
             The raw (unnormalised) dataset, the fitted data processor, and
             the resulting task loader.
+
         """
         # Load all data
         raw_ds = self.load_ds()
