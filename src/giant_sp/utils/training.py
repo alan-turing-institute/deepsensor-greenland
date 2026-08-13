@@ -26,7 +26,11 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, IterableDataset
 from tqdm import tqdm
 
-from giant_sp.utils.data import mixed_sampling_strategy, sample_land_locations
+from giant_sp.utils.data import (
+    context_sampling_with_delta,
+    mixed_sampling_strategy,
+    sample_land_locations,
+)
 
 T = TypeVar("T")
 
@@ -291,17 +295,12 @@ class TaskStreamDataset(IterableDataset[Task]):
             else:
                 target = self.target_sampling
 
-            group_objs = [context] + ["all"] * (len(self.delta_factor_context) - 1)
-            context_sampling_tr = [
-                obj
-                for obj, n in zip(group_objs, self.delta_factor_context, strict=True)
-                for _ in range(n)
-            ] + ["all"]
-
             task = (
                 self.task_loader(
                     date,
-                    context_sampling=context_sampling_tr,
+                    context_sampling=context_sampling_with_delta(
+                        context, self.delta_factor_context
+                    ),
                     target_sampling=target,
                     datewise_deterministic=self.datewise_deterministic,
                 )

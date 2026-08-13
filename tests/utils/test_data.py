@@ -7,6 +7,7 @@ from shapely.geometry import Point, Polygon
 
 from giant_sp.utils.data import (
     construct_circ_and_linear_time_ds,
+    context_sampling_with_delta,
     find_lon_lat,
     find_xy_for_points,
     mixed_sampling_strategy,
@@ -218,3 +219,27 @@ class TestPointsInPolygons:
         mask = points_in_polygons(lon_grid, lat_grid, polygon_with_hole)
         assert mask[0, 0]  # (1, 1) inside outer, outside hole
         assert not mask[1, 1]  # (5, 5) inside the hole
+
+
+class TestContextSamplingWithDelta:
+    def test_single_group_appends_trailing_all(self):
+        result = context_sampling_with_delta("X", [1])
+        assert result == ["X", "all"]
+
+    def test_repeats_first_group_by_its_delta_factor(self):
+        result = context_sampling_with_delta("X", [2, 3])
+        assert result == ["X", "X", "all", "all", "all", "all"]
+
+    def test_only_first_group_uses_first_set_obj(self):
+        result = context_sampling_with_delta("X", [1, 1])
+        assert result == ["X", "all", "all"]
+
+    def test_preserves_object_identity(self):
+        stn_locs = object()
+        result = context_sampling_with_delta(stn_locs, [2])
+        assert result[0] is stn_locs
+        assert result[1] is stn_locs
+
+    def test_raises_on_empty_delta_factor_context(self):
+        with pytest.raises(ValueError, match="zip"):
+            context_sampling_with_delta("X", [])

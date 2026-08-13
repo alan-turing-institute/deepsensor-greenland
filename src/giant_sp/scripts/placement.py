@@ -26,7 +26,7 @@ import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
 from giant_sp.data.dataloader import BaseDataLoader
-from giant_sp.utils.data import sample_dates_by_year_chunks
+from giant_sp.utils.data import context_sampling_with_delta, sample_dates_by_year_chunks
 
 set_gpu_default_device() if torch.cuda.is_available() else torch.device("cpu")
 
@@ -236,6 +236,8 @@ def main() -> None:
     config = load_config(config_file)
     # coords_path = config["data"]["data_path"]
     source = config["data"]["source"]
+    context_delta_t = config["dataloader"]["context_delta_t"]
+
     # chunk_size = 100
 
     # Initialize data loader
@@ -439,8 +441,14 @@ def main() -> None:
     else:
         search_mask = xr.open_dataarray(args.search_mask_file)
 
+    # Determine delta_factor_context for context_sampling_with_delta
+    if context_delta_t is None:
+        delta_factor_context = [1] * len(config["data"]["context_var_IDs"])
+    else:
+        delta_factor_context = [len(group) for group in context_delta_t]
+
     # Generate tasks
-    tasks = task_loader(dates, (X_stn, "all", "all"))
+    tasks = task_loader(dates, context_sampling_with_delta(X_stn, delta_factor_context))
     weights_fn = weights_fn.split(".")[0]
 
     # Acquisition functions
