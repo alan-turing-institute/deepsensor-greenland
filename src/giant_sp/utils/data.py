@@ -518,6 +518,32 @@ def points_in_polygons(
 def context_sampling_with_delta(
     first_set_obj: Any, delta_factor_context: list[int]
 ) -> list[Any]:
+    """Build a ``context_sampling`` list from per-variable delta factors.
+
+    This helper expands ``first_set_obj`` (the sampling spec for the
+    first context variable, e.g. a station-location array or an observation
+    count) across all of that variable's delta-expanded sub-sets, uses
+    ``"all"`` for every other context variable's sub-sets, and appends a
+    final ``"all"`` for the trailing auxiliary context set.
+
+    Parameters
+    ----------
+    first_set_obj : Any
+        Sampling specification to use for every sub-set belonging to the
+        first context variable (e.g. an array of coordinates or an int
+        observation count, as accepted by
+        ``TaskLoader.__call__``'s ``context_sampling``).
+    delta_factor_context : list[int]
+        Number of delta-expanded sub-sets per context variable, i.e.
+        ``[len(group) for group in context_delta_t]`` (or a list of ``1``s
+        when ``context_delta_t`` is ``None``). Must be non-empty.
+
+    Returns
+    -------
+    list[Any]
+        A ``context_sampling`` list of length ``sum(delta_factor_context) + 1``,
+        suitable for passing directly to ``TaskLoader.__call__``.
+    """
     group_objs = [first_set_obj] + ["all"] * (len(delta_factor_context) - 1)
     return [
         obj
