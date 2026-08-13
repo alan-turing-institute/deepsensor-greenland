@@ -100,9 +100,9 @@ def main(config: DictConfig) -> None:
             tags=wandb_cfg.get("tags", []),
             notes=wandb_cfg.get("docs", ""),
             config={
-                "model": config["model"],
-                "training": config["training"],
-                "data": config["data"],
+                "model": OmegaConf.to_container(config["model"], resolve=True),
+                "training": OmegaConf.to_container(config["training"], resolve=True),
+                "data": OmegaConf.to_container(config["data"], resolve=True),
             },
         )
         logger.info("Initialized W&B run: %s", wandb_run.name)

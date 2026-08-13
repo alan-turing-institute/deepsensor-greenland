@@ -30,7 +30,7 @@ import xarray as xr
 from deepsensor.data.task import Task
 from deepsensor.model import ConvNP
 from deepsensor.model.pred import Prediction
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from wandb.sdk.wandb_run import Run
@@ -355,9 +355,9 @@ class Trainer:
             tags=wandb_config.get("tags", []),
             notes=wandb_config.get("docs", ""),
             config={
-                "model": self.config["model"],
-                "training": self.train_config,
-                "data": self.config["data"],
+                "model": OmegaConf.to_container(self.config["model"], resolve=True),
+                "training": OmegaConf.to_container(self.train_config, resolve=True),
+                "data": OmegaConf.to_container(self.config["data"], resolve=True),
                 "model_parameters": self.model.count_parameters(),
             },
         )

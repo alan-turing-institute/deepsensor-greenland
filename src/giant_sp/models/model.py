@@ -10,7 +10,7 @@ from typing import Any
 import torch
 from deepsensor.data import DataProcessor, Task, TaskLoader
 from deepsensor.model import ConvNP
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,9 @@ class DeepSensorModel:
         deepsensor.model.ConvNP
             The newly constructed model, also stored on ``self.model``.
         """
-        model_config = self.config["model"]
+        model_config: dict[str, Any] = OmegaConf.to_container(
+            self.config["model"], resolve=True
+        )  # type: ignore[assignment]
 
         logger.info("Building ConvNP model with PyTorch backend...")
         logger.info("Model likelihood: %s", model_config["likelihood"])
