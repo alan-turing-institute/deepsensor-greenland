@@ -1,9 +1,9 @@
-"""
+"""Script for creating ZARR-analysis ready base dataset from netcdf files.
+
 Source: https://github.com/eschlager/MeltEmulation
 Created on 05.03.2024, Edited 16.07.2026
 @author: eschlager
 @modified: acocac
-Script for creating ZARR-analysis ready base dataset from netcdf files;
 """
 
 import logging
@@ -21,8 +21,7 @@ sys.path.append(os.path.sep.join([project_dir, "src"]))
 
 
 def setup_logging() -> None:
-    """
-    Configure the root logger for console output.
+    """Configure the root logger for console output.
 
     Sets the root logger level to ``INFO`` and attaches a
     :class:`logging.StreamHandler` with a timestamped format.

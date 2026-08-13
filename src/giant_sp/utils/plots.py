@@ -88,6 +88,7 @@ def averaged_prediction_plot(
         The figure and a flattened array of its 4 :class:`~matplotlib.axes.Axes`
         (or ``GeoAxes`` if `crs` is given), in the order
         ``[truth, mean, std, error]``.
+
     """
     mean_da, truth_da = xr.align(mean_da, truth_da, join="inner")
     # Calculate prediction errors
@@ -230,6 +231,7 @@ def PIT_histogram(
     -------
     tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]
         The figure and axis containing the PIT histogram.
+
     """
     pred_mean_plt_all = val_pred["mean"].values.flatten()
     pred_std_plt = val_pred["std"].values.flatten()
@@ -277,6 +279,7 @@ def hexbin_parity_plot(x: ArrayLike, y: ArrayLike) -> tuple[Figure, Axes]:
     tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]
         The figure and axis containing the hexbin plot, with equal aspect
         ratio and a black bisecting (1:1) line.
+
     """
     # Plot
     fig, ax = plt.subplots()
@@ -344,6 +347,7 @@ def new_placements_plot_xy(
     -------
     tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]
         The figure and axis containing the plot.
+
     """
     fig, ax = plt.subplots(layout="constrained")
 
@@ -437,6 +441,7 @@ def plot_greenland_only(
     ValueError
         If `gris_data` is not 2D, or if its lon/lat coordinate shapes do not
         match its data shape.
+
     """
     # Modified from: https://github.com/eschlager/MeltEmulation/
     ds = gris_data
@@ -586,6 +591,7 @@ def _get_value_limits(
         `extend_colorbar` indicates whether the data range exceeds the
         requested limits on the low end (``"min"``), high end (``"max"``),
         both (``"both"``), or neither (``"neither"``).
+
     """
     # Source: https://github.com/eschlager/MeltEmulation/
     extend_colorbar: Literal["neither", "min", "max", "both"]
@@ -646,6 +652,7 @@ def new_placements_plot_xy_hirham5native(
     -------
     cartopy.mpl.geoaxes.GeoAxes
         The first (leftmost) panel's axis.
+
     """
     # Modified from: https://github.com/eschlager/MeltEmulation/
     fig = plt.figure(figsize=(9, 3))

@@ -47,6 +47,7 @@ def compute_pit_bernoulli_gamma(
     NDArray[np.float64]
         PIT values, same shape as `true`. Under a correctly specified model
         these are approximately uniformly distributed on [0, 1].
+
     """
     rng = np.random.default_rng(seed)
     is_zero = np.abs(true) < epsilon

@@ -1,6 +1,4 @@
-"""
-Main training script for DeepSensor spatial interpolation
-"""
+"""Main training script for DeepSensor spatial interpolation."""
 
 import argparse
 import logging
@@ -42,6 +40,7 @@ def setup_logging(config: dict[str, Any]) -> None:
     -------
     None
         Configures the root logger as a side effect; nothing is returned.
+
     """
     log_level = getattr(logging, config["logging"]["log_level"])
 
@@ -64,6 +63,7 @@ def load_config(config_path: str) -> dict[str, Any]:
     -------
     dict[str, Any]
         Parsed configuration as a nested dictionary.
+
     """
     with open(config_path) as f:
         config = yaml.safe_load(f)
@@ -99,6 +99,7 @@ def main(args: argparse.Namespace) -> None:
         used without a land-sea mask enabled; or if no station locations
         remain after applying the land mask/domain filter for
         ``"hirham5zarr"``.
+
     """
     # Load configuration
     config = load_config(args.config)

@@ -88,6 +88,7 @@ class TaskStreamDataset(IterableDataset[Task]):
     change_dates_every_epoch : bool
         If True, ``date_list`` is reshuffled and resubsampled at the start of
         every call to :meth:`__iter__`.
+
     """
 
     def __init__(
@@ -173,6 +174,7 @@ class TaskStreamDataset(IterableDataset[Task]):
         ValueError
             If ``sampling_strat`` is ``"land_obs"`` or ``"mixed_obs"``
             and either ``data_processor`` or ``lsm`` is not provided.
+
         """
         super().__init__()
 
@@ -226,6 +228,7 @@ class TaskStreamDataset(IterableDataset[Task]):
         -------
         int
             Length of ``date_list``.
+
         """
         return len(self.date_list)
 
@@ -237,6 +240,7 @@ class TaskStreamDataset(IterableDataset[Task]):
         Task
             A task built by ``task_loader`` for each date, with context and
             target NaNs removed.
+
         """
         if self.change_dates_every_epoch:
             self.date_list = list(np.random.permutation(self.date_list))[
@@ -346,6 +350,7 @@ class GapFillTaskStreamDataset(IterableDataset[Task]):
     change_dates_every_epoch : bool
         If True, the date range is recomputed, reshuffled, and resubsampled
         at the start of every call to :meth:`__iter__`.
+
     """
 
     def __init__(
@@ -397,6 +402,7 @@ class GapFillTaskStreamDataset(IterableDataset[Task]):
             If True, the date range is recomputed, reshuffled, and
             resubsampled (by ``sampling``) at the start of every call to
             :meth:`__iter__`.
+
         """
         super().__init__()
 
@@ -431,6 +437,7 @@ class GapFillTaskStreamDataset(IterableDataset[Task]):
         -------
         int
             Length of ``date_list``.
+
         """
         return len(self.date_list)
 
@@ -442,6 +449,7 @@ class GapFillTaskStreamDataset(IterableDataset[Task]):
         Task
             A task built by ``task_loader`` for each date, with context and
             target NaNs removed.
+
         """
         if self.change_dates_every_epoch:
             self.date_list = list(
@@ -479,6 +487,7 @@ def task_collate_fn(batch: list[Task]) -> dict[str, Any]:
         ``"model_kwargs"``, as produced by
         :func:`deepsensor.model.nps.convert_task_to_nps_args`, ready to be
         passed to the ``neuralprocesses`` backend.
+
     """
     # Combine/batch tasks to a single task
     batched_and_padded = concat_tasks(batch)
@@ -521,6 +530,7 @@ def train_epoch_with_dataloader(
     list[NDArray[np.floating[Any]]]
         Per-batch training losses (negative mean log-likelihood), detached
         and moved to CPU as NumPy scalars.
+
     """
 
     def train_step(batch: dict[str, Any]) -> NDArray[np.floating[Any]]:
@@ -576,6 +586,7 @@ def batched(iterable: Iterable[T], n: int) -> Iterator[tuple[T, ...]]:
     ------
     ValueError
         If ``n`` is less than 1.
+
     """
     if n < 1:
         raise ValueError("n must be at least one")
