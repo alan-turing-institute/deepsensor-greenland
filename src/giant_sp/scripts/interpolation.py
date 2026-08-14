@@ -2,7 +2,6 @@
 
 import logging
 import os
-from typing import Any
 
 import deepsensor.torch  # noqa: F401
 import geopandas as gpd

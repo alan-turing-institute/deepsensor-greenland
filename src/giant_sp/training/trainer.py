@@ -92,7 +92,10 @@ class Trainer:
     local_save_dir : str
         Local directory (inside the W&B run directory) where checkpoints
         and config files are written. Only set when ``use_wandb`` is
-        ``True`` (see the W&B setup methods).
+        ``True`` (see the W&B setup methods). The full resolved run
+        configuration is saved here as ``run_config.yaml`` and uploaded to
+        W&B every time a run is started, attached to, or resumed (see
+        :meth:`_save_run_config`).
     pred_params : list[str]
         Prediction outputs to request from the model (e.g. ``["mean",
         "std"]``, extended with mixture parameters for the
@@ -224,6 +227,27 @@ class Trainer:
         )
         return optimizer
 
+    def _save_run_config(self) -> None:
+        """Save the full resolved run configuration to W&B.
+
+        Writes ``self.config`` (the complete Hydra-composed configuration,
+        covering ``data``/``model``/``training``/etc.) as YAML to
+        ``self.local_save_dir`` and uploads it to the active W&B run.
+
+        Notes
+        -----
+        Assumes ``self.wandb_run`` and ``self.local_save_dir`` are already
+        set.
+
+        """
+        assert self.wandb_run is not None, (
+            "wandb_run must already be initialized by the caller"
+        )
+        logger.info("Saving run config")
+        config_fpath = os.path.join(self.local_save_dir, "run_config.yaml")
+        OmegaConf.save(self.config, config_fpath)
+        wandb.save(config_fpath, base_path=self.wandb_run.dir)
+
     def _restore_wandb(self) -> None:
         """Resume a previous W&B run and reload its latest checkpoint.
 
@@ -253,6 +277,7 @@ class Trainer:
 
         self.local_save_dir = os.path.join(self.wandb_run.dir, "files")
         os.makedirs(self.local_save_dir)
+        self._save_run_config()
 
         # Restore best-loss tracking so post-resume epochs only overwrite
         # the best checkpoints if they actually improve on the pre-resume best.
@@ -306,6 +331,7 @@ class Trainer:
 
         self.local_save_dir = os.path.join(self.wandb_run.dir, "files")
         os.makedirs(self.local_save_dir)
+        self._save_run_config()
 
         logger.info("Saving data processor config")
         with open(
@@ -377,6 +403,7 @@ class Trainer:
 
         self.local_save_dir = os.path.join(self.wandb_run.dir, "files")
         os.makedirs(self.local_save_dir)
+        self._save_run_config()
 
         logger.info("Initialized W&B run: %s", self.wandb_run.name)
         logger.info("W&B URL: %s", self.wandb_run.url)

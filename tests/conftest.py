@@ -48,7 +48,7 @@ def native_grid_ds():
 
 @pytest.fixture(scope="session")
 def tiny_model_config() -> DictConfig:
-    """A minimal ConvNP config small enough to build/train instantly in tests."""
+    """Build a minimal ConvNP config small enough to build/train instantly in tests."""
     return OmegaConf.create({"model": {"unet_channels": [4, 4], "likelihood": "cnp"}})
 
 
