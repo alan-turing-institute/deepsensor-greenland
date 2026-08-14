@@ -198,6 +198,70 @@ def averaged_prediction_plot(
     return fig, axes
 
 
+def uncertainty_decomposition_plot(
+    epistemic_std_da: xr.DataArray,
+    aleatoric_std_da: xr.DataArray,
+    cmap: str = "Greys",
+    crs: ccrs.CRS | None = None,
+) -> tuple[Figure, NDArray[Any]]:
+    """Plot time-averaged epistemic and aleatoric predictive-uncertainty maps.
+
+    Companion to :func:`averaged_prediction_plot`, for models exposing an
+    epistemic/aleatoric variance decomposition (e.g.
+    :class:`giant_sp.models.mdn.MDNZIGammaConvNP`). Both panels share the same color
+    scale so their magnitudes are directly comparable.
+
+    Parameters
+    ----------
+    epistemic_std_da : xarray.DataArray
+        Epistemic component of the predictive standard deviation, with a ``time``
+        dimension (e.g. ``giant_sp.utils.model.add_uncertainty_decomposition``'s
+        ``"epistemic_std"`` output).
+    aleatoric_std_da : xarray.DataArray
+        Aleatoric component of the predictive standard deviation, same shape as
+        `epistemic_std_da`.
+    cmap : str, default "Greys"
+        Colormap used for both panels.
+    crs : cartopy.crs.CRS or None, default None
+        If provided, subplots use this as their map projection and coastlines are
+        drawn on every axis.
+
+    Returns
+    -------
+    tuple[matplotlib.figure.Figure, numpy.ndarray]
+        The figure and a flattened array of its 2 :class:`~matplotlib.axes.Axes`
+        (or ``GeoAxes`` if `crs` is given), in the order ``[epistemic, aleatoric]``.
+
+    """
+    subplot_kw = {"projection": crs} if crs is not None else None
+    fig, axes = plt.subplots(
+        nrows=1, ncols=2, figsize=(10, 4), layout="constrained", subplot_kw=subplot_kw
+    )
+
+    vmax = max(
+        epistemic_std_da.mean(dim="time").max().compute(),
+        aleatoric_std_da.mean(dim="time").max().compute(),
+    )
+    im_ratio = epistemic_std_da.shape[1] / epistemic_std_da.shape[2]
+    cbar_kwargs = {"fraction": 0.046 * im_ratio, "pad": 0.04, "label": None}
+
+    epistemic_std_da.mean(dim="time").plot(  # type: ignore[call-arg]
+        ax=axes[0], cmap=cmap, vmin=0.0, vmax=vmax, cbar_kwargs=cbar_kwargs
+    )
+    axes[0].set_title("Epistemic uncertainty (std)")
+
+    aleatoric_std_da.mean(dim="time").plot(  # type: ignore[call-arg]
+        ax=axes[1], cmap=cmap, vmin=0.0, vmax=vmax, cbar_kwargs=cbar_kwargs
+    )
+    axes[1].set_title("Aleatoric uncertainty (std)")
+
+    if crs is not None:
+        for ax in axes:
+            ax.coastlines(linewidth=0.5)
+
+    return fig, axes
+
+
 def PIT_histogram(
     truth: NDArray[np.floating],
     val_pred: xr.Dataset,
@@ -250,6 +314,10 @@ def PIT_histogram(
         scale_plt = val_pred["scale"].values.flatten()[valid]
         pit_values = compute_pit_bernoulli_gamma(true_plt, p_zero_plt, k_plt, scale_plt)
     else:
+        # TODO: "mdn-zigamma" also has a zero-inflated, non-Gaussian predictive
+        # distribution and falls through to this Normal-CDF approximation too --
+        # an exact mixture-CDF PIT would need per-component pred_params plumbing
+        # (mixture weights/k/scale) not currently exposed. Out of scope for now.
         pit_values = sp.stats.norm.cdf(true_plt, loc=pred_mean_plt, scale=pred_std_plt)
     # Plot
     fig, ax = plt.subplots()

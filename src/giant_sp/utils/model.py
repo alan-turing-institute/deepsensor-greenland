@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING
 
+import numpy as np
 import xarray as xr
 
 from giant_sp.utils.training import batched
@@ -143,3 +144,34 @@ def get_pred_DAs_taskstream(
     err_da = mean_da - truth_aligned
 
     return mean_da, std_da, err_da
+
+
+def add_uncertainty_decomposition(pred: Prediction, varname: str) -> None:
+    """Derive physical-unit epistemic/aleatoric std maps and add them to `pred`.
+
+    Combines the dimensionless ``"epistemic_frac"`` (the fraction of total predictive
+    variance attributable to epistemic uncertainty, from
+    :class:`giant_sp.models.mdn.MDNZIGammaConvNP`) with the already correctly
+    unnormalised ``"std"`` prediction to derive ``"epistemic_std"``/``"aleatoric_std"``
+    in the same physical units as ``"std"``, without needing any new unnormalisation
+    logic of our own (`std * sqrt(epistemic_frac)` scales exactly like `std` itself).
+
+    Parameters
+    ----------
+    pred : deepsensor.model.pred.Prediction
+        Prediction object already containing ``pred[varname]["std"]`` and
+        ``pred[varname]["epistemic_frac"]`` (i.e. `model.predict` was called with
+        ``pred_params`` including both).
+    varname : str
+        Name of the target variable to derive the decomposition for.
+
+    Notes
+    -----
+    Mutates ``pred[varname]`` in place, adding ``"epistemic_std"`` and
+    ``"aleatoric_std"`` data variables.
+
+    """
+    std = pred[varname]["std"]
+    epistemic_frac = pred[varname]["epistemic_frac"]
+    pred[varname]["epistemic_std"] = std * np.sqrt(epistemic_frac)
+    pred[varname]["aleatoric_std"] = std * np.sqrt(1 - epistemic_frac)

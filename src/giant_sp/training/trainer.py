@@ -38,7 +38,11 @@ import giant_sp.utils.plots as myplt
 import giant_sp.utils.training as tu
 from giant_sp.models.model import DeepSensorModel
 from giant_sp.utils.data import NumpyFloatValuesEncoder
-from giant_sp.utils.model import compute_pred_ds, get_pred_DAs_taskstream
+from giant_sp.utils.model import (
+    add_uncertainty_decomposition,
+    compute_pred_ds,
+    get_pred_DAs_taskstream,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +100,8 @@ class Trainer:
     pred_params : list[str]
         Prediction outputs to request from the model (e.g. ``["mean",
         "std"]``, extended with mixture parameters for the
-        ``"bernoulli-gamma"`` likelihood). Set in :meth:`train`.
+        ``"bernoulli-gamma"`` likelihood, or with ``"epistemic_frac"`` for
+        ``"mdn-zigamma"``). Set in :meth:`train`.
 
     """
 
@@ -480,6 +485,8 @@ class Trainer:
         self.pred_params = ["mean", "std"]
         if self.model.config["model"]["likelihood"] == "bernoulli-gamma":
             self.pred_params += ["mixture_probs", "k", "scale"]
+        elif self.model.config["model"]["likelihood"] == "mdn-zigamma":
+            self.pred_params += ["mixture_probs", "epistemic_frac"]
 
         logger.info("Starting training for %d epochs", num_epochs)
         logger.info("Training samples: %d", len(task_stream_tr.date_list))
@@ -750,7 +757,10 @@ class Trainer:
         :meth:`_log_wandb_predictions_task`, and (2) a
         temporally-averaged prediction plot via
         `giant_sp.utils.plots.averaged_prediction_plot`, both under W&B
-        keys prefixed with ``partition``.
+        keys prefixed with ``partition``. If the model's likelihood is
+        ``"mdn-zigamma"``, also logs (3) an epistemic/aleatoric uncertainty
+        decomposition plot via
+        `giant_sp.utils.plots.uncertainty_decomposition_plot`.
 
         Parameters
         ----------
@@ -806,6 +816,23 @@ class Trainer:
             {f"predictions/plot_{partition}_average": wandb.Image(fig)}, step=epoch
         )
         plt.close(fig)
+
+        if self.model.config["model"]["likelihood"] == "mdn-zigamma":
+            add_uncertainty_decomposition(pred, target_var)
+            fig, _ax = myplt.uncertainty_decomposition_plot(
+                pred[target_var]["epistemic_std"],
+                pred[target_var]["aleatoric_std"],
+                crs=self.projection,
+            )
+            wandb.log(
+                {
+                    f"predictions/plot_{partition}_uncertainty_decomposition": wandb.Image(
+                        fig
+                    )
+                },
+                step=epoch,
+            )
+            plt.close(fig)
 
     def _plot_additional_charts(
         self,
