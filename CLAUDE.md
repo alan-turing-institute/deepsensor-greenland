@@ -120,7 +120,7 @@ predictive distribution used to evaluate precipitation-like targets.
 ### Configuration
 
 Every script is a Hydra entry point composing its config from `src/giant_sp/configs/`:
-`config.yaml`/`inference.yaml`/`placement.yaml` are the per-script entry configs (each defaulting
+`base.yaml`/`inference.yaml`/`placement.yaml` are the per-script entry configs (each defaulting
 to one `experiment`), and `configs/experiment/{carra2,hirham5,hirham5zarr}{,_debug}.yaml` hold the
 full `data`/`dataloader`/`model`/`training`/`logging`/`visualization` sections for each data
 source — `_debug` variants compose on top of their prod counterpart via Hydra's defaults list,

@@ -52,7 +52,7 @@ def setup_logging(config: DictConfig) -> None:
     )
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="config")
+@hydra.main(version_base=None, config_path="../configs", config_name="base")
 def main(config: DictConfig) -> None:
     """Train a DeepSensor model for spatial interpolation.
 

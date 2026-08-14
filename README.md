@@ -27,7 +27,7 @@ The `interpolation.py` script trains a spatial interpolation model. It can be ru
 uv run src/giant_sp/scripts/interpolation.py experiment=<experiment name>
 ```
 where `<experiment name>` is one of the configs under `src/giant_sp/configs/experiment/` (e.g.
-`carra2`, `hirham5zarr_debug`) — see `src/giant_sp/configs/config.yaml` for the default. Any config
+`carra2`, `hirham5zarr_debug`) — see `src/giant_sp/configs/base.yaml` for the default. Any config
 value can also be overridden directly, e.g. `training.num_epochs=5`. This will save a model to
 WandB, and produce a path to the model run, for example: `turing-giant/present-train/runs/5p4odkbr`.
 
