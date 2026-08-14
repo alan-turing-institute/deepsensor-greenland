@@ -1,6 +1,4 @@
-"""
-DeepSensor model definitions and utilities
-"""
+"""DeepSensor model definitions and utilities."""
 
 import contextlib
 import io
@@ -33,11 +31,11 @@ class DeepSensorModel:
         set once :meth:`build_model` has been called.
     normalization_params : None
         Reserved for normalization parameters. Currently unused.
+
     """
 
     def __init__(self, config: DictConfig) -> None:
-        """
-        Initialize the DeepSensor model wrapper.
+        """Initialize the DeepSensor model wrapper.
 
         Parameters
         ----------
@@ -45,6 +43,7 @@ class DeepSensorModel:
             Configuration. Must contain a ``"model"`` key whose
             value is a dictionary of keyword arguments for
             :class:`~deepsensor.model.ConvNP` (used by :meth:`build_model`).
+
         """
         self.config = config
         self.model: ConvNP | None = None
@@ -54,8 +53,7 @@ class DeepSensorModel:
     def build_model(
         self, data_processor: DataProcessor, task_loader: TaskLoader
     ) -> ConvNP:
-        """
-        Build the ``ConvNP`` model with the architecture from ``self.config``.
+        """Build the ``ConvNP`` model with the architecture from ``self.config``.
 
         Parameters
         ----------
@@ -70,6 +68,7 @@ class DeepSensorModel:
         -------
         deepsensor.model.ConvNP
             The newly constructed model, also stored on ``self.model``.
+
         """
         model_config: dict[str, Any] = OmegaConf.to_container(
             self.config["model"], resolve=True
@@ -98,8 +97,7 @@ class DeepSensorModel:
         return self.model
 
     def get_model_summary(self) -> None:
-        """
-        Log the model's architecture summary and parameter count.
+        """Log the model's architecture summary and parameter count.
 
         Logs a warning and returns without doing anything if the model has
         not been built yet.
@@ -113,14 +111,14 @@ class DeepSensorModel:
         logger.info("Parameters: %d", self.count_parameters())
 
     def count_parameters(self) -> int:
-        """
-        Count total trainable parameters in the model.
+        """Count total trainable parameters in the model.
 
         Returns
         -------
         int
             The number of trainable parameters, or ``0`` if the model has
             not been built yet.
+
         """
         if self.model is None:
             return 0
@@ -132,8 +130,7 @@ class DeepSensorModel:
         return int(total_params)
 
     def save_model(self, filepath: str) -> None:
-        """
-        Save the model's state dict to disk.
+        """Save the model's state dict to disk.
 
         Parameters
         ----------
@@ -144,6 +141,7 @@ class DeepSensorModel:
         ------
         ValueError
             If the model has not been built yet.
+
         """
         if self.model is None:
             raise ValueError("No model to save")
@@ -152,8 +150,7 @@ class DeepSensorModel:
         torch.save(self.model.model.state_dict(), filepath)
 
     def load_model(self, filepath: str) -> None:
-        """
-        Load a model checkpoint's state dict from disk.
+        """Load a model checkpoint's state dict from disk.
 
         Parameters
         ----------
@@ -165,6 +162,7 @@ class DeepSensorModel:
         ValueError
             If the model has not been built yet (weights are loaded into
             the existing model, so it must exist first).
+
         """
         if self.model is None:
             raise ValueError("Model must be built before loading weights")
@@ -174,8 +172,7 @@ class DeepSensorModel:
         self.model.model.load_state_dict(model_state_dict)
 
     def predict(self, task: Task, num_samples: int = 1) -> Any:
-        """
-        Make predictions with uncertainty quantification.
+        """Make predictions with uncertainty quantification.
 
         Parameters
         ----------
@@ -197,6 +194,7 @@ class DeepSensorModel:
         ------
         ValueError
             If the model has not been built yet.
+
         """
         if self.model is None:
             raise ValueError("Model not built yet")

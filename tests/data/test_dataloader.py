@@ -42,9 +42,11 @@ def _make_config(
 
 
 def _write_basin_netcdf(path, se_code=1, other_code=2):
-    """A synthetic subregion mask matching what CARRA2/HIRHAM5 load_basin expects:
-    a 2D (y, x) `subregion` DataArray whose `subregion_labels` attr JSON-encodes
-    a {code: label} mapping."""
+    """Write a synthetic subregion mask matching what load_basin expects.
+
+    A 2D (y, x) `subregion` DataArray whose `subregion_labels` attr JSON-encodes
+    a {code: label} mapping.
+    """
     x = np.array([0.0, 1.0, 2.0, 3.0])
     y = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
     values = np.array(
@@ -202,9 +204,11 @@ class TestHirham5ZarrLoadBasin:
 
 
 def _make_anomaly_da():
-    """Two years of the same three calendar days, offset by +10 in 2021, so the
-    2020 climatology (trained on 2020 only) reproduces 2020 exactly (anomaly 0)
-    and reveals the +10 offset for 2021 (anomaly 10)."""
+    """Build two years of the same three calendar days, offset by +10 in 2021.
+
+    The 2020 climatology (trained on 2020 only) reproduces 2020 exactly
+    (anomaly 0) and reveals the +10 offset for 2021 (anomaly 10).
+    """
     dates = pd.to_datetime(
         [
             "2020-01-01",

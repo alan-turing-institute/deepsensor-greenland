@@ -1,6 +1,4 @@
-"""
-Main script for inference using a trained ConvNP model.
-"""
+"""Main script for inference using a trained ConvNP model."""
 
 import datetime
 import glob
@@ -25,6 +23,7 @@ from omegaconf import DictConfig
 import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
+from giant_sp.utils.data import context_sampling_with_delta
 
 
 def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
@@ -39,6 +38,7 @@ def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
     file : str
         Name of the file to download, relative to the run's ``files/``
         directory (e.g. ``"model_config.json"``).
+
     """
     api = wandb.Api()
     therun = api.run(run_ref)
@@ -76,6 +76,7 @@ def load_wandb_model(
         A ConvNP model built from `config_path` with the weights from
         `weights_path` loaded, mapped onto CUDA if available and
         otherwise the CPU.
+
     """
     with open(config_path) as f:
         config = json.load(f)
@@ -138,6 +139,7 @@ def export_zarr(
     data_path : str | None, optional
         Directory containing ``coords_only.zarr``. Required when `source`
         is ``"hirham5zarr"``. Default is None.
+
     """
     pred_ds, truth_da = xr.align(
         pred_ds[target_var], truth_ds[target_var], join="inner"
@@ -234,6 +236,7 @@ def main(config: DictConfig) -> None:
         remain after filtering to the model domain/land mask; or if
         `val_set` is not one of ``"station"``, ``"random-land"`` or
         ``"no-obs"``.
+
     """
     inference_config = config.inference
     run_ref = inference_config.run_ref
@@ -258,6 +261,7 @@ def main(config: DictConfig) -> None:
     source = config["data"]["source"]
     chunk_size = 100
     target_var = config["data"]["target_var_IDs"]
+    context_delta_t = config["dataloader"]["context_delta_t"]
 
     # Initialize data loader
     data_loader: CARRA2DataLoader | HIRHAM5DataLoader | HIRHAM5ZarrDataLoader
@@ -316,10 +320,18 @@ def main(config: DictConfig) -> None:
     if plot and likelihood == "bernoulli-gamma":
         pred_params += ["mixture_probs", "k", "scale"]
 
+    # Determine delta_factor_context for context_sampling_with_delta
+    if context_delta_t is None:
+        delta_factor_context = [1] * len(config["data"]["context_var_IDs"])
+    else:
+        delta_factor_context = [len(group) for group in context_delta_t]
+
     weights_fn = weights_fn.split(".")[0]
     if val_set == "no-obs":
         val_tasks = task_loader(
-            dates, context_sampling=(0, "all", "all"), target_sampling="all"
+            dates,
+            context_sampling=context_sampling_with_delta(0, delta_factor_context),
+            target_sampling="all",
         )
 
         # Predict
@@ -347,7 +359,7 @@ def main(config: DictConfig) -> None:
         val_tasks = [
             task_loader(
                 date,
-                context_sampling=(
+                context_sampling=context_sampling_with_delta(
                     data_processor.map_coord_array(
                         du.sample_land_locations(
                             n_obs=n_obs,
@@ -355,8 +367,7 @@ def main(config: DictConfig) -> None:
                             seed=(seed, i),
                         )
                     ),
-                    "all",
-                    "all",
+                    delta_factor_context,
                 ),
                 target_sampling="all",
                 datewise_deterministic=True,
@@ -478,7 +489,11 @@ def main(config: DictConfig) -> None:
         # Create set of stnval tasks
         print(datetime.datetime.now(), f"Starting task generation ({len(dates)})")
         val_tasks = task_loader(
-            dates, context_sampling=(stn_locs, "all", "all"), target_sampling="all"
+            dates,
+            context_sampling=context_sampling_with_delta(
+                stn_locs, delta_factor_context
+            ),
+            target_sampling="all",
         )
         print(datetime.datetime.now(), "Finished task generation")
 

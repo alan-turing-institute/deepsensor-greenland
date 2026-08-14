@@ -9,7 +9,7 @@ from omegaconf import DictConfig, OmegaConf
 
 @pytest.fixture
 def lsm():
-    """A tiny land-sea mask DataArray (land==1, sea==0) on a 3x3 lat/lon grid."""
+    """Build a tiny land-sea mask DataArray (land==1, sea==0) on a 3x3 lat/lon grid."""
     lat = np.array([-10.0, 0.0, 10.0])
     lon = np.array([0.0, 10.0, 20.0])
     values = np.array(
@@ -24,13 +24,13 @@ def lsm():
 
 @pytest.fixture
 def stn_locs_df():
-    """A tiny station-location table with lat/lon columns."""
+    """Build a tiny station-location table with lat/lon columns."""
     return pd.DataFrame({"lat": [1.0, 2.0, 3.0], "lon": [10.0, 20.0, 30.0]})
 
 
 @pytest.fixture
 def native_grid_ds():
-    """A tiny 3x3 native x/y grid with 2D lon/lat coordinates, lon/lat = 10x the x/y index."""
+    """Build a tiny 3x3 native x/y grid with 2D lon/lat coords, lon/lat = 10x the x/y index."""
     x = np.array([0, 1, 2])
     y = np.array([0, 1, 2])
     X, Y = np.meshgrid(x, y, indexing="xy")
@@ -54,8 +54,11 @@ def tiny_model_config() -> DictConfig:
 
 @pytest.fixture(scope="session")
 def tiny_dp_and_task_loader():
-    """A DataProcessor + TaskLoader over a tiny synthetic 5x5 lat/lon grid, for
-    building a real (but small/fast) ConvNP without needing real climate data."""
+    """Build a DataProcessor + TaskLoader over a tiny synthetic 5x5 lat/lon grid.
+
+    Small enough to build/train a real (but fast) ConvNP without needing real
+    climate data.
+    """
     lat = np.linspace(0, 1, 5)
     lon = np.linspace(0, 1, 5)
     dates = pd.date_range("2020-01-01", periods=3)

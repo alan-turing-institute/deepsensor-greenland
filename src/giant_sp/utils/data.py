@@ -50,6 +50,7 @@ class NumpyFloatValuesEncoder(json.JSONEncoder):
         Any
             ``float(obj)`` if `obj` is a ``numpy.float32``, otherwise the
             result of the parent class's `default`.
+
         """
         if isinstance(obj, np.float32):
             return float(obj)
@@ -92,6 +93,7 @@ def sample_land_locations(
     ------
     ValueError
         If `lsm` is None.
+
     """
     if lsm is None:
         raise ValueError("Land-sea mask (lsm) must be provided.")
@@ -141,6 +143,7 @@ def sample_station_locations(
     NDArray[np.floating]
         Array of shape ``(n_columns, n_obs)``, i.e. `stn_locs_df` rows
         sampled and transposed so that each column is one sampled station.
+
     """
     rng = np.random.default_rng(seed)
     sampled_idx = rng.choice(len(stn_locs_df), n_obs, replace=False)
@@ -184,6 +187,7 @@ def mixed_sampling_strategy(
     NDArray[np.floating]
         Array of shape ``(2, n_obs)`` with station locations followed by
         land locations, concatenated along axis 1.
+
     """
     n_stn = round(frac_stn * n_obs)
     n_land = n_obs - n_stn
@@ -227,6 +231,7 @@ def construct_circ_and_linear_time_ds(dates: ArrayLike, freq: str) -> xr.Dataset
     ------
     ValueError
         If `freq` is not one of ``'D'``, ``'H'``, ``'MS'`` or ``'ME'``.
+
     """
     dt_index = pd.DatetimeIndex(dates)
     if freq == "D":
@@ -297,6 +302,7 @@ def sample_dates_by_year_chunks(
     Notes
     -----
     Source: https://github.com/eschlager/MeltEmulation/
+
     """
     sampled_dates: list[np.datetime64] = []
 
@@ -355,6 +361,7 @@ def find_lon_lat(ds: xr.Dataset | xr.DataArray) -> tuple[xr.DataArray, xr.DataAr
     ------
     ValueError
         If no matching longitude or latitude coordinate is found.
+
     """
     # Try common names (coords)
     lon_names = [n for n in ds.coords if str(n).lower() in ("lon", "longitude", "long")]
@@ -388,6 +395,7 @@ def find_xy_for_points(
     geopandas.GeoDataFrame
         Copy of `gdf_points` with added ``x`` and ``y`` columns giving the
         nearest grid cell's coordinate values.
+
     """
     lon_da, lat_da = find_lon_lat(ds)
     lon2d, lat2d = lon_da.values, lat_da.values
@@ -424,6 +432,7 @@ def normalize_lons(lon: ArrayLike) -> NDArray[np.floating]:
         Longitudes in the [-180, 180) range if the input was entirely
         non-negative and exceeded 180, otherwise the input unchanged (as an
         array).
+
     """
     lon = np.array(lon)
     if lon.min() >= 0 and lon.max() > 180:
@@ -452,6 +461,7 @@ def load_greenland_shape(resolution: str = "10m") -> BaseGeometry:
     RuntimeError
         If no matching "Greenland" record is found in the Natural Earth
         data.
+
     """
     shpname = shapereader.natural_earth(
         resolution=resolution, category="cultural", name="admin_0_countries"
@@ -491,6 +501,7 @@ def points_in_polygons(
     NDArray[np.bool_]
         Boolean mask, same shape as `lon`/`lat`, True where the
         corresponding point lies inside `polygon` (and outside any holes).
+
     """
     pts = np.column_stack((lon.ravel(), lat.ravel()))
     inside = np.zeros(pts.shape[0], dtype=bool)
@@ -513,3 +524,40 @@ def points_in_polygons(
         inside &= ~path_h.contains_points(pts)
 
     return inside.reshape(lon.shape)
+
+
+def context_sampling_with_delta(
+    first_set_obj: Any, delta_factor_context: list[int]
+) -> list[Any]:
+    """Build a ``context_sampling`` list from per-variable delta factors.
+
+    This helper expands ``first_set_obj`` (the sampling spec for the
+    first context variable, e.g. a station-location array or an observation
+    count) across all of that variable's delta-expanded sub-sets, uses
+    ``"all"`` for every other context variable's sub-sets, and appends a
+    final ``"all"`` for the trailing auxiliary context set.
+
+    Parameters
+    ----------
+    first_set_obj : Any
+        Sampling specification to use for every sub-set belonging to the
+        first context variable (e.g. an array of coordinates or an int
+        observation count, as accepted by
+        ``TaskLoader.__call__``'s ``context_sampling``).
+    delta_factor_context : list[int]
+        Number of delta-expanded sub-sets per context variable, i.e.
+        ``[len(group) for group in context_delta_t]`` (or a list of ``1``s
+        when ``context_delta_t`` is ``None``). Must be non-empty.
+
+    Returns
+    -------
+    list[Any]
+        A ``context_sampling`` list of length ``sum(delta_factor_context) + 1``,
+        suitable for passing directly to ``TaskLoader.__call__``.
+    """
+    group_objs = [first_set_obj] + ["all"] * (len(delta_factor_context) - 1)
+    return [
+        obj
+        for obj, n in zip(group_objs, delta_factor_context, strict=True)
+        for _ in range(n)
+    ] + ["all"]

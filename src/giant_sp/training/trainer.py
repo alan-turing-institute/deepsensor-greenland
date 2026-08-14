@@ -1,5 +1,4 @@
-"""
-Training manager for DeepSensor models.
+"""Training manager for DeepSensor models.
 
 Provides the :class:`Trainer` class, which orchestrates the full training
 loop for a DeepSensor ``ConvNP`` model: optimizer creation, epoch-by-epoch
@@ -98,6 +97,7 @@ class Trainer:
         Prediction outputs to request from the model (e.g. ``["mean",
         "std"]``, extended with mixture parameters for the
         ``"bernoulli-gamma"`` likelihood). Set in :meth:`train`.
+
     """
 
     def __init__(
@@ -130,6 +130,7 @@ class Trainer:
             ``None`` and W&B logging is enabled, a new run is created (or
             an existing one restored, if
             ``config["training"]["resume"]`` is set). Default is ``None``.
+
         """
         self.model = model
         self.config = config
@@ -193,6 +194,7 @@ class Trainer:
         ValueError
             If ``self.train_config["optimizer"]`` is not one of the
             supported optimizer names.
+
         """
         lr = self.train_config["learning_rate"]
         weight_decay = self.train_config.get("weight_decay", 0.0)
@@ -235,6 +237,7 @@ class Trainer:
         -----
         Sets ``self.wandb_run`` and ``self.local_save_dir`` as a side
         effect.
+
         """
         run_id = self.config["training"]["wandb_run_id"]
         entity_id = self.config["logging"]["wandb"]["entity"]
@@ -281,6 +284,7 @@ class Trainer:
         Sets ``self.local_save_dir`` as a side effect. Assumes
         ``self.wandb_run`` is already set to an active
         `wandb.sdk.wandb_run.Run`.
+
         """
         assert self.wandb_run is not None, (
             "wandb_run must already be initialized by the caller"
@@ -343,6 +347,7 @@ class Trainer:
         -----
         Sets ``self.wandb_run`` and ``self.local_save_dir`` as a side
         effect.
+
         """
         assert self.model.model is not None, "model.model must be built before training"
         wandb_config = self.config["logging"]["wandb"]
@@ -457,6 +462,7 @@ class Trainer:
         ``self.local_save_dir`` (which must already be set — i.e. W&B
         logging must have been enabled during construction — since
         weights are saved there unconditionally).
+
         """
         num_epochs = self.train_config["num_epochs"]
 
@@ -761,6 +767,7 @@ class Trainer:
             Optional target mask passed through to the prediction call.
         epoch : int
             Epoch number used as the W&B logging step.
+
         """
         target_var = self.model.config["data"]["target_var_IDs"]
         pred, _ = compute_pred_ds(
@@ -831,6 +838,7 @@ class Trainer:
             parity and PIT plots.
         epoch : int
             Epoch number used as the W&B logging step.
+
         """
         target_var = self.model.config["data"]["target_var_IDs"]
         val_dates = [tasks[i]["time"] for i in range(len(tasks))]
@@ -871,6 +879,7 @@ class Trainer:
             RMSE values indexed by a ``lead_time`` (timedelta) dimension.
         epoch : int
             Epoch number used as the W&B logging step.
+
         """
         fig, ax = plt.subplots(figsize=(4, 3))
         rmse_lt.plot(ax=ax, marker="o")  # type: ignore[call-arg]
@@ -898,6 +907,7 @@ class Trainer:
             Training loss for the current epoch.
         val_loss : float
             Validation loss for the current epoch.
+
         """
         # Get current learning rate from optimizer
         current_lr = self.optimizer.param_groups[0]["lr"]
@@ -960,6 +970,7 @@ class Trainer:
         plot_xc : bool, optional
             Whether to overlay off-grid context locations on the
             ground-truth panel. Default is ``True``.
+
         """
         if crs is None:
             crs = ccrs.PlateCarree()
