@@ -9,6 +9,8 @@ import torch
 from deepsensor.data import DataProcessor, Task, TaskLoader
 from deepsensor.model import ConvNP
 
+from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
+
 logger = logging.getLogger(__name__)
 
 
@@ -74,10 +76,16 @@ class DeepSensorModel:
         logger.info("Building ConvNP model with PyTorch backend...")
         logger.info("Model likelihood: %s", model_config["likelihood"])
 
+        if model_config["likelihood"] == "mdn-zigamma":
+            install_mdn_zigamma_likelihood(model_config["mixture_components"])
+            convnp_cls = MDNZIGammaConvNP
+        else:
+            convnp_cls = ConvNP
+
         # Initialize ConvNP model, capturing verbose print() output into logger
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            self.model = ConvNP(
+            self.model = convnp_cls(
                 data_processor,
                 task_loader,
                 verbose=True,
