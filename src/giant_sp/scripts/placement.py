@@ -26,6 +26,8 @@ import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
 from giant_sp.data.dataloader import BaseDataLoader
+from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
+from giant_sp.utils.acquisition import ExpectedEpistemicReduction
 from giant_sp.utils.data import context_sampling_with_delta, sample_dates_by_year_chunks
 
 set_gpu_default_device() if torch.cuda.is_available() else torch.device("cpu")
@@ -116,7 +118,12 @@ def load_wandb_model(
         "likelihood": config["likelihood"],
     }
 
-    model = ConvNP(data_processor, task_loader, **model_args)
+    if config["likelihood"] == "mdn-zigamma":
+        model_args["mixture_components"] = config["mixture_components"]
+        install_mdn_zigamma_likelihood(config["mixture_components"])
+        model = MDNZIGammaConvNP(data_processor, task_loader, **model_args)
+    else:
+        model = ConvNP(data_processor, task_loader, **model_args)
 
     map_location = (
         torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -460,6 +467,8 @@ def main() -> None:
         acq_fn = acq.ContextDist(context_set_idx=0)
     elif args.acq_fn == "Stddev":
         acq_fn = acq.Stddev(model)
+    elif args.acq_fn == "ExpectedEpistemicReduction":
+        acq_fn = ExpectedEpistemicReduction(model)
     # Sequential
     elif args.acq_fn == "MeanStddev":
         acq_fn = acq.MeanStddev(model)
