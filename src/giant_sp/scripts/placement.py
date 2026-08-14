@@ -579,12 +579,6 @@ def main(config: DictConfig) -> None:
                 f"newplacements_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg",
             )
         )
-        fig.savefig(
-            os.path.join(
-                figdir,
-                f"newplacements_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg",
-            )
-        )
 
 
 if __name__ == "__main__":
