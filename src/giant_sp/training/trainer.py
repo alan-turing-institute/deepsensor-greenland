@@ -38,7 +38,11 @@ import giant_sp.utils.plots as myplt
 import giant_sp.utils.training as tu
 from giant_sp.models.model import DeepSensorModel
 from giant_sp.utils.data import NumpyFloatValuesEncoder
-from giant_sp.utils.model import compute_pred_ds, get_pred_DAs_taskstream
+from giant_sp.utils.model import (
+    compute_pred_ds,
+    get_available_device,
+    get_pred_DAs_taskstream,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -266,11 +270,8 @@ class Trainer:
         weights_file = wandb.restore("files/last-weights.pt")
         assert weights_file is not None, "wandb.restore did not find the weights file"
         assert self.model.model is not None, "model.model must be built before training"
-        map_location = (
-            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        )
         self.model.model.model.load_state_dict(
-            torch.load(weights_file.name, map_location=map_location)
+            torch.load(weights_file.name, map_location=get_available_device())
         )
 
         logger.info("Restore W&B run: %s", self.wandb_run.name)
