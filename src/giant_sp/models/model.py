@@ -165,7 +165,10 @@ class DeepSensorModel:
             raise ValueError("Model must be built before loading weights")
 
         logger.info("Loading model from %s", filepath)
-        model_state_dict = torch.load(filepath)
+        map_location = (
+            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        )
+        model_state_dict = torch.load(filepath, map_location=map_location)
         self.model.model.load_state_dict(model_state_dict)
 
     def predict(self, task: Task, num_samples: int = 1) -> Any:

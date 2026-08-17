@@ -266,7 +266,12 @@ class Trainer:
         weights_file = wandb.restore("files/last-weights.pt")
         assert weights_file is not None, "wandb.restore did not find the weights file"
         assert self.model.model is not None, "model.model must be built before training"
-        self.model.model.model.load_state_dict(torch.load(weights_file.name))
+        map_location = (
+            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        )
+        self.model.model.model.load_state_dict(
+            torch.load(weights_file.name, map_location=map_location)
+        )
 
         logger.info("Restore W&B run: %s", self.wandb_run.name)
         logger.info("W&B URL: %s", self.wandb_run.url)
