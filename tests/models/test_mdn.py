@@ -9,6 +9,7 @@ from deepsensor.data import DataProcessor, TaskLoader
 from giant_sp.models.mdn import (
     GammaMixture,
     MDNZIGammaConvNP,
+    _bernoulli_entropy,
     install_mdn_zigamma_likelihood,
 )
 
@@ -54,6 +55,25 @@ def _brute_force_moments(probs, k, scale):
     aleatoric = np.sum(probs * comp_var, axis=-1)
     epistemic = np.sum(probs * (comp_mean - mean[..., None]) ** 2, axis=-1)
     return mean, aleatoric, epistemic
+
+
+class TestBernoulliEntropy:
+    def test_no_warning_for_exact_zero_or_one_float32(self, recwarn):
+        # Regression test: `1 - 1e-12` rounds to exactly 1.0 in float32, so clipping a
+        # float32 array against it (without first upcasting) silently fails to clip
+        # p==1.0, and log(1 - 1.0) raises "RuntimeWarning: divide by zero in log".
+        p = np.array([0.0, 1.0, 0.5], dtype=np.float32)
+
+        entropy = _bernoulli_entropy(p)
+
+        assert len(recwarn) == 0
+        assert np.all(np.isfinite(entropy))
+
+    def test_matches_analytic_bernoulli_entropy(self):
+        p = np.array([0.1, 0.5, 0.9])
+        entropy = _bernoulli_entropy(p)
+        expected = -(p * np.log(p) + (1 - p) * np.log(1 - p))
+        np.testing.assert_allclose(entropy, expected, rtol=1e-6)
 
 
 class TestGammaMixtureMoments:
@@ -190,6 +210,30 @@ class TestMDNZIGammaConvNPEndToEnd:
         assert np.all(epvar >= -1e-6)
         assert np.all(epvar <= total_var + 1e-6)
 
+    def test_occurrence_entropy_task_level(self, tiny_zigamma_dp_and_task_loader):
+        data_processor, task_loader, dates, _ds = tiny_zigamma_dp_and_task_loader
+        K = 2
+        install_mdn_zigamma_likelihood(K)
+        model = MDNZIGammaConvNP(
+            data_processor,
+            task_loader,
+            unet_channels=(4, 4),
+            likelihood="mdn-zigamma",
+            mixture_components=K,
+        )
+        task = task_loader(dates[0], context_sampling="all", target_sampling="all")
+
+        entropy = model.occurrence_entropy(task)
+        p0 = model.p_zero(task)
+        if isinstance(entropy, list):
+            entropy, p0 = entropy[0], p0[0]
+
+        # Bernoulli entropy is bounded in [0, log(2)] and matches -p*log(p)-(1-p)*log(1-p).
+        assert np.all(entropy >= 0.0)
+        assert np.all(entropy <= np.log(2) + 1e-6)
+        expected = -(p0 * np.log(p0) + (1 - p0) * np.log(1 - p0))
+        np.testing.assert_allclose(entropy, expected, atol=1e-6)
+
     def test_wrong_likelihood_raises(self, tiny_zigamma_dp_and_task_loader):
         data_processor, task_loader, dates, _ds = tiny_zigamma_dp_and_task_loader
         model = MDNZIGammaConvNP(
@@ -198,3 +242,5 @@ class TestMDNZIGammaConvNPEndToEnd:
         task = task_loader(dates[0], context_sampling="all", target_sampling="all")
         with pytest.raises(NotImplementedError):
             model.epistemic_frac(task)
+        with pytest.raises(NotImplementedError):
+            model.occurrence_entropy(task)

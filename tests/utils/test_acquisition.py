@@ -1,27 +1,52 @@
 import numpy as np
+import pytest
+from deepsensor.active_learning.acquisition_fns import AcquisitionFunctionParallel
 from deepsensor.data.task import Task
 
-from giant_sp.utils.acquisition import ExpectedEpistemicReduction
+from giant_sp.utils.acquisition import (
+    ExpectedEpistemicReduction,
+    ExpectedOccurrenceEntropyReduction,
+    MeanOccurrenceEntropy,
+    OracleBrierScore,
+    OracleEpistemicReduction,
+    OracleOccurrenceEntropyReduction,
+)
 
 
 class _StubModel:
-    """Minimal stand-in for `MDNZIGammaConvNP` exposing `mean`/`epistemic_variance`.
+    """Minimal stand-in for `MDNZIGammaConvNP`.
 
-    `epistemic_variance` decreases as more context points are added (mimicking a model
-    that becomes more certain with more observations), so the acquisition function
-    should return positive reductions.
+    Exposes `mean`/`epistemic_variance`/`occurrence_entropy`/`p_zero`, each returning
+    shape ``(1, N_targets)`` -- matching the real model's convention (a leading
+    ``N_features``/``dim_y`` axis of size 1) -- so tests catch shape bugs like
+    forgetting to index ``[target_set_idx]`` to drop that leading axis (see
+    ``MeanOccurrenceEntropy``). Both `epistemic_variance` and `occurrence_entropy`
+    decrease as more context points are added (mimicking a model that becomes more
+    certain with more observations), so the "expected reduction"/"Oracle*Reduction"
+    acquisition functions should return positive reductions.
     """
 
     def mean(self, task: Task) -> np.ndarray:
         n_t = task["X_t"].shape[-1]
-        return np.zeros(n_t)
+        return np.zeros((1, n_t))
 
     def epistemic_variance(self, task: Task) -> np.ndarray:
         n_context = task["X_c"][0].shape[-1]
         n_t = task["X_t"].shape[-1] if task["X_t"] is not None else 1
         # Epistemic variance shrinks with more context points, floored at 0.1.
         value = max(1.0 - 0.1 * n_context, 0.1)
-        return np.full(n_t, value)
+        return np.full((1, n_t), value)
+
+    def occurrence_entropy(self, task: Task) -> np.ndarray:
+        n_context = task["X_c"][0].shape[-1]
+        n_t = task["X_t"].shape[-1] if task["X_t"] is not None else 1
+        # Occurrence entropy shrinks with more context points, floored at 0.05.
+        value = max(np.log(2) - 0.1 * n_context, 0.05)
+        return np.full((1, n_t), value)
+
+    def p_zero(self, task: Task) -> np.ndarray:
+        n_t = task["X_t"].shape[-1] if task["X_t"] is not None else 1
+        return np.full((1, n_t), 0.3)
 
 
 def _make_task(n_context: int, n_target: int) -> Task:
@@ -37,40 +62,172 @@ def _make_task(n_context: int, n_target: int) -> Task:
 
 
 class TestExpectedEpistemicReduction:
-    def test_output_shape(self):
+    def test_scores_task_directly(self):
         model = _StubModel()
         acq_fn = ExpectedEpistemicReduction(model)
         task = _make_task(n_context=3, n_target=5)
-        X_s = np.random.default_rng(1).uniform(size=(2, 4))
 
-        result = acq_fn(task, X_s)
+        result = acq_fn(task)
 
-        assert result.shape == (4,)
+        assert result == pytest.approx(model.epistemic_variance(task).mean())
 
-    def test_reductions_match_baseline_minus_candidate(self):
+    def test_matches_oracle_counterpart_given_the_same_task(self):
+        # Expected*/Oracle* share their scoring logic via a mixin -- given the same
+        # task, they must return identical values; they differ only in which class
+        # GreedyAlgorithm treats specially (query_infill sampling/task_loader
+        # requirement), not in what __call__ computes.
         model = _StubModel()
-        acq_fn = ExpectedEpistemicReduction(model)
         task = _make_task(n_context=3, n_target=5)
-        X_s = np.random.default_rng(2).uniform(size=(2, 3))
+
+        assert ExpectedEpistemicReduction(model)(task) == OracleEpistemicReduction(
+            model
+        )(task)
+
+    def test_min_or_max_is_min(self):
+        # `GreedyAlgorithm(..., diff=True)` computes after-before, so "min" selects the
+        # most negative (largest) reduction.
+        assert ExpectedEpistemicReduction.min_or_max == "min"
+
+    def test_not_parallel(self):
+        # Must not be an AcquisitionFunctionParallel: GreedyAlgorithm raises if
+        # `diff=True` is combined with a Parallel acquisition function, and these rely
+        # on `diff=True` for their reduction framing.
+        assert not isinstance(
+            ExpectedEpistemicReduction(_StubModel()), AcquisitionFunctionParallel
+        )
+
+
+class TestExpectedOccurrenceEntropyReduction:
+    def test_scores_task_directly(self):
+        model = _StubModel()
+        acq_fn = ExpectedOccurrenceEntropyReduction(model)
+        task = _make_task(n_context=3, n_target=5)
+
+        result = acq_fn(task)
+
+        assert result == pytest.approx(model.occurrence_entropy(task).mean())
+
+    def test_matches_oracle_counterpart_given_the_same_task(self):
+        model = _StubModel()
+        task = _make_task(n_context=3, n_target=5)
+
+        assert ExpectedOccurrenceEntropyReduction(model)(
+            task
+        ) == OracleOccurrenceEntropyReduction(model)(task)
+
+    def test_min_or_max_is_min(self):
+        assert ExpectedOccurrenceEntropyReduction.min_or_max == "min"
+
+    def test_not_parallel(self):
+        assert not isinstance(
+            ExpectedOccurrenceEntropyReduction(_StubModel()),
+            AcquisitionFunctionParallel,
+        )
+
+
+class TestMeanOccurrenceEntropy:
+    def test_output_is_one_dimensional(self):
+        # Regression test: `occurrence_entropy` returns shape (N_features, N_targets)
+        # -- forgetting to index `[target_set_idx]` left a 2D (1, N_search) array,
+        # which `GreedyAlgorithm`'s boolean-mask assignment rejects with
+        # "NumPy boolean array indexing assignment requires a 0 or 1-dimensional
+        # input, input has 2 dimensions".
+        model = _StubModel()
+        acq_fn = MeanOccurrenceEntropy(model)
+        task = _make_task(n_context=3, n_target=5)
+        X_s = np.random.default_rng(4).uniform(size=(2, 6))
 
         result = acq_fn(task, X_s)
 
-        baseline = model.epistemic_variance(task).mean()
-        # One candidate point added -> n_context + 1 -> lower epistemic variance ->
-        # positive reduction, identical for every candidate given the stub's logic.
-        expected_each = baseline - max(1.0 - 0.1 * 4, 0.1)
-        np.testing.assert_allclose(result, np.full(3, expected_each))
+        assert result.shape == (6,)
+
+    def test_output_matches_model_directly(self):
+        model = _StubModel()
+        acq_fn = MeanOccurrenceEntropy(model)
+        task = _make_task(n_context=3, n_target=5)
+        X_s = np.random.default_rng(4).uniform(size=(2, 6))
+
+        result = acq_fn(task, X_s)
+
+        # Stub's `occurrence_entropy` depends only on `n_context` (unchanged here) and
+        # `n_t` (== number of search points, since `__call__` sets X_t = X_s).
+        expected = model.occurrence_entropy(
+            Task({"X_c": task["X_c"], "Y_c": task["Y_c"], "X_t": X_s, "Y_t": None})
+        )[0]
+        np.testing.assert_allclose(result, expected)
 
     def test_original_task_is_not_mutated(self):
         model = _StubModel()
-        acq_fn = ExpectedEpistemicReduction(model)
+        acq_fn = MeanOccurrenceEntropy(model)
         task = _make_task(n_context=3, n_target=5)
-        original_n_context = task["X_c"][0].shape[-1]
-        X_s = np.random.default_rng(3).uniform(size=(2, 2))
+        original_x_t = task["X_t"]
+        X_s = np.random.default_rng(5).uniform(size=(2, 2))
 
         acq_fn(task, X_s)
 
-        assert task["X_c"][0].shape[-1] == original_n_context
+        assert task["X_t"] is original_x_t
 
     def test_min_or_max_is_max(self):
-        assert ExpectedEpistemicReduction.min_or_max == "max"
+        assert MeanOccurrenceEntropy.min_or_max == "max"
+
+
+class TestOracleEpistemicReduction:
+    def test_scores_task_directly(self):
+        model = _StubModel()
+        acq_fn = OracleEpistemicReduction(model)
+        task = _make_task(n_context=3, n_target=5)
+
+        result = acq_fn(task)
+
+        assert result == pytest.approx(model.epistemic_variance(task).mean())
+
+    def test_min_or_max_is_min(self):
+        # `GreedyAlgorithm(..., diff=True)` computes after-before, so "min" selects the
+        # most negative (largest) reduction.
+        assert OracleEpistemicReduction.min_or_max == "min"
+
+
+class TestOracleOccurrenceEntropyReduction:
+    def test_scores_task_directly(self):
+        model = _StubModel()
+        acq_fn = OracleOccurrenceEntropyReduction(model)
+        task = _make_task(n_context=3, n_target=5)
+
+        result = acq_fn(task)
+
+        assert result == pytest.approx(model.occurrence_entropy(task).mean())
+
+    def test_min_or_max_is_min(self):
+        assert OracleOccurrenceEntropyReduction.min_or_max == "min"
+
+
+class TestOracleBrierScore:
+    def test_matches_manual_brier_score(self):
+        model = _StubModel()
+        acq_fn = OracleBrierScore(model)
+        task = _make_task(n_context=3, n_target=4)
+        true = np.array([0.0, 1.0, 0.0, 2.0])
+        task["Y_t"] = [true]
+
+        result = acq_fn(task)
+
+        p_zero = model.p_zero(task)
+        true_is_nonzero = np.array([0.0, 1.0, 0.0, 1.0])
+        expected = np.mean(((1 - p_zero) - true_is_nonzero) ** 2)
+        assert result == pytest.approx(expected)
+
+    def test_perfect_calibration_gives_zero_score(self):
+        class _PerfectModel(_StubModel):
+            def p_zero(self, task: Task) -> np.ndarray:
+                true = task["Y_t"][0]
+                return (np.abs(true) < 1e-6).astype(float)
+
+        model = _PerfectModel()
+        acq_fn = OracleBrierScore(model)
+        task = _make_task(n_context=3, n_target=4)
+        task["Y_t"] = [np.array([0.0, 1.0, 0.0, 2.0])]
+
+        assert acq_fn(task) == pytest.approx(0.0)
+
+    def test_min_or_max_is_min(self):
+        assert OracleBrierScore.min_or_max == "min"
