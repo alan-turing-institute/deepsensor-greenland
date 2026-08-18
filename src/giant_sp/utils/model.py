@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING
 
+import torch
 import xarray as xr
 
 from giant_sp.utils.training import batched
@@ -13,6 +14,11 @@ if TYPE_CHECKING:
     from deepsensor.data.task import Task
     from deepsensor.model.convnp import ConvNP
     from deepsensor.model.pred import Prediction
+
+
+def get_available_device() -> torch.device:
+    """Return the CUDA device if available, otherwise CPU."""
+    return torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 
 def compute_pred_ds(

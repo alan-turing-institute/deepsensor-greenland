@@ -9,6 +9,8 @@ import torch
 from deepsensor.data import DataProcessor, Task, TaskLoader
 from deepsensor.model import ConvNP
 
+from giant_sp.utils.model import get_available_device
+
 logger = logging.getLogger(__name__)
 
 
@@ -165,7 +167,7 @@ class DeepSensorModel:
             raise ValueError("Model must be built before loading weights")
 
         logger.info("Loading model from %s", filepath)
-        model_state_dict = torch.load(filepath)
+        model_state_dict = torch.load(filepath, map_location=get_available_device())
         self.model.model.load_state_dict(model_state_dict)
 
     def predict(self, task: Task, num_samples: int = 1) -> Any:
