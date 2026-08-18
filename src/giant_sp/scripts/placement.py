@@ -26,6 +26,7 @@ import giant_sp.utils.plots as myplt
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
 from giant_sp.data.dataloader import BaseDataLoader
 from giant_sp.utils.data import context_sampling_with_delta, sample_dates_by_year_chunks
+from giant_sp.utils.model import get_available_device
 
 set_gpu_default_device() if torch.cuda.is_available() else torch.device("cpu")
 
@@ -98,12 +99,10 @@ def load_wandb_model(
 
     model = ConvNP(data_processor, task_loader, **model_args)
 
-    map_location = (
-        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    )
-
     # Load model weights
-    model.model.load_state_dict(torch.load(weights_path, map_location=map_location))
+    model.model.load_state_dict(
+        torch.load(weights_path, map_location=get_available_device())
+    )
 
     return model
 
