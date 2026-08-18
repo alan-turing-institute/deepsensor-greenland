@@ -51,6 +51,19 @@ __all__ = [
 ]
 
 
+def _bernoulli_entropy(p: np.ndarray) -> np.ndarray:
+    """Compute the Bernoulli entropy of `p`, clipped to avoid ``log(0)``.
+
+    Clips in ``float64`` regardless of `p`'s own dtype: in ``float32``, the upper
+    bound ``1 - 1e-12`` rounds to exactly ``1.0`` (float32 only has ~7 decimal digits
+    of precision), so clipping a float32 array against it silently leaves an exact
+    ``1.0`` unclipped, and ``log(1 - 1.0) == log(0)`` raises
+    ``RuntimeWarning: divide by zero encountered in log``.
+    """
+    p = np.clip(p.astype(np.float64), 1e-12, 1 - 1e-12)
+    return -(p * np.log(p) + (1 - p) * np.log(1 - p))
+
+
 class GammaMixture(AbstractDistribution):
     """A `K`-component Gamma mixture, without zero-inflation.
 
@@ -471,3 +484,39 @@ class MDNZIGammaConvNP(ConvNP):
         """
         dist = self(task)
         return self.p_zero(dist)
+
+    @dispatch
+    def occurrence_entropy(self, dist: AbstractMultiOutputDistribution):
+        """Bernoulli entropy of the predicted melt/no-melt occurrence probability.
+
+        ``H(p_zero) = -p_zero*log(p_zero) - (1-p_zero)*log(1-p_zero)``: uncertainty in
+        *whether* melt is occurring at all, independent of its magnitude given that it
+        is. Complements ``epistemic_frac``/``epistemic_variance`` (magnitude
+        uncertainty) with the uncertainty captured by the zero-inflation spike itself.
+
+        Returned numpy arrays have shape ``(N_features, *N_targets)``.
+        """
+        p0 = self.p_zero(dist)
+        if isinstance(p0, (list, tuple)):
+            return [_bernoulli_entropy(p) for p in p0]
+        return _bernoulli_entropy(p0)
+
+    @dispatch  # type: ignore[no-redef]
+    def occurrence_entropy(self, task: Task):  # noqa: F811
+        """Bernoulli entropy of the predicted melt/no-melt occurrence probability.
+
+        Returned numpy arrays have shape ``(N_features, *N_targets)``.
+
+        Parameters
+        ----------
+        task : deepsensor.data.task.Task
+            The task containing the context and target data.
+
+        Returns
+        -------
+        numpy.ndarray | list[numpy.ndarray]
+            Occurrence entropy values.
+
+        """
+        dist = self(task)
+        return self.occurrence_entropy(dist)

@@ -27,7 +27,14 @@ import giant_sp.utils.plots as myplt
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
 from giant_sp.data.dataloader import BaseDataLoader
 from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
-from giant_sp.utils.acquisition import ExpectedEpistemicReduction
+from giant_sp.utils.acquisition import (
+    ExpectedEpistemicReduction,
+    ExpectedOccurrenceEntropyReduction,
+    MeanOccurrenceEntropy,
+    OracleBrierScore,
+    OracleEpistemicReduction,
+    OracleOccurrenceEntropyReduction,
+)
 from giant_sp.utils.data import context_sampling_with_delta, sample_dates_by_year_chunks
 
 set_gpu_default_device() if torch.cuda.is_available() else torch.device("cpu")
@@ -467,8 +474,8 @@ def main() -> None:
         acq_fn = acq.ContextDist(context_set_idx=0)
     elif args.acq_fn == "Stddev":
         acq_fn = acq.Stddev(model)
-    elif args.acq_fn == "ExpectedEpistemicReduction":
-        acq_fn = ExpectedEpistemicReduction(model)
+    elif args.acq_fn == "MeanOccurrenceEntropy":
+        acq_fn = MeanOccurrenceEntropy(model)
     # Sequential
     elif args.acq_fn == "MeanStddev":
         acq_fn = acq.MeanStddev(model)
@@ -480,6 +487,10 @@ def main() -> None:
         acq_fn = acq.JointEntropy(model)
     elif args.acq_fn == "ExpectedImprovement":
         acq_fn = acq.ExpectedImprovement(model)
+    elif args.acq_fn == "ExpectedEpistemicReduction":
+        acq_fn = ExpectedEpistemicReduction(model)
+    elif args.acq_fn == "ExpectedOccurrenceEntropyReduction":
+        acq_fn = ExpectedOccurrenceEntropyReduction(model)
     # Oracle
     elif args.acq_fn == "OracleRMSE":
         acq_fn = acq.OracleRMSE(model)
@@ -489,6 +500,12 @@ def main() -> None:
         acq_fn = acq.OracleMarginalNLL(model)
     elif args.acq_fn == "OracleJointNLL":
         acq_fn = acq.OracleJointNLL(model)
+    elif args.acq_fn == "OracleEpistemicReduction":
+        acq_fn = OracleEpistemicReduction(model)
+    elif args.acq_fn == "OracleOccurrenceEntropyReduction":
+        acq_fn = OracleOccurrenceEntropyReduction(model)
+    elif args.acq_fn == "OracleBrierScore":
+        acq_fn = OracleBrierScore(model)
     else:
         raise NotImplementedError(
             f"No deepsensor acquisition function named {args.acq_fn}"
@@ -503,6 +520,15 @@ def main() -> None:
         }
     else:
         greedy_gt_args = {}
+
+    # The four "*Reduction" acquisition functions (Expected-/Oracle- x Epistemic-/
+    # OccurrenceEntropy-) score their target quantity directly; GreedyAlgorithm's
+    # `diff=True` turns that into `after - before` so the acquisition value reads as a
+    # reduction. None of them are AcquisitionFunctionParallel (for which `diff=True`
+    # would raise), so this is safe for all four. Other acquisition functions
+    # (OracleMAE/OracleRMSE/OracleMarginalNLL/OracleJointNLL/OracleBrierScore included)
+    # use GreedyAlgorithm's default `diff=False`, scoring the resulting task directly.
+    greedy_call_args = {"diff": True} if args.acq_fn.endswith("Reduction") else {}
 
     # Greedy algorithm
     greedy_alg = GreedyAlgorithm(
@@ -523,7 +549,7 @@ def main() -> None:
         )
     ):
         # New placements
-        X_new_df, acq_fn_da = greedy_alg(acq_fn, tasks)
+        X_new_df, acq_fn_da = greedy_alg(acq_fn, tasks, **greedy_call_args)
 
         # Save
         acq_fn_da.to_netcdf(
