@@ -121,20 +121,25 @@ predictive distribution used to evaluate precipitation-like targets.
 
 Every script is a Hydra entry point composing its config from `src/giant_sp/configs/`:
 `base.yaml`/`inference.yaml`/`placement.yaml` are the per-script entry configs (each defaulting
-to one `experiment`), and `configs/experiment/{carra2,hirham5,hirham5zarr}{,_debug}.yaml` hold the
-full `data`/`dataloader`/`model`/`training`/`logging`/`visualization` sections for each data
-source — `_debug` variants compose on top of their prod counterpart via Hydra's defaults list,
-overriding only the fields that differ (paths, date ranges, epoch counts, ...).
-`inference.yaml`/`placement.yaml` additionally carry an `inference:`/`placement:` section for that
-script's run-specific parameters (`run_ref`, `acq_fn`, `n_new`, ...). Config sections map directly
-onto the pipeline stages above: `data` (source + paths/dates), `dataloader` (sampling
-strategy/frequency), `model` (ConvNP architecture), `training` (optimizer/scheduler/checkpointing),
-`logging` (W&B), `visualization`.
+to one `experiment`). `configs/experiment/{carra2,hirham5}{,_debug}.yaml` each hold their own
+`data`/`dataloader` section plus the `model`/`training`/`logging`/`visualization` values that
+differ for that source; scalars identical across every source (optimizer/scheduler settings,
+most of `logging`/`visualization`, ...) live once in `configs/experiment/common.yaml`, which
+`carra2`/`hirham5` inherit from via `defaults: [common, _self_]`. `hirham5zarr{,_debug}.yaml`
+don't repeat any of that — since they're identical to `hirham5{,_debug}.yaml` outside of the data
+backend, they inherit from `hirham5{,_debug}.yaml` directly and override only `data`/`dataloader`
+fields (paths, `context_var_IDs`/`context_delta_t` shape). `_debug` variants compose on top of
+their prod counterpart the same way, overriding only the fields that differ (paths, date ranges,
+epoch counts, ...). `inference.yaml`/`placement.yaml` additionally carry an
+`inference:`/`placement:` section for that script's run-specific parameters (`run_ref`, `acq_fn`,
+`n_new`, ...). Config sections map directly onto the pipeline stages above: `data` (source +
+paths/dates), `dataloader` (sampling strategy/frequency), `model` (ConvNP architecture), `training`
+(optimizer/scheduler/checkpointing), `logging` (W&B), `visualization`.
 
 To add a new experiment variant or a personal override without touching shared files, add a new
 YAML under `configs/experiment/` that lists the base experiment in its own `defaults:` and overrides
-only the changed keys (same pattern as the `_debug` files), or point `--config-name` at an
-entirely separate top-level config.
+only the changed keys (same pattern as the `_debug`/`hirham5zarr` files), or point `--config-name`
+at an entirely separate top-level config (e.g. a gitignored `<name>.local.yaml` — see the README).
 
 ## Typing & docs conventions
 
