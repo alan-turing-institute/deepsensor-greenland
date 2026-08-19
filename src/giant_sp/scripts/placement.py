@@ -416,32 +416,32 @@ def main(config: DictConfig) -> None:
     # Acquisition functions
     # Parallel
     if acq_fn == "Random":
-        acq_fn = acq.Random()
+        acq_fn_type = acq.Random()
         tasks = tasks[:1]
     elif acq_fn == "ContextDist":
-        acq_fn = acq.ContextDist(context_set_idx=0)
+        acq_fn_type = acq.ContextDist(context_set_idx=0)
     elif acq_fn == "Stddev":
-        acq_fn = acq.Stddev(model)
+        acq_fn_type = acq.Stddev(model)
     # Sequential
     elif acq_fn == "MeanStddev":
-        acq_fn = acq.MeanStddev(model)
+        acq_fn_type = acq.MeanStddev(model)
     elif acq_fn == "MeanVariance":
-        acq_fn = acq.MeanVariance(model)
+        acq_fn_type = acq.MeanVariance(model)
     elif acq_fn == "MeanMarginalEntropy":
-        acq_fn = acq.MeanMarginalEntropy(model)
+        acq_fn_type = acq.MeanMarginalEntropy(model)
     elif acq_fn == "JointEntropy":
-        acq_fn = acq.JointEntropy(model)
+        acq_fn_type = acq.JointEntropy(model)
     elif acq_fn == "ExpectedImprovement":
-        acq_fn = acq.ExpectedImprovement(model)
+        acq_fn_type = acq.ExpectedImprovement(model)
     # Oracle
     elif acq_fn == "OracleRMSE":
-        acq_fn = acq.OracleRMSE(model)
+        acq_fn_type = acq.OracleRMSE(model)
     elif acq_fn == "OracleMAE":
-        acq_fn = acq.OracleMAE(model)
+        acq_fn_type = acq.OracleMAE(model)
     elif acq_fn == "OracleMarginalNLL":
-        acq_fn = acq.OracleMarginalNLL(model)
+        acq_fn_type = acq.OracleMarginalNLL(model)
     elif acq_fn == "OracleJointNLL":
-        acq_fn = acq.OracleJointNLL(model)
+        acq_fn_type = acq.OracleJointNLL(model)
     else:
         raise NotImplementedError(f"No deepsensor acquisition function named {acq_fn}")
 
@@ -474,7 +474,7 @@ def main(config: DictConfig) -> None:
         )
     ):
         # New placements
-        X_new_df, acq_fn_da = greedy_alg(acq_fn, tasks)
+        X_new_df, acq_fn_da = greedy_alg(acq_fn_type, tasks)
 
         # Save
         acq_fn_da.to_netcdf(
