@@ -37,6 +37,7 @@ from wandb.sdk.wandb_run import Run
 import giant_sp.utils.plots as myplt
 import giant_sp.utils.training as tu
 from giant_sp.models.model import DeepSensorModel
+from giant_sp.utils.config import to_plain
 from giant_sp.utils.data import NumpyFloatValuesEncoder
 from giant_sp.utils.model import (
     compute_pred_ds,
@@ -392,9 +393,9 @@ class Trainer:
             tags=wandb_config.get("tags", []),
             notes=wandb_config.get("docs", ""),
             config={
-                "model": OmegaConf.to_container(self.config["model"], resolve=True),
-                "training": OmegaConf.to_container(self.train_config, resolve=True),
-                "data": OmegaConf.to_container(self.config["data"], resolve=True),
+                "model": to_plain(self.config["model"]),
+                "training": to_plain(self.train_config),
+                "data": to_plain(self.config["data"]),
                 "model_parameters": self.model.count_parameters(),
             },
         )

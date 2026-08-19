@@ -19,6 +19,7 @@ from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLo
 from giant_sp.data.dataloader import BaseDataLoader
 from giant_sp.models import DeepSensorModel
 from giant_sp.training import Trainer
+from giant_sp.utils.config import to_plain
 from giant_sp.utils.data import (
     context_sampling_with_delta,
     find_xy_for_points,
@@ -100,9 +101,9 @@ def main(config: DictConfig) -> None:
             tags=wandb_cfg.get("tags", []),
             notes=wandb_cfg.get("docs", ""),
             config={
-                "model": OmegaConf.to_container(config["model"], resolve=True),
-                "training": OmegaConf.to_container(config["training"], resolve=True),
-                "data": OmegaConf.to_container(config["data"], resolve=True),
+                "model": to_plain(config["model"]),
+                "training": to_plain(config["training"]),
+                "data": to_plain(config["data"]),
             },
         )
         logger.info("Initialized W&B run: %s", wandb_run.name)

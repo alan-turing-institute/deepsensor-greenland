@@ -8,8 +8,9 @@ from typing import Any
 import torch
 from deepsensor.data import DataProcessor, Task, TaskLoader
 from deepsensor.model import ConvNP
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 
+from giant_sp.utils.config import to_plain
 from giant_sp.utils.model import get_available_device
 
 logger = logging.getLogger(__name__)
@@ -72,9 +73,7 @@ class DeepSensorModel:
             The newly constructed model, also stored on ``self.model``.
 
         """
-        model_config: dict[str, Any] = OmegaConf.to_container(
-            self.config["model"], resolve=True
-        )  # type: ignore[assignment]
+        model_config: dict[str, Any] = to_plain(self.config["model"])
 
         logger.info("Building ConvNP model with PyTorch backend...")
         logger.info("Model likelihood: %s", model_config["likelihood"])

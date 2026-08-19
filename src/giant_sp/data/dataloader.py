@@ -15,8 +15,9 @@ from deepsensor.data.loader import TaskLoader
 from deepsensor.data.processor import DataProcessor
 from deepsensor.data.sources import get_gldas_land_mask
 from deepsensor.data.utils import construct_x1x2_ds
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 
+from giant_sp.utils.config import to_plain
 from giant_sp.utils.constants import region_extents
 from giant_sp.utils.data import construct_circ_and_linear_time_ds
 
@@ -92,14 +93,11 @@ class BaseDataLoader:
         self.data_pattern: str = config["data"]["data_pattern"]
         self.region: str = config["data"]["region"]
         self.basin: str | None = config["data"]["basin"]
-        self.context_vars: list[list[str]] | list[str] | str = OmegaConf.to_container(
-            config["data"]["context_var_IDs"], resolve=True
-        )  # type: ignore[assignment]
-        context_delta_t_raw = config["dataloader"]["context_delta_t"]
-        self.context_delta_t: list[list[int | None]] | None = (
-            OmegaConf.to_container(context_delta_t_raw, resolve=True)  # type: ignore[assignment]
-            if context_delta_t_raw is not None
-            else None
+        self.context_vars: list[list[str]] | list[str] | str = to_plain(
+            config["data"]["context_var_IDs"]
+        )
+        self.context_delta_t: list[list[int | None]] | None = to_plain(
+            config["dataloader"]["context_delta_t"]
         )
         self.target_vars: str = config["data"]["target_var_IDs"]
         self.train_start: str = self.config["data"]["train_start"]
