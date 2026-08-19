@@ -860,7 +860,7 @@ class HIRHAM5DataLoader(BaseDataLoader):
             context = [
                 obj
                 for obj, n in zip(
-                    [self.context_vars], delta_factor_context, strict=False
+                    [ds[self.context_vars]], delta_factor_context, strict=False
                 )
                 for _ in range(n)
             ] + [aux_ds]
