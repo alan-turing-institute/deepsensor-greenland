@@ -250,7 +250,7 @@ class Trainer:
         )
         logger.info("Saving run config")
         config_fpath = os.path.join(self.local_save_dir, "run_config.yaml")
-        OmegaConf.save(self.config, config_fpath)
+        OmegaConf.save(self.config, config_fpath, resolve=True)
         wandb.save(config_fpath, base_path=self.wandb_run.dir)
 
     def _restore_wandb(self) -> None:
