@@ -123,7 +123,7 @@ def main(config: DictConfig) -> None:
     Parameters
     ----------
     config : DictConfig
-        Hydra-composed run configuration (see ``src/giant_sp/conf/``).
+        Hydra-composed run configuration (see ``src/giant_sp/configs/``).
         ``config.placement`` holds the run-specific parameters:
 
         run_ref : str

@@ -196,7 +196,7 @@ def main(config: DictConfig) -> None:
     Parameters
     ----------
     config : DictConfig
-        Hydra-composed run configuration (see ``src/giant_sp/conf/``).
+        Hydra-composed run configuration (see ``src/giant_sp/configs/``).
         ``config.inference`` holds the run-specific parameters:
 
         val_set : {"station", "random-land", "no-obs"}
