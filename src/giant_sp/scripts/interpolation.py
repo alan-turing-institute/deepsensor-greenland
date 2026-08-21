@@ -99,7 +99,7 @@ def main(config: DictConfig) -> None:
             entity=wandb_cfg.get("entity"),
             name=wandb_cfg.get("name"),
             tags=wandb_cfg.get("tags", []),
-            notes=wandb_cfg.get("docs", ""),
+            notes=wandb_cfg.get("notes", ""),
             config={
                 "model": to_plain(config["model"]),
                 "training": to_plain(config["training"]),

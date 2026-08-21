@@ -391,7 +391,7 @@ class Trainer:
             entity=wandb_config.get("entity"),
             name=wandb_config.get("name"),
             tags=wandb_config.get("tags", []),
-            notes=wandb_config.get("docs", ""),
+            notes=wandb_config.get("notes", ""),
             config={
                 "model": to_plain(self.config["model"]),
                 "training": to_plain(self.train_config),
