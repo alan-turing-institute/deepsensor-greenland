@@ -29,6 +29,6 @@ training:
 
 logging:
   wandb:
-    tags: ["spatial-interpolation", "convgnp", "snmel", "hirham5zarr", "debug"]
+    tags: ["spatial-interpolation", "convgnp", "snmel", "hirham5", "debug"]
     log_maps_frequency: 1
     log_charts_frequency: 1
