@@ -281,7 +281,7 @@ class Trainer:
         )
 
         self.local_save_dir = os.path.join(self.wandb_run.dir, "files")
-        os.makedirs(self.local_save_dir)
+        os.makedirs(self.local_save_dir, exist_ok=True)
         self._save_run_config()
 
         # Restore best-loss tracking so post-resume epochs only overwrite
@@ -337,7 +337,7 @@ class Trainer:
             )
 
         self.local_save_dir = os.path.join(self.wandb_run.dir, "files")
-        os.makedirs(self.local_save_dir)
+        os.makedirs(self.local_save_dir, exist_ok=True)
         self._save_run_config()
 
         logger.info("Saving data processor config")
@@ -409,7 +409,7 @@ class Trainer:
             )
 
         self.local_save_dir = os.path.join(self.wandb_run.dir, "files")
-        os.makedirs(self.local_save_dir)
+        os.makedirs(self.local_save_dir, exist_ok=True)
         self._save_run_config()
 
         logger.info("Initialized W&B run: %s", self.wandb_run.name)
