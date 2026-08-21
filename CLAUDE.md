@@ -125,12 +125,16 @@ to one `experiment`). `configs/experiment/{carra2,hirham5}{,_debug}.yaml` each h
 `data`/`dataloader` section plus the `model`/`training`/`logging`/`visualization` values that
 differ for that source; scalars identical across every source (optimizer/scheduler settings,
 most of `logging`/`visualization`, ...) live once in `configs/experiment/common.yaml`, which
-`carra2`/`hirham5` inherit from via `defaults: [common, _self_]`. `hirham5zarr{,_debug}.yaml`
-don't repeat any of that — since they're identical to `hirham5{,_debug}.yaml` outside of the data
-backend, they inherit from `hirham5{,_debug}.yaml` directly and override only `data`/`dataloader`
-fields (paths, `context_var_IDs`/`context_delta_t` shape). `_debug` variants compose on top of
-their prod counterpart the same way, overriding only the fields that differ (paths, date ranges,
-epoch counts, ...). `inference.yaml`/`placement.yaml` additionally carry an
+`carra2`/`hirham5` inherit from via `defaults: [common, _self_]`. `hirham5zarr.yaml` doesn't repeat
+any of that — since it's identical to `hirham5.yaml` outside of the data backend, it inherits from
+`hirham5.yaml` directly and overrides only `data`/`dataloader` fields (paths,
+`context_var_IDs`/`context_delta_t` shape). `_debug` variants compose on top of their own prod counterpart the same way (`carra2_debug` on
+`carra2`, `hirham5_debug` on `hirham5`, `hirham5zarr_debug` on `hirham5zarr`), overriding only the
+fields that differ (paths, date ranges, epoch counts, ...). Because `hirham5zarr_debug` inherits
+from `hirham5zarr` rather than from `hirham5_debug`, its debug-scale overrides (dates,
+`model`/`training` sizing, W&B log frequency) are a near-verbatim copy of `hirham5_debug.yaml`'s
+rather than inherited from it — keep the two in sync by hand if debug scale changes.
+`inference.yaml`/`placement.yaml` additionally carry an
 `inference:`/`placement:` section for that script's run-specific parameters (`run_ref`, `acq_fn`,
 `n_new`, ...). Config sections map directly onto the pipeline stages above: `data` (source +
 paths/dates), `dataloader` (sampling strategy/frequency), `model` (ConvNP architecture), `training`

@@ -1,5 +1,5 @@
 defaults:
-  - experiment: hirham5zarr_debug
+  - experiment: carra2_debug
   - _self_
 
 hydra:
