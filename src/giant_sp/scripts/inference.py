@@ -1,49 +1,30 @@
 """Main script for inference using a trained ConvNP model."""
 
-import argparse
 import datetime
 import glob
 import json
 import os
-from typing import Any, cast
+from typing import cast
 
 import deepsensor.torch  # noqa: F401
 import geopandas as gpd
+import hydra
 import numpy as np
 import pandas as pd
 import torch
 import wandb
 import xarray as xr
-import yaml
 from deepsensor.data.loader import TaskLoader
 from deepsensor.data.processor import DataProcessor
 from deepsensor.model.convnp import ConvNP
 from deepsensor.model.pred import Prediction
+from omegaconf import DictConfig
 
 import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
 from giant_sp.utils.data import context_sampling_with_delta
 from giant_sp.utils.model import get_available_device
-
-
-def load_config(config_path: str) -> dict[str, Any]:
-    """Load a YAML configuration file.
-
-    Parameters
-    ----------
-    config_path : str
-        Path to the YAML configuration file.
-
-    Returns
-    -------
-    dict[str, Any]
-        Parsed configuration, as a nested dictionary.
-
-    """
-    with open(config_path) as f:
-        config = yaml.safe_load(f)
-    return config
 
 
 def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
@@ -202,42 +183,45 @@ def export_zarr(
     )
 
 
-def main() -> None:
+@hydra.main(version_base=None, config_path="../configs", config_name="inference")
+def main(config: DictConfig) -> None:
     """Run inference with a trained ConvNP model and export predictions.
 
-    Parses CLI arguments, loads the run's configuration and trained
-    model (downloading checkpoint files from Weights & Biases if they
-    are not already cached locally), builds validation tasks for the
-    requested sampling strategy, generates predictions on the full grid,
-    writes them to a Zarr store, and optionally saves diagnostic plots.
+    Loads the run's configuration and trained model (downloading checkpoint
+    files from Weights & Biases if they are not already cached locally),
+    builds validation tasks for the requested sampling strategy, generates
+    predictions on the full grid, writes them to a Zarr store, and
+    optionally saves diagnostic plots.
 
-    CLI arguments
-    --------------
-    --config_file : str
-        Path to the YAML experiment configuration file.
-    --val_set : {"station", "random-land", "no-obs"}
-        Task-generation strategy: real station locations, randomly
-        sampled land locations, or no context observations at all.
-    --n_obs : int
-        Number of context observations to sample per task when
-        `val_set` is ``"random-land"``.
-    --run_ref : str
-        W&B run reference (``"entity/project/run_id"``) the model and
-        data processor were logged under.
-    --weights_filename : str
-        Filename of the model weights checkpoint within the run's files.
-    --date_split : str
-        Config key prefix (e.g. ``"test"``) used to look up
-        ``{date_split}_start``/``{date_split}_end`` date-range bounds.
-    --every : int
-        Stride used to subsample the date range (keep every `every`-th
-        date).
-    --seed : int
-        Random seed used for reproducible sampling of random-land
-        locations and, when plotting, of PIT histogram dates.
-    --plot : bool
-        If set, additionally saves an averaged-prediction plot and a PIT
-        histogram plot.
+    Parameters
+    ----------
+    config : DictConfig
+        Hydra-composed run configuration (see ``src/giant_sp/configs/``).
+        ``config.inference`` holds the run-specific parameters:
+
+        val_set : {"station", "random-land", "no-obs"}
+            Task-generation strategy: real station locations, randomly
+            sampled land locations, or no context observations at all.
+        n_obs : int
+            Number of context observations to sample per task when
+            `val_set` is ``"random-land"``.
+        run_ref : str
+            W&B run reference (``"entity/project/run_id"``) the model and
+            data processor were logged under.
+        weights_filename : str
+            Filename of the model weights checkpoint within the run's files.
+        date_split : str
+            Config key prefix (e.g. ``"test"``) used to look up
+            ``{date_split}_start``/``{date_split}_end`` date-range bounds.
+        every : int
+            Stride used to subsample the date range (keep every `every`-th
+            date).
+        seed : int
+            Random seed used for reproducible sampling of random-land
+            locations and, when plotting, of PIT histogram dates.
+        plot : bool
+            If set, additionally saves an averaged-prediction plot and a PIT
+            histogram plot.
 
     Returns
     -------
@@ -253,36 +237,15 @@ def main() -> None:
         ``"no-obs"``.
 
     """
-    # Arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config_file", default="src/giant_sp/configs/hirham5zarr_debug.yaml", type=str
-    )
-    parser.add_argument(
-        "--val_set",
-        default="station",
-        type=str,
-        choices=["station", "random-land", "no-obs"],
-    )  # station, random-land, no-obs
-    parser.add_argument("--n_obs", default=400, type=int)
-    parser.add_argument("--run_ref", default="acoca/giant-sp/4flbw8xy")
-    parser.add_argument("--weights_filename", default="best-weights-stnval.pt")
-    parser.add_argument("--date_split", default="test")
-    parser.add_argument("--every", default=200, type=int)
-    parser.add_argument("--seed", default=321, type=int)
-    parser.add_argument("--plot", action="store_true", default=False)
-    args = parser.parse_args()
-
-    # Args
-    config_file = args.config_file
-    run_ref = args.run_ref
-    weights_fn = args.weights_filename
-    n_obs = args.n_obs
-    val_set = args.val_set
-    date_split = args.date_split
-    every = args.every
-    seed = args.seed
-    plot = args.plot
+    inference_config = config.inference
+    run_ref = inference_config.run_ref
+    weights_fn = inference_config.weights_filename
+    n_obs = inference_config.n_obs
+    val_set = inference_config.val_set
+    date_split = inference_config.date_split
+    every = inference_config.every
+    seed = inference_config.seed
+    plot = inference_config.plot
 
     # Set up output folders
     run_id = run_ref.split("/")[-1]
@@ -294,7 +257,6 @@ def main() -> None:
     if not os.path.exists(figfolder):
         os.makedirs(figfolder)
 
-    config = load_config(config_file)
     source = config["data"]["source"]
     chunk_size = 100
     target_var = config["data"]["target_var_IDs"]

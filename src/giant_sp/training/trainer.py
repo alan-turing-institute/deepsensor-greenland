@@ -12,7 +12,6 @@ import logging
 import os
 import random
 from collections.abc import Callable
-from typing import Any
 
 import cartopy.crs as ccrs
 import matplotlib
@@ -30,6 +29,7 @@ import xarray as xr
 from deepsensor.data.task import Task
 from deepsensor.model import ConvNP
 from deepsensor.model.pred import Prediction
+from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from wandb.sdk.wandb_run import Run
@@ -37,6 +37,7 @@ from wandb.sdk.wandb_run import Run
 import giant_sp.utils.plots as myplt
 import giant_sp.utils.training as tu
 from giant_sp.models.model import DeepSensorModel
+from giant_sp.utils.config import to_plain
 from giant_sp.utils.data import NumpyFloatValuesEncoder
 from giant_sp.utils.model import (
     compute_pred_ds,
@@ -58,9 +59,9 @@ class Trainer:
     ----------
     model : DeepSensorModel
         The wrapped DeepSensor model being trained.
-    config : dict[str, Any]
-        Full configuration dictionary passed at construction.
-    train_config : dict[str, Any]
+    config : DictConfig
+        Full configuration passed at construction.
+    train_config : DictConfig
         Shortcut to ``config["training"]``.
     optimizer : torch.optim.Optimizer
         Optimizer created from ``train_config``.
@@ -96,7 +97,10 @@ class Trainer:
     local_save_dir : str
         Local directory (inside the W&B run directory) where checkpoints
         and config files are written. Only set when ``use_wandb`` is
-        ``True`` (see the W&B setup methods).
+        ``True`` (see the W&B setup methods). The full resolved run
+        configuration is saved here as ``run_config.yaml`` and uploaded to
+        W&B every time a run is started, attached to, or resumed (see
+        :meth:`_save_run_config`).
     pred_params : list[str]
         Prediction outputs to request from the model (e.g. ``["mean",
         "std"]``, extended with mixture parameters for the
@@ -107,7 +111,7 @@ class Trainer:
     def __init__(
         self,
         model: DeepSensorModel,
-        config: dict[str, Any],
+        config: DictConfig,
         wandb_run: Run | None = None,
     ) -> None:
         """Initialize the trainer and configure optimization and experiment logging.
@@ -124,8 +128,8 @@ class Trainer:
             ``model.model`` attribute (the underlying ``ConvNP``) and
             ``model.model.model`` (the underlying `torch.nn.Module`) are
             used for optimization.
-        config : dict[str, Any]
-            Full configuration dictionary, expected to contain
+        config : DictConfig
+            Full configuration, expected to contain
             ``"training"``, ``"logging"``, ``"visualization"``, ``"model"``,
             and ``"data"`` sections.
         wandb_run : wandb.sdk.wandb_run.Run | None, optional
@@ -228,6 +232,27 @@ class Trainer:
         )
         return optimizer
 
+    def _save_run_config(self) -> None:
+        """Save the full resolved run configuration to W&B.
+
+        Writes ``self.config`` (the complete Hydra-composed configuration,
+        covering ``data``/``model``/``training``/etc.) as YAML to
+        ``self.local_save_dir`` and uploads it to the active W&B run.
+
+        Notes
+        -----
+        Assumes ``self.wandb_run`` and ``self.local_save_dir`` are already
+        set.
+
+        """
+        assert self.wandb_run is not None, (
+            "wandb_run must already be initialized by the caller"
+        )
+        logger.info("Saving run config")
+        config_fpath = os.path.join(self.local_save_dir, "run_config.yaml")
+        OmegaConf.save(self.config, config_fpath, resolve=True)
+        wandb.save(config_fpath, base_path=self.wandb_run.dir)
+
     def _restore_wandb(self) -> None:
         """Resume a previous W&B run and reload its latest checkpoint.
 
@@ -256,7 +281,8 @@ class Trainer:
         )
 
         self.local_save_dir = os.path.join(self.wandb_run.dir, "files")
-        os.makedirs(self.local_save_dir)
+        os.makedirs(self.local_save_dir, exist_ok=True)
+        self._save_run_config()
 
         # Restore best-loss tracking so post-resume epochs only overwrite
         # the best checkpoints if they actually improve on the pre-resume best.
@@ -311,7 +337,8 @@ class Trainer:
             )
 
         self.local_save_dir = os.path.join(self.wandb_run.dir, "files")
-        os.makedirs(self.local_save_dir)
+        os.makedirs(self.local_save_dir, exist_ok=True)
+        self._save_run_config()
 
         logger.info("Saving data processor config")
         with open(
@@ -364,11 +391,11 @@ class Trainer:
             entity=wandb_config.get("entity"),
             name=wandb_config.get("name"),
             tags=wandb_config.get("tags", []),
-            notes=wandb_config.get("docs", ""),
+            notes=wandb_config.get("notes", ""),
             config={
-                "model": self.config["model"],
-                "training": self.train_config,
-                "data": self.config["data"],
+                "model": to_plain(self.config["model"]),
+                "training": to_plain(self.train_config),
+                "data": to_plain(self.config["data"]),
                 "model_parameters": self.model.count_parameters(),
             },
         )
@@ -382,7 +409,8 @@ class Trainer:
             )
 
         self.local_save_dir = os.path.join(self.wandb_run.dir, "files")
-        os.makedirs(self.local_save_dir)
+        os.makedirs(self.local_save_dir, exist_ok=True)
+        self._save_run_config()
 
         logger.info("Initialized W&B run: %s", self.wandb_run.name)
         logger.info("W&B URL: %s", self.wandb_run.url)

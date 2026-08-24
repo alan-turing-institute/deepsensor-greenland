@@ -18,4 +18,4 @@
 export PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
 
 # submit the code
-srun uv run src/giant_sp/scripts/placement.py --acq_fn MeanStddev --n_new 10 --run_ref acoca/giant-sp/4flbw8xy --config_file src/giant_sp/configs/hirham5zarr.yaml --temporal_subsampling_method seasonal --temporal_subsampling_every 50 --search_resolution 9
+srun uv run src/giant_sp/scripts/placement.py experiment=hirham5zarr placement.acq_fn=MeanStddev placement.n_new=10 placement.run_ref=acoca/giant-sp/4flbw8xy placement.temporal_subsampling_method=seasonal placement.temporal_subsampling_every=50 placement.search_resolution=9

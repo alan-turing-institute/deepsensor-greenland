@@ -1,25 +1,25 @@
 """Main training script for DeepSensor spatial interpolation."""
 
-import argparse
 import logging
 import os
-from typing import Any
 
 import deepsensor.torch  # noqa: F401
 import geopandas as gpd
+import hydra
 import numpy as np
 import pandas as pd
 import torch
 import wandb
 import xarray as xr
-import yaml
 from deepsensor.train import set_gpu_default_device
+from omegaconf import DictConfig, OmegaConf
 
 import giant_sp.utils.training as tu
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
 from giant_sp.data.dataloader import BaseDataLoader
 from giant_sp.models import DeepSensorModel
 from giant_sp.training import Trainer
+from giant_sp.utils.config import to_plain
 from giant_sp.utils.data import (
     context_sampling_with_delta,
     find_xy_for_points,
@@ -28,12 +28,12 @@ from giant_sp.utils.data import (
 )
 
 
-def setup_logging(config: dict[str, Any]) -> None:
+def setup_logging(config: DictConfig) -> None:
     """Configure the root logger from a run configuration.
 
     Parameters
     ----------
-    config : dict[str, Any]
+    config : DictConfig
         Run configuration; ``config["logging"]["log_level"]`` must name a
         valid `logging` level (e.g. ``"INFO"``).
 
@@ -52,38 +52,18 @@ def setup_logging(config: dict[str, Any]) -> None:
     )
 
 
-def load_config(config_path: str) -> dict[str, Any]:
-    """Load a configuration from a YAML file.
-
-    Parameters
-    ----------
-    config_path : str
-        Path to the YAML configuration file.
-
-    Returns
-    -------
-    dict[str, Any]
-        Parsed configuration as a nested dictionary.
-
-    """
-    with open(config_path) as f:
-        config = yaml.safe_load(f)
-    return config
-
-
-def main(args: argparse.Namespace) -> None:
+@hydra.main(version_base=None, config_path="../configs", config_name="base")
+def main(config: DictConfig) -> None:
     """Train a DeepSensor model for spatial interpolation.
 
-    Loads the run configuration named by ``args.config``, builds the
-    configured data loader, samples training/validation dates, generates
-    training/validation/station-validation task streams, builds the model,
-    and runs `Trainer.train`.
+    Builds the configured data loader, samples training/validation dates,
+    generates training/validation/station-validation task streams, builds
+    the model, and runs `Trainer.train`.
 
     Parameters
     ----------
-    args : argparse.Namespace
-        Parsed CLI arguments; must have a ``config`` attribute giving the
-        path to the YAML configuration file.
+    config : DictConfig
+        Hydra-composed run configuration (see ``src/giant_sp/configs/``).
 
     Returns
     -------
@@ -102,8 +82,6 @@ def main(args: argparse.Namespace) -> None:
         ``"hirham5zarr"``.
 
     """
-    # Load configuration
-    config = load_config(args.config)
     source = config["data"]["source"]
 
     # Setup logging
@@ -121,11 +99,11 @@ def main(args: argparse.Namespace) -> None:
             entity=wandb_cfg.get("entity"),
             name=wandb_cfg.get("name"),
             tags=wandb_cfg.get("tags", []),
-            notes=wandb_cfg.get("docs", ""),
+            notes=wandb_cfg.get("notes", ""),
             config={
-                "model": config["model"],
-                "training": config["training"],
-                "data": config["data"],
+                "model": to_plain(config["model"]),
+                "training": to_plain(config["training"]),
+                "data": to_plain(config["data"]),
             },
         )
         logger.info("Initialized W&B run: %s", wandb_run.name)
@@ -138,7 +116,7 @@ def main(args: argparse.Namespace) -> None:
         set_gpu_default_device()
 
     logger.info("Active devices after updating default: %s", torch.get_default_device())
-    logger.info("Configuration: %s", args.config)
+    logger.info("Configuration:\n%s", OmegaConf.to_yaml(config))
 
     # Initialize data loader
     data_loader: BaseDataLoader
@@ -458,13 +436,4 @@ def main(args: argparse.Namespace) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train DeepSensor model")
-    parser.add_argument(
-        "--config",
-        type=str,
-        default="configs/carra2_debug.yaml",
-        help="Path to configuration file",
-    )
-
-    args = parser.parse_args()
-    main(args)
+    main()
