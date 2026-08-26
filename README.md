@@ -87,6 +87,23 @@ uv run src/giant_sp/scripts/interpolation.py --config-name=<name>.local
 Any config value can also be overridden from the command line, e.g.
 `--config-name=<name>.local training.num_epochs=5`.
 
+### Hyperparameter sweeps
+
+[W&B Sweeps](https://docs.wandb.ai/models/sweeps/) can be used to search over hyperparameters for
+`interpolation.py`. A sweep config lives under `src/giant_sp/configs/sweep/` (see
+`example.yaml`); its `parameters:` keys are dotted Hydra config keys, applied as ordinary CLI
+overrides via the `${args_no_hyphens}` command macro — no code changes are needed, since
+`interpolation.py` already calls `wandb.init()`, which joins the sweep automatically when run
+under `wandb agent`. Launch a sweep with:
+
+```bash
+uv run wandb sweep src/giant_sp/configs/sweep/example.yaml
+uv run wandb agent <sweep_id printed by the command above>
+```
+
+Run multiple agents (locally or on separate machines/jobs) against the same `sweep_id` to
+parallelize the search. Copy `example.yaml` to sweep a different experiment or parameter set.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on how to contribute.
