@@ -2,12 +2,23 @@
 
 `ExpectedEpistemicReduction`/`OracleEpistemicReduction` place sensors where adding an
 observation is expected/known to most reduce the model's *epistemic* variance over the
-target set (uncertainty in melt *magnitude*).
+target set. Since the underlying `MDNZIGammaConvNP.epistemic_frac` decomposes *both*
+mixture levels of the zero-inflated Gamma predictive distribution (see its docstring),
+this is not purely uncertainty in melt *magnitude* -- it also includes uncertainty in
+*whether* melt is occurring at all, weighted by how large the melt would be if it did
+occur (``p_slab*(1-p_slab)*slab.mean**2``).
 `MeanOccurrenceEntropy`/`ExpectedOccurrenceEntropyReduction`/
-`OracleOccurrenceEntropyReduction`/`OracleBrierScore` target the complementary
-uncertainty this zero-inflated likelihood also captures: uncertainty in whether melt is
-occurring *at all*, via the Bernoulli entropy of the zero-inflation spike. All require a
-model exposing ``epistemic_variance``/``occurrence_entropy``/``p_zero`` (e.g.
+`OracleOccurrenceEntropyReduction`/`OracleBrierScore` isolate that occurrence
+uncertainty *on its own*, unweighted by predicted magnitude, via the Bernoulli entropy
+of the zero-inflation spike -- a complementary but overlapping view, not a fully
+disjoint one. Unlike the epistemic-variance family, this is *not* decomposed into
+epistemic/aleatoric parts: ``p_zero`` is a single deterministic scalar with no
+inter-component disagreement signal to split (see
+`MDNZIGammaConvNP.occurrence_entropy`'s docstring), so ``H(p_zero)`` mixes reducible
+and irreducible occurrence uncertainty -- the "expected reduction" framing still holds
+on average (more/closer context generally does shrink it) but isn't a strict epistemic
+guarantee the way ``ExpectedEpistemicReduction`` is. All require a model exposing
+``epistemic_variance``/``occurrence_entropy``/``p_zero`` (e.g.
 :class:`giant_sp.models.mdn.MDNZIGammaConvNP`).
 
 The ``Expected*``/``Oracle*Reduction`` pairs share their scoring logic (via a mixin --
@@ -113,10 +124,14 @@ class _MeanOccurrenceEntropyScorer:
 class ExpectedEpistemicReduction(_MeanEpistemicVarianceScorer, AcquisitionFunction):
     """Expected reduction in mean epistemic variance over the target set.
 
-    Targets uncertainty in melt *magnitude* that is reducible by observing more (as
-    opposed to irreducible aleatoric noise). Pseudo-observations at each candidate come
-    from the model's own predicted mean (`GreedyAlgorithm`'s default ``query_infill``),
-    computed once before the greedy loop starts -- like `deepsensor`'s other built-in
+    Targets uncertainty that is reducible by observing more (as opposed to irreducible
+    aleatoric noise) -- both in melt *magnitude* (disagreement between the K Gamma
+    mixture components) and in *whether* melt is occurring at all (uncertainty in the
+    zero-inflation spike, weighted by the predicted magnitude if it did occur); see
+    `giant_sp.models.mdn.MDNZIGammaConvNP.epistemic_frac`'s docstring for the exact
+    two-level decomposition. Pseudo-observations at each candidate come from the
+    model's own predicted mean (`GreedyAlgorithm`'s default ``query_infill``), computed
+    once before the greedy loop starts -- like `deepsensor`'s other built-in
     "sequential" acquisition functions (e.g. ``MeanVariance``), it is *not* refreshed
     after each greedy pick.
     """

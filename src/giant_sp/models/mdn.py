@@ -5,10 +5,17 @@ Dirac spike at zero (matching the zero-inflation already used by the existing
 ``"bernoulli-gamma"`` likelihood for non-negative, often-exactly-zero melt data) plus a
 ``K``-component Gamma mixture "slab".
 
-The total predictive variance is decomposed via the law of total variance into:
+`GammaMixture`'s own (inner, K-component) variance is decomposed via the law of total
+variance into:
 
 - ``aleatoric_var`` = ``sum_k pi_k * var_k`` (expected within-component variance)
 - ``epistemic_var`` = ``sum_k pi_k * (mean_k - mean)**2`` (inter-component disagreement)
+
+The full predictive distribution has a *second*, outer mixture level -- the zero-spike
+vs. the `GammaMixture` slab -- so `MDNZIGammaConvNP.epistemic_frac`/`epistemic_variance`
+apply the same law-of-total-variance treatment at that level too (uncertainty in
+*whether* a location is zero-inflated at all is itself epistemic); see
+`MDNZIGammaConvNP._epistemic_frac_raw`'s docstring for the derivation.
 
 ``neuralprocesses``'s coder/likelihood classes are registered against its own shared,
 open ``plum`` dispatcher (``neuralprocesses._dispatch``), so ``GammaMixture`` and
@@ -386,8 +393,33 @@ class MDNZIGammaConvNP(ConvNP):
             )
 
     def _epistemic_frac_raw(self, dist: AbstractMultiOutputDistribution) -> B.Numeric:
+        # Total variance has two mixture levels, each contributing its own
+        # law-of-total-variance "inter-component disagreement" (epistemic) term:
+        #
+        # 1. The *outer* zero-spike-vs-slab split (`SpikesSlab`) is itself a
+        #    2-component mixture -- {0, slab} weighted by {p0, p_slab}. Its own
+        #    epistemic term (by the same derivation as `GammaMixture.epistemic_var`,
+        #    with `total_mean = p_slab * slab.mean`) is
+        #    `p0*(0-total_mean)**2 + p_slab*(slab.mean-total_mean)**2`, which
+        #    simplifies to `p_slab*(1-p_slab)*slab.mean**2`. This is uncertainty in
+        #    *whether* melt is occurring at all -- e.g. far from any context, the
+        #    model may be unsure whether a point is in an always-zero regime or not,
+        #    which is exactly the kind of disagreement that should shrink with more
+        #    context, i.e. epistemic, not aleatoric.
+        # 2. The *inner* K-Gamma-component split within the slab, `slab.epistemic_var`
+        #    (already computed by `GammaMixture`), weighted by `p_slab` since it only
+        #    applies conditional on being in the slab at all.
+        #
+        # Omitting term 1 (as an earlier version of this method did) silently folds
+        # "uncertain whether this location is zero-inflated" into the aleatoric
+        # fraction instead, which -- since it shrinks with more/closer context, unlike
+        # true measurement noise -- makes aleatoric uncertainty spuriously track data
+        # density rather than the actual noise-generating process.
         p_slab = B.exp(dist.logprobs[..., -1])
-        return (p_slab * dist.slab.epistemic_var) / dist.var
+        slab_mean = dist.slab.mean
+        outer_epistemic = p_slab * (1 - p_slab) * slab_mean**2
+        inner_epistemic = p_slab * dist.slab.epistemic_var
+        return (outer_epistemic + inner_epistemic) / dist.var
 
     @dispatch
     def epistemic_frac(self, dist: AbstractMultiOutputDistribution):
@@ -491,8 +523,20 @@ class MDNZIGammaConvNP(ConvNP):
 
         ``H(p_zero) = -p_zero*log(p_zero) - (1-p_zero)*log(1-p_zero)``: uncertainty in
         *whether* melt is occurring at all, independent of its magnitude given that it
-        is. Complements ``epistemic_frac``/``epistemic_variance`` (magnitude
-        uncertainty) with the uncertainty captured by the zero-inflation spike itself.
+        is. Complements ``epistemic_frac``/``epistemic_variance`` -- which, since the
+        fix decomposing both mixture levels, already include a magnitude-weighted
+        version of this same occurrence uncertainty (see their docstrings) -- with an
+        unweighted, standalone view of it.
+
+        Note this is *not* a pure epistemic quantity: unlike the K-component Gamma
+        mixture (whose components give a natural inter-component disagreement signal
+        to split into epistemic/aleatoric), ``p_zero`` is a single deterministic
+        scalar with no such decomposition available, so ``H(p_zero)`` mixes reducible
+        (epistemic) and irreducible (aleatoric, e.g. a genuinely 50/50 boundary pixel)
+        uncertainty in the occurrence decision. It's still a reasonable acquisition
+        target (`deepsensor`'s own built-in ``MeanVariance``/``Stddev`` are similarly
+        undecomposed), just not a strict epistemic-only complement to
+        ``epistemic_frac``.
 
         Returned numpy arrays have shape ``(N_features, *N_targets)``.
         """
