@@ -98,11 +98,17 @@ under `wandb agent`. Launch a sweep with:
 
 ```bash
 uv run wandb sweep src/giant_sp/configs/sweep/example.yaml
-uv run wandb agent <sweep_id printed by the command above>
+uv run wandb agent <entity/project/sweep_id printed by the command above>
 ```
 
-Run multiple agents (locally or on separate machines/jobs) against the same `sweep_id` to
-parallelize the search. Copy `example.yaml` to sweep a different experiment or parameter set.
+Use the full `wandb agent ...` command that `wandb sweep` prints (or its
+`<entity>/<project>/<sweep_id>` argument) rather than the bare 8-character sweep ID — without an
+`entity`/`project` prefix, `wandb agent` can only resolve the sweep if a default entity/project is
+already configured locally (e.g. via `wandb init` or `WANDB_ENTITY`/`WANDB_PROJECT`), otherwise it
+fails with `Error: name required for project query`.
+
+Run multiple agents (locally or on separate machines/jobs) against the same sweep to parallelize
+the search. Copy `example.yaml` to sweep a different experiment or parameter set.
 
 ## Contributing
 
