@@ -113,10 +113,6 @@ def load_wandb_model(
     else:
         model = ConvNP(data_processor, task_loader, **model_args)
 
-    map_location = (
-        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    )
-
     # Load model weights
     model.model.load_state_dict(
         torch.load(weights_path, map_location=get_available_device())
@@ -437,41 +433,41 @@ def main(config: DictConfig) -> None:
         acq_fn_type = acq.Random()
         tasks = tasks[:1]
     elif acq_fn == "ContextDist":
-        acq_fn = acq.ContextDist(context_set_idx=0)
+        acq_fn_type = acq.ContextDist(context_set_idx=0)
     elif acq_fn == "Stddev":
-        acq_fn = acq.Stddev(model)
+        acq_fn_type = acq.Stddev(model)
     elif acq_fn == "MeanOccurrenceEntropy":
-        acq_fn = MeanOccurrenceEntropy(model)
+        acq_fn_type = MeanOccurrenceEntropy(model)
     # Sequential
     elif acq_fn == "MeanStddev":
-        acq_fn = acq.MeanStddev(model)
+        acq_fn_type = acq.MeanStddev(model)
     elif acq_fn == "MeanVariance":
-        acq_fn = acq.MeanVariance(model)
+        acq_fn_type = acq.MeanVariance(model)
     elif acq_fn == "MeanMarginalEntropy":
-        acq_fn = acq.MeanMarginalEntropy(model)
+        acq_fn_type = acq.MeanMarginalEntropy(model)
     elif acq_fn == "JointEntropy":
-        acq_fn = acq.JointEntropy(model)
+        acq_fn_type = acq.JointEntropy(model)
     elif acq_fn == "ExpectedImprovement":
-        acq_fn = acq.ExpectedImprovement(model)
+        acq_fn_type = acq.ExpectedImprovement(model)
     elif acq_fn == "ExpectedEpistemicReduction":
-        acq_fn = ExpectedEpistemicReduction(model)
+        acq_fn_type = ExpectedEpistemicReduction(model)
     elif acq_fn == "ExpectedOccurrenceEntropyReduction":
-        acq_fn = ExpectedOccurrenceEntropyReduction(model)
+        acq_fn_type = ExpectedOccurrenceEntropyReduction(model)
     # Oracle
     elif acq_fn == "OracleRMSE":
-        acq_fn = acq.OracleRMSE(model)
+        acq_fn_type = acq.OracleRMSE(model)
     elif acq_fn == "OracleMAE":
-        acq_fn = acq.OracleMAE(model)
+        acq_fn_type = acq.OracleMAE(model)
     elif acq_fn == "OracleMarginalNLL":
-        acq_fn = acq.OracleMarginalNLL(model)
+        acq_fn_type = acq.OracleMarginalNLL(model)
     elif acq_fn == "OracleJointNLL":
-        acq_fn = acq.OracleJointNLL(model)
+        acq_fn_type = acq.OracleJointNLL(model)
     elif acq_fn == "OracleEpistemicReduction":
-        acq_fn = OracleEpistemicReduction(model)
+        acq_fn_type = OracleEpistemicReduction(model)
     elif acq_fn == "OracleOccurrenceEntropyReduction":
-        acq_fn = OracleOccurrenceEntropyReduction(model)
+        acq_fn_type = OracleOccurrenceEntropyReduction(model)
     elif acq_fn == "OracleBrierScore":
-        acq_fn = OracleBrierScore(model)
+        acq_fn_type = OracleBrierScore(model)
     else:
         raise NotImplementedError(f"No deepsensor acquisition function named {acq_fn}")
 
@@ -513,7 +509,7 @@ def main(config: DictConfig) -> None:
         )
     ):
         # New placements
-        X_new_df, acq_fn_da = greedy_alg(acq_fn, tasks, **greedy_call_args)
+        X_new_df, acq_fn_da = greedy_alg(acq_fn_type, tasks, **greedy_call_args)
 
         # Save
         acq_fn_da.to_netcdf(
