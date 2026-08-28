@@ -492,7 +492,7 @@ def main(config: DictConfig) -> None:
     # would raise), so this is safe for all four. Other acquisition functions
     # (OracleMAE/OracleRMSE/OracleMarginalNLL/OracleJointNLL/OracleBrierScore included)
     # use GreedyAlgorithm's default `diff=False`, scoring the resulting task directly.
-    greedy_call_args = {"diff": True} if args.acq_fn.endswith("Reduction") else {}
+    greedy_call_args = {"diff": True} if acq_fn.endswith("Reduction") else {}
 
     # Greedy algorithm
     greedy_alg = GreedyAlgorithm(
