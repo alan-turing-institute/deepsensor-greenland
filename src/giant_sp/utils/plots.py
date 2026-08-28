@@ -32,7 +32,10 @@ from giant_sp.utils.data import (
     normalize_lons,
     points_in_polygons,
 )
-from giant_sp.utils.metrics import compute_pit_bernoulli_gamma
+from giant_sp.utils.metrics import (
+    compute_pit_bernoulli_gamma,
+    compute_pit_zigamma_mixture,
+)
 
 
 def averaged_prediction_plot(
@@ -266,6 +269,7 @@ def PIT_histogram(
     truth: NDArray[np.floating],
     val_pred: xr.Dataset,
     likelihood: str,
+    n_slab_components: int | None = None,
     **kwargs: Any,
 ) -> tuple[Figure, Axes]:
     """Plot a probability integral transform (PIT) histogram.
@@ -282,12 +286,25 @@ def PIT_histogram(
     val_pred : xarray.Dataset
         Predictive distribution parameters. Must contain a ``"mean"`` and
         ``"std"`` variable; if `likelihood` is ``"bernoulli-gamma"`` it must
-        also contain ``"mixture_probs_0"``, ``"k"`` and ``"scale"``.
+        also contain ``"mixture_probs_0"``, ``"k"`` and ``"scale"``; if
+        `likelihood` is ``"mdn-zigamma"`` it must also contain
+        ``"mixture_probs_0"`` and, for each ``i`` in ``range(n_slab_components)``,
+        ``"slab_probs_{i}"``, ``"slab_k_{i}"`` and ``"slab_scale_{i}"`` (see
+        :func:`giant_sp.models.mdn.install_mdn_zigamma_likelihood`, which attaches
+        the ``pred_params`` accessors these come from).
     likelihood : str
-        Predictive likelihood family. If ``"bernoulli-gamma"``, PIT values
-        are computed with :func:`~giant_sp.utils.metrics.compute_pit_bernoulli_gamma`
-        to account for the point mass at zero; otherwise a Normal CDF
-        (``scipy.stats.norm.cdf``) is used with `val_pred`'s mean/std.
+        Predictive likelihood family. If ``"bernoulli-gamma"``, PIT values are
+        computed with :func:`~giant_sp.utils.metrics.compute_pit_bernoulli_gamma`
+        to account for the point mass at zero. If ``"mdn-zigamma"``, PIT values
+        are computed with
+        :func:`~giant_sp.utils.metrics.compute_pit_zigamma_mixture`, the
+        ``K``-component-mixture generalisation of the same construction.
+        Otherwise a Normal CDF (``scipy.stats.norm.cdf``) is used with
+        `val_pred`'s mean/std.
+    n_slab_components : int or None, default=None
+        Number of Gamma mixture components ``K`` (the model's
+        ``mixture_components`` config value). Required if `likelihood` is
+        ``"mdn-zigamma"``; ignored otherwise.
     **kwargs : Any
         Accepted for interface compatibility but currently unused.
 
@@ -295,6 +312,11 @@ def PIT_histogram(
     -------
     tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]
         The figure and axis containing the PIT histogram.
+
+    Raises
+    ------
+    ValueError
+        If `likelihood` is ``"mdn-zigamma"`` and `n_slab_components` is ``None``.
 
     """
     pred_mean_plt_all = val_pred["mean"].values.flatten()
@@ -313,11 +335,37 @@ def PIT_histogram(
         k_plt = val_pred["k"].values.flatten()[valid]
         scale_plt = val_pred["scale"].values.flatten()[valid]
         pit_values = compute_pit_bernoulli_gamma(true_plt, p_zero_plt, k_plt, scale_plt)
+    elif likelihood == "mdn-zigamma":
+        # Also zero-inflated, but with a K-component Gamma "slab" (rather than a
+        # single Gamma) -- account for both the point mass at zero and the mixture.
+        if n_slab_components is None:
+            raise ValueError(
+                "PIT_histogram requires `n_slab_components` (the model's "
+                "`mixture_components` K) when likelihood='mdn-zigamma'."
+            )
+        p_zero_plt = val_pred["mixture_probs_0"].values.flatten()[valid]
+        pi_plt = np.stack(
+            [
+                val_pred[f"slab_probs_{i}"].values.flatten()[valid]
+                for i in range(n_slab_components)
+            ]
+        )
+        k_plt = np.stack(
+            [
+                val_pred[f"slab_k_{i}"].values.flatten()[valid]
+                for i in range(n_slab_components)
+            ]
+        )
+        scale_plt = np.stack(
+            [
+                val_pred[f"slab_scale_{i}"].values.flatten()[valid]
+                for i in range(n_slab_components)
+            ]
+        )
+        pit_values = compute_pit_zigamma_mixture(
+            true_plt, p_zero_plt, pi_plt, k_plt, scale_plt
+        )
     else:
-        # TODO: "mdn-zigamma" also has a zero-inflated, non-Gaussian predictive
-        # distribution and falls through to this Normal-CDF approximation too --
-        # an exact mixture-CDF PIT would need per-component pred_params plumbing
-        # (mixture weights/k/scale) not currently exposed. Out of scope for now.
         pit_values = sp.stats.norm.cdf(true_plt, loc=pred_mean_plt, scale=pred_std_plt)
     # Plot
     fig, ax = plt.subplots()

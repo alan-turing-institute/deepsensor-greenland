@@ -486,7 +486,14 @@ class Trainer:
         if self.model.config["model"]["likelihood"] == "bernoulli-gamma":
             self.pred_params += ["mixture_probs", "k", "scale"]
         elif self.model.config["model"]["likelihood"] == "mdn-zigamma":
+            n_slab_components = self.model.config["model"]["mixture_components"]
             self.pred_params += ["mixture_probs", "epistemic_frac"]
+            for component in range(n_slab_components):
+                self.pred_params += [
+                    f"slab_probs_{component}",
+                    f"slab_k_{component}",
+                    f"slab_scale_{component}",
+                ]
 
         logger.info("Starting training for %d epochs", num_epochs)
         logger.info("Training samples: %d", len(task_stream_tr.date_list))
@@ -886,8 +893,16 @@ class Trainer:
         )
         plt.close(fig)
         # PIT histogram (uncertainty calibration)
+        likelihood = self.model.config["model"]["likelihood"]
         fig, _ = myplt.PIT_histogram(
-            true_plt, pred_plt, likelihood=self.model.config["model"]["likelihood"]
+            true_plt,
+            pred_plt,
+            likelihood=likelihood,
+            n_slab_components=(
+                self.model.config["model"]["mixture_components"]
+                if likelihood == "mdn-zigamma"
+                else None
+            ),
         )
         wandb.log(
             {f"predictions/pit_{partition}_{n_dates}_dates": wandb.Image(fig)},

@@ -30,6 +30,7 @@ bound by name into ``neuralprocesses.architectures.convgnp`` at import time -- a
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 import lab as B
@@ -313,6 +314,33 @@ def _zigammamixture(coder: ZIGammaMixtureLikelihood, xz: Any, z: B.Numeric) -> A
 _original_construct_likelihood = convgnp_module.construct_likelihood
 
 
+def _make_slab_component_accessor(
+    attr: str, component: int
+) -> Callable[[Any, AbstractMultiOutputDistribution], Any]:
+    """Build a `MDNZIGammaConvNP` method exposing one `GammaMixture` component's `attr`.
+
+    Attached onto `MDNZIGammaConvNP` (named ``slab_{attr}_{component}``) by
+    :func:`install_mdn_zigamma_likelihood`, one per component and per `attr` in
+    ``("probs", "k", "scale")``, so each is requestable by name via `ConvNP.predict`'s
+    ``pred_params`` -- mirroring how the base `ConvNP.k`/`ConvNP.scale` pull
+    ``dist.slab.k``/``.scale`` for the plain-`Gamma` ``"bernoulli-gamma"`` slab, just
+    indexing the extra `K` axis a mixture slab has and a plain `Gamma` doesn't. After
+    `ConvNP._cast_numpy_and_squeeze` removes the leading batch/sample axes, the
+    remaining shape is ``(dim_y, K, *spatial)`` (`K` immediately follows `dim_y`, since
+    `giant_sp` only ever configures ``dim_y == 1``; see `GammaMixture.__init__`'s
+    docstring), hence indexing axis ``1``.
+    """
+
+    def accessor(self: Any, dist: AbstractMultiOutputDistribution) -> Any:
+        full = self._cast_numpy_and_squeeze(getattr(dist.slab, attr))
+        component_value = np.take(full, component, axis=1)
+        return self._maybe_concat_multi_targets(component_value)
+
+    accessor.__name__ = f"slab_{attr}_{component}"
+    accessor.__qualname__ = f"MDNZIGammaConvNP.{accessor.__name__}"
+    return accessor
+
+
 def install_mdn_zigamma_likelihood(K: int) -> None:
     """Register the ``"mdn-zigamma"`` likelihood spec with ``neuralprocesses``.
 
@@ -324,6 +352,13 @@ def install_mdn_zigamma_likelihood(K: int) -> None:
     function, so repeated calls don't stack wrappers, and the number of mixture
     components `K` used by the most recent call takes effect for subsequent model
     builds.
+
+    Also attaches ``slab_probs_{i}``/``slab_k_{i}``/``slab_scale_{i}`` methods (for
+    ``i`` in ``range(K)``) onto `MDNZIGammaConvNP`, exposing each Gamma component's
+    mixture weight, shape and scale as individually requestable ``pred_params`` --
+    needed to compute an exact PIT for the zero-inflated mixture (see
+    :func:`giant_sp.utils.metrics.compute_pit_zigamma_mixture`), analogous to how
+    ``"bernoulli-gamma"``'s single-component ``k``/``scale`` already are.
 
     Parameters
     ----------
@@ -355,6 +390,13 @@ def install_mdn_zigamma_likelihood(K: int) -> None:
         )
 
     convgnp_module.construct_likelihood = patched_construct_likelihood
+    for component in range(K):
+        for attr in ("probs", "k", "scale"):
+            setattr(
+                MDNZIGammaConvNP,
+                f"slab_{attr}_{component}",
+                _make_slab_component_accessor(attr, component),
+            )
     logger.info("Installed 'mdn-zigamma' likelihood (K=%d) into neuralprocesses", K)
 
 

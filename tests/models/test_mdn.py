@@ -1,3 +1,5 @@
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -12,6 +14,7 @@ from giant_sp.models.mdn import (
     _bernoulli_entropy,
     install_mdn_zigamma_likelihood,
 )
+from giant_sp.utils.metrics import compute_pit_zigamma_mixture
 
 
 @pytest.fixture(scope="module")
@@ -159,6 +162,99 @@ class TestGammaMixtureLogpdf:
         np.testing.assert_allclose(logpdf, expected, rtol=1e-5)
 
 
+class TestEpistemicFracRaw:
+    """Unit tests for `MDNZIGammaConvNP._epistemic_frac_raw`'s two-level decomposition.
+
+    Uses `MDNZIGammaConvNP.__new__` (skipping `__init__`) since `_epistemic_frac_raw`
+    is a pure function of its `dist` argument and doesn't touch instance state -- no
+    need to build a real model just to test it.
+    """
+
+    @staticmethod
+    def _make_dist(
+        p_slab: float, k: np.ndarray, scale: np.ndarray, pi: np.ndarray
+    ) -> Any:
+        """Build a `SpikesSlab(spike=0, slab=GammaMixture(...))` with given params."""
+        from neuralprocesses.dist.spikeslab import SpikesSlab
+
+        K = len(k)
+        logits = torch.log(torch.tensor(pi, dtype=torch.float64)).reshape(1, K)
+        k_t = torch.tensor(k, dtype=torch.float64).reshape(1, K)
+        scale_t = torch.tensor(scale, dtype=torch.float64).reshape(1, K)
+        slab = GammaMixture(logits, k_t, scale_t, d=1)
+
+        logp0 = torch.log(torch.tensor([1 - p_slab], dtype=torch.float64))
+        logps = torch.log(torch.tensor([p_slab], dtype=torch.float64))
+        logprobs = torch.stack([logp0, logps], dim=-1)
+        return SpikesSlab(torch.tensor([0.0]), slab, logprobs, 1)
+
+    def _flat_reference(self, p_slab, k, scale, pi):
+        """Compute an independent reference by flattening the two mixture levels.
+
+        Treats {spike, K gamma components} as one flat (K+1)-component mixture and
+        applies the textbook law of total variance once, rather than composing the two
+        nested mixture levels as the implementation does -- an independent check of
+        the same underlying identity.
+        """
+        means = np.concatenate([[0.0], k * scale])
+        variances = np.concatenate([[0.0], k * scale**2])
+        weights = np.concatenate([[1 - p_slab], p_slab * pi])
+        grand_mean = np.sum(weights * means)
+        epistemic = np.sum(weights * (means - grand_mean) ** 2)
+        aleatoric = np.sum(weights * variances)
+        return epistemic, aleatoric
+
+    def test_matches_flat_mixture_reference(self):
+        rng = np.random.default_rng(0)
+        k = rng.uniform(0.5, 3.0, size=3)
+        scale = rng.uniform(0.5, 3.0, size=3)
+        logits = rng.normal(size=3)
+        pi = np.exp(logits) / np.exp(logits).sum()
+        p_slab = 0.4
+
+        dist = self._make_dist(p_slab, k, scale, pi)
+        model = MDNZIGammaConvNP.__new__(MDNZIGammaConvNP)
+        frac = model._epistemic_frac_raw(dist).item()
+
+        epistemic_ref, aleatoric_ref = self._flat_reference(p_slab, k, scale, pi)
+        expected_frac = epistemic_ref / (epistemic_ref + aleatoric_ref)
+        assert frac == pytest.approx(expected_frac, rel=1e-6)
+
+    def test_outer_uncertainty_counted_even_with_single_component(self):
+        # Regression test: with K=1 (a single Gamma component), the *inner* epistemic
+        # variance is exactly 0 (no component disagreement possible) -- an earlier,
+        # incomplete version of `_epistemic_frac_raw` returned epistemic_frac == 0 in
+        # this case regardless of `p_slab`, silently folding all "is this location
+        # zero-inflated or not" uncertainty into "aleatoric". At p_slab=0.5 (maximal
+        # uncertainty about whether the point is in the zero-spike or the slab), the
+        # fixed formula must report nonzero epistemic uncertainty.
+        dist = self._make_dist(
+            p_slab=0.5, k=np.array([2.0]), scale=np.array([1.0]), pi=np.array([1.0])
+        )
+        model = MDNZIGammaConvNP.__new__(MDNZIGammaConvNP)
+
+        frac = model._epistemic_frac_raw(dist).item()
+
+        assert frac > 0.0
+
+    def test_epistemic_variance_vanishes_as_p_slab_approaches_zero(self):
+        # As p_slab -> 0 (the model is confident the point is always exactly zero),
+        # the *absolute* epistemic variance (not the fraction -- total variance
+        # vanishes too, so the fraction need not) must shrink to ~0, since every term
+        # in `outer_epistemic + inner_epistemic` is proportional to `p_slab`.
+        k = np.array([1.0, 5.0])
+        scale = np.array([1.0, 1.0])
+        pi = np.array([0.5, 0.5])
+        dist = self._make_dist(1e-6, k, scale, pi)
+
+        p_slab = torch.exp(dist.logprobs[..., -1])
+        epistemic_var = (
+            p_slab * (1 - p_slab) * dist.slab.mean**2 + p_slab * dist.slab.epistemic_var
+        )
+
+        assert epistemic_var.item() < 1e-4
+
+
 class TestMDNZIGammaConvNPEndToEnd:
     def test_build_loss_and_predict(self, tiny_zigamma_dp_and_task_loader):
         data_processor, task_loader, dates, ds = tiny_zigamma_dp_and_task_loader
@@ -233,6 +329,58 @@ class TestMDNZIGammaConvNPEndToEnd:
         assert np.all(entropy <= np.log(2) + 1e-6)
         expected = -(p0 * np.log(p0) + (1 - p0) * np.log(1 - p0))
         np.testing.assert_allclose(entropy, expected, atol=1e-6)
+
+    def test_slab_component_params_and_pit(self, tiny_zigamma_dp_and_task_loader):
+        """Verify the per-component `pred_params` accessors and PIT computation.
+
+        `install_mdn_zigamma_likelihood` attaches per-component `pred_params`
+        accessors (`slab_probs_i`/`slab_k_i`/`slab_scale_i`) that plug directly into
+        `compute_pit_zigamma_mixture`, matching how `k`/`scale` already do for
+        `"bernoulli-gamma"` and `compute_pit_bernoulli_gamma`.
+        """
+        data_processor, task_loader, dates, ds = tiny_zigamma_dp_and_task_loader
+        K = 2
+        install_mdn_zigamma_likelihood(K)
+        model = MDNZIGammaConvNP(
+            data_processor,
+            task_loader,
+            unet_channels=(4, 4),
+            likelihood="mdn-zigamma",
+            mixture_components=K,
+        )
+        task = task_loader(dates[0], context_sampling="all", target_sampling="all")
+
+        pred_params = ["mean", "std", "mixture_probs"]
+        for component in range(K):
+            pred_params += [
+                f"slab_probs_{component}",
+                f"slab_k_{component}",
+                f"slab_scale_{component}",
+            ]
+        preds = model.predict([task], X_t=ds, pred_params=pred_params)
+        var_name = next(iter(task_loader.target_var_IDs[0]))
+        pred_ds = preds[var_name]
+
+        probs = np.stack([pred_ds[f"slab_probs_{i}"].data for i in range(K)], axis=0)
+        k = np.stack([pred_ds[f"slab_k_{i}"].data for i in range(K)], axis=0)
+        scale = np.stack([pred_ds[f"slab_scale_{i}"].data for i in range(K)], axis=0)
+
+        assert probs.shape == k.shape == scale.shape
+        np.testing.assert_allclose(probs.sum(axis=0), 1.0, atol=1e-5)
+        assert np.all(k > 0.0)
+        assert np.all(scale > 0.0)
+
+        true = ds[var_name].sel(time=dates[0]).values.flatten()
+        p_zero = pred_ds["mixture_probs_0"].data.flatten()
+        pit = compute_pit_zigamma_mixture(
+            true,
+            p_zero,
+            probs.reshape(K, -1),
+            k.reshape(K, -1),
+            scale.reshape(K, -1),
+        )
+        assert np.all(pit >= 0.0)
+        assert np.all(pit <= 1.0)
 
     def test_wrong_likelihood_raises(self, tiny_zigamma_dp_and_task_loader):
         data_processor, task_loader, dates, _ds = tiny_zigamma_dp_and_task_loader
