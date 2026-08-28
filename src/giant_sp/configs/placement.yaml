@@ -1,0 +1,21 @@
+defaults:
+  - experiment: carra2_debug
+  - _self_
+
+hydra:
+  job:
+    chdir: false
+
+placement:
+  run_ref: "acoca/giant-sp/4flbw8xy"
+  weights_filename: "best-weights-stnval.pt"
+  acq_fn: "ContextDist"
+  n_new: 5
+  search_start_date: "2016-01-01"
+  search_end_date: "2016-12-31"
+  temporal_subsampling_method: "seasonal"
+  temporal_subsampling_every: 50
+  pred_resolution: 0
+  search_mask_file: ""
+  search_resolution: 18
+  min_land: 0.25

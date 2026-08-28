@@ -31,6 +31,7 @@ Thumbs.db
 # Editors
 *~
 *.swp
+launch.json
 
 # Misc
 *.log
@@ -48,3 +49,4 @@ wandb/
 .claude/
 .vscode/
 .logs/
+*.local.yaml

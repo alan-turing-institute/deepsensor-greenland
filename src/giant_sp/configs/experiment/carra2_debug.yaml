@@ -1,0 +1,40 @@
+# @package _global_
+# DeepSensor Model Debug Configuration for CARRA2 — overrides on top of `carra2`
+
+defaults:
+  - carra2
+  - _self_
+
+data:
+  data_path: "data/anemoi/processed/carra2"
+  ancillary_path: "data/reference/bm_v6"
+  station_locations_file: "data/station/promice/processed/promice_locations.csv"
+  basin: "CE" #CE, CW, NE, NO, NW, SE, SW
+  train_start: "1987-01-01"
+  train_end: "1987-12-01"
+  val_start: "1988-01-01"
+  val_end: "1988-12-01"
+  test_start: "1988-01-01"
+  test_end: "1988-12-01"
+
+dataloader:
+  lsm_mask: false
+  frequency: "MS"
+
+model:
+  unet_channels: [64, 64, 64]
+  num_basis_functions: 32
+
+training:
+  num_epochs: 3
+  learning_rate: 0.0003
+  save_checkpoint_every: 1
+
+logging:
+  wandb:
+    tags: ["spatial-interpolation", "convgnp", "t2m", "carra2", "debug"]
+    log_maps_frequency: 1
+    log_charts_frequency: 1
+
+visualization:
+  plot_dates: null

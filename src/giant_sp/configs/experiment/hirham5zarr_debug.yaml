@@ -1,0 +1,34 @@
+# @package _global_
+# DeepSensor Model Debug Configuration for HIRHAM5 (zarr source) — overrides on top of
+# `hirham5zarr`
+
+defaults:
+  - hirham5zarr
+  - _self_
+
+data:
+  data_path: "data/anemoi/processed/hirham5zarr/greenland"
+  ancillary_path: "data/anemoi/processed/hirham5zarr/greenland"
+  station_locations_file: "data/station/promice/processed/promice_locations.csv"
+  basin: "CE" #CE, CW, NE, NO, NW, SE, SW
+  train_start: "2015-01-01"
+  train_end: "2015-12-31"
+  val_start: "2016-01-01"
+  val_end: "2016-12-31"
+
+dataloader:
+  temporal_sampling_every: 30
+
+model:
+  unet_channels: [64, 64, 64] # [64, 64, 64, 64] for GrIS
+  num_basis_functions: 32 #64 for GrIS
+
+training:
+  num_epochs: 3
+  save_checkpoint_every: 1
+
+logging:
+  wandb:
+    tags: ["spatial-interpolation", "convgnp", "snmel", "hirham5", "debug"]
+    log_maps_frequency: 1
+    log_charts_frequency: 1

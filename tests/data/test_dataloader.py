@@ -1,9 +1,11 @@
 import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+from omegaconf import DictConfig, OmegaConf
 
 from giant_sp.data.dataloader import (
     BaseDataLoader,
@@ -14,30 +16,35 @@ from giant_sp.data.dataloader import (
 
 
 def _make_config(
-    ancils_path=None, basin=None, data_path="/nonexistent", data_pattern="*.nc"
-):
+    ancils_path: Path | None = None,
+    basin: str | None = None,
+    data_path: str = "/nonexistent",
+    data_pattern: str = "*.nc",
+) -> DictConfig:
+    data_config: dict[str, object] = {
+        "data_path": data_path,
+        "data_pattern": data_pattern,
+        "region": "test_region",
+        "basin": basin,
+        "context_var_IDs": ["var"],
+        "target_var_IDs": ["var"],
+        "train_start": "2020-01-01",
+        "train_end": "2020-01-03",
+        "val_start": "2020-01-04",
+        "val_end": "2020-01-05",
+    }
+    if ancils_path is not None:
+        data_config["ancillary_path"] = str(ancils_path)
+
     config = {
-        "data": {
-            "data_path": data_path,
-            "data_pattern": data_pattern,
-            "region": "test_region",
-            "basin": basin,
-            "context_var_IDs": ["var"],
-            "target_var_IDs": ["var"],
-            "train_start": "2020-01-01",
-            "train_end": "2020-01-03",
-            "val_start": "2020-01-04",
-            "val_end": "2020-01-05",
-        },
+        "data": data_config,
         "dataloader": {
             "lsm_mask": False,
             "frequency": "D",
             "context_delta_t": None,
         },
     }
-    if ancils_path is not None:
-        config["data"]["ancillary_path"] = str(ancils_path)
-    return config
+    return OmegaConf.create(config)
 
 
 def _write_basin_netcdf(path, se_code=1, other_code=2):

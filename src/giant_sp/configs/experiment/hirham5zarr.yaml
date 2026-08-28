@@ -1,0 +1,17 @@
+# @package _global_
+# DeepSensor Model Configuration for HIRHAM5 (zarr source) — overrides on top of `hirham5`,
+# which it shares model/training/logging/visualization with; only the data backend differs.
+
+defaults:
+  - hirham5
+  - _self_
+
+data:
+  source: "hirham5zarr"
+  data_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed/HIRHAM5-ERAInterim/v_02"
+  data_pattern: "base_dataset.zarr"
+  ancillary_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed/HIRHAM5-ERAInterim/v_02"
+  context_var_IDs: [["snmel_abs"], ["ahfl_abs", "ahfs_abs", "dlwrad_abs", "dswrad_abs", "rainfall_abs", "snfall_abs", "tas_abs"], ["rainfall_10yr-avg", "snfall_10yr-avg", "tas_10yr-avg"]]
+
+dataloader:
+  context_delta_t: [[0], [-9, -8, -7, -6, -5, -4, -3, -2, -1, 0], [0]]

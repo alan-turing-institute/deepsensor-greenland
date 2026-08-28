@@ -1,0 +1,17 @@
+defaults:
+  - experiment: carra2_debug
+  - _self_
+
+hydra:
+  job:
+    chdir: false
+
+inference:
+  val_set: "station" # station, random-land, no-obs
+  n_obs: 400
+  run_ref: "acoca/giant-sp/4flbw8xy"
+  weights_filename: "best-weights-stnval.pt"
+  date_split: "test"
+  every: 200
+  seed: 321
+  plot: false

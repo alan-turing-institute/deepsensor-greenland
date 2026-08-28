@@ -1,0 +1,56 @@
+# @package _global_
+# DeepSensor Model Configuration for CARRA2
+
+defaults:
+  - common
+  - _self_
+
+data:
+  source: "carra2"
+  data_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/anemoi/datasets/processed/carra2"
+  data_pattern: "carra2-greenland-2p5km-1986-2025-1M-v1-xy-2p5km*.nc"
+  ancillary_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/reference/bedmachinev6"
+  station_locations_file: "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations.csv"
+  context_var_IDs: [["2t_abs"], ["10u_abs", "10v_abs"]]
+  target_var_IDs: "2t_abs"
+  region: "greenland"
+  basin: null #SE, CE
+  train_start: "1986-01-01"
+  train_end: "1991-12-01"
+  val_start: "1992-01-01"
+  val_end: "1993-12-01"
+  test_start: "2023-01-01"
+  test_end: "2023-12-01"
+
+dataloader:
+  lsm_mask: true
+  train_sampling: "land_obs"
+  context_delta_t: null
+  target_sampling: "all"
+  frequency: "D"
+  temporal_sampling_method: "regular"
+  temporal_sampling_every: 1
+  change_dates_every_epoch: false
+
+# Model architecture
+model:
+  likelihood: "gnp"
+  unet_channels: [128, 128, 128, 128]
+  num_basis_functions: 128
+
+# Training parameters
+training:
+  num_epochs: 50
+  learning_rate: 0.0005
+  save_checkpoint_every: 2
+
+# Logging
+logging:
+  wandb:
+    tags: ["spatial-interpolation", "convgnp", "t2m", "carra2"] # Tags for organizing runs
+    log_maps_frequency: 5 # Log maps every N epochs
+    log_charts_frequency: 5 # Log charts every N epochs
+
+# Visualization
+visualization:
+  plot_dates: ["1992-01-01", "1992-06-01", "1992-12-01"] # Specific dates to plot

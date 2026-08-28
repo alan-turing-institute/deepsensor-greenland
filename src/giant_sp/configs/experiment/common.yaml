@@ -1,0 +1,51 @@
+# @package _global_
+# Scalars shared by every experiment source (carra2, hirham5, hirham5zarr) — inherited via
+# `defaults: [common, _self_]`, not selectable as a standalone experiment.
+
+model:
+  unet_kernels: 5
+
+training:
+  batch_size: 1
+  lr_scheduler: "reduce_on_plateau"
+  lr_patience: 10
+  lr_factor: 0.5
+
+  # Early stopping
+  early_stopping: true
+  patience: 20
+
+  # Checkpointing
+  save_best_only: true
+
+  # Optimization
+  optimizer: "adam" # Options: "adam", "adamw", "sgd"
+  weight_decay: 0.0001
+  gradient_clip: 1.0
+
+  # resume training
+  resume: false
+  wandb_run_id: "stwjm7cy" # Run ID to resume (null = latest)
+
+logging:
+  log_level: "INFO"
+  tensorboard: true
+  wandb:
+    enabled: true # Set to true to enable W&B logging
+    project: "present-train" # W&B project name
+    entity: "turing-giant" # Your W&B username/team (null = default)
+    name: null # Run name (null = auto-generated)
+    notes: "" # Optional docs about this run
+    log_frequency: 1 # Log metrics every N epochs
+    log_maps: true # Log prediction maps
+    log_charts: true # Log charts every N epochs
+    log_model: true # Log model checkpoints as artifacts
+    watch_model: false # Watch model gradients and parameters
+    watch_freq: 100 # Log gradients every N steps
+  log_stnval: true
+
+visualization:
+  res_factor_maps: 1
+  crs: north_polar
+  cmap: "viridis"
+  fig_size: 3

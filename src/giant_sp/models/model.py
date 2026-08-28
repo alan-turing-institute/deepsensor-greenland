@@ -8,6 +8,10 @@ from typing import Any
 import torch
 from deepsensor.data import DataProcessor, Task, TaskLoader
 from deepsensor.model import ConvNP
+from omegaconf import DictConfig
+
+from giant_sp.utils.config import to_plain
+from giant_sp.utils.model import get_available_device
 
 from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
 
@@ -19,8 +23,8 @@ class DeepSensorModel:
 
     Attributes
     ----------
-    config : dict[str, Any]
-        Configuration dictionary, typically loaded from a YAML config file.
+    config : DictConfig
+        Configuration, typically composed by Hydra from a YAML config file.
         Expected to contain a ``"model"`` key holding the keyword arguments
         passed to :class:`~deepsensor.model.ConvNP` (e.g. ``likelihood``,
         ``unet_channels``, ``unet_kernels``, ``num_basis_functions``).
@@ -35,13 +39,13 @@ class DeepSensorModel:
 
     """
 
-    def __init__(self, config: dict[str, Any]) -> None:
+    def __init__(self, config: DictConfig) -> None:
         """Initialize the DeepSensor model wrapper.
 
         Parameters
         ----------
-        config : dict[str, Any]
-            Configuration dictionary. Must contain a ``"model"`` key whose
+        config : DictConfig
+            Configuration. Must contain a ``"model"`` key whose
             value is a dictionary of keyword arguments for
             :class:`~deepsensor.model.ConvNP` (used by :meth:`build_model`).
 
@@ -71,7 +75,7 @@ class DeepSensorModel:
             The newly constructed model, also stored on ``self.model``.
 
         """
-        model_config = self.config["model"]
+        model_config: dict[str, Any] = to_plain(self.config["model"])
 
         logger.info("Building ConvNP model with PyTorch backend...")
         logger.info("Model likelihood: %s", model_config["likelihood"])
@@ -173,7 +177,7 @@ class DeepSensorModel:
             raise ValueError("Model must be built before loading weights")
 
         logger.info("Loading model from %s", filepath)
-        model_state_dict = torch.load(filepath)
+        model_state_dict = torch.load(filepath, map_location=get_available_device())
         self.model.model.load_state_dict(model_state_dict)
 
     def predict(self, task: Task, num_samples: int = 1) -> Any:

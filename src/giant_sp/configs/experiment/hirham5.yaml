@@ -1,0 +1,56 @@
+# @package _global_
+# DeepSensor Model Configuration for HIRHAM5
+
+defaults:
+  - common
+  - _self_
+
+data:
+  source: "hirham5"
+  data_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/anemoi/datasets/processed/hirham5"
+  data_pattern: "hirham5-greenland_bmv6_5p5km-1990-2016-24h-v1-xy-*.nc"
+  ancillary_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/reference/bedmachinev6/"
+  station_locations_file: "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations.csv"
+  context_var_IDs: [["snmel_abs"], ["ahfl_abs", "ahfs_abs", "dlwrad_abs", "dswrad_abs", "rainfall_abs", "snfall_abs", "tas_abs"]]
+  target_var_IDs: "snmel_abs"
+  region: "greenland"
+  basin: null #SE, CE
+  train_start: "1990-01-01"
+  train_end: "2013-12-31"
+  val_start: "2014-01-01"
+  val_end: "2014-12-31"
+  test_start: "2016-01-01"
+  test_end: "2016-12-31"
+
+dataloader:
+  lsm_mask: true
+  train_sampling: "mixed_obs"
+  context_delta_t: [[0], [-9, -8, -7, -6, -5, -4, -3, -2, -1, 0]]
+  target_sampling: "all"
+  frequency: "D"
+  temporal_sampling_method: "seasonal"
+  temporal_sampling_every: 150
+  change_dates_every_epoch: false
+
+# Model architecture
+model:
+  likelihood: "bernoulli-gamma"
+  unet_channels: [64, 64, 64, 64]
+  num_basis_functions: 64
+
+# Training parameters
+training:
+  num_epochs: 100
+  learning_rate: 0.0003
+  save_checkpoint_every: 3
+
+# Logging
+logging:
+  wandb:
+    tags: ["spatial-interpolation", "convgnp", "snmel", "hirham5"] # Tags for organizing runs
+    log_maps_frequency: 3 # Log maps every N epochs
+    log_charts_frequency: 3 # Log charts every N epochs
+
+# Visualization
+visualization:
+  plot_dates: null # Specific dates to plot

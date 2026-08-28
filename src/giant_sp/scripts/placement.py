@@ -1,26 +1,25 @@
 """Main script for placement experiments using a trained ConvNP model."""
 
-import argparse
 import glob
 import json
 import os
-from typing import Any
 
 # src
 import deepsensor.active_learning.acquisition_fns as acq
 import deepsensor.torch as deepsensor  # noqa: F401
 import geopandas as gpd
+import hydra
 import numpy as np
 import pandas as pd
 import torch
 import wandb
 import xarray as xr
-import yaml
 from deepsensor.active_learning.algorithms import GreedyAlgorithm
 from deepsensor.data.loader import TaskLoader
 from deepsensor.data.processor import DataProcessor
 from deepsensor.model.convnp import ConvNP
 from deepsensor.train.train import set_gpu_default_device
+from omegaconf import DictConfig
 
 import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
@@ -36,27 +35,9 @@ from giant_sp.utils.acquisition import (
     OracleOccurrenceEntropyReduction,
 )
 from giant_sp.utils.data import context_sampling_with_delta, sample_dates_by_year_chunks
+from giant_sp.utils.model import get_available_device
 
 set_gpu_default_device() if torch.cuda.is_available() else torch.device("cpu")
-
-
-def load_config(config_path: str) -> dict[str, Any]:
-    """Load a configuration from a YAML file.
-
-    Parameters
-    ----------
-    config_path : str
-        Path to the YAML configuration file.
-
-    Returns
-    -------
-    dict[str, Any]
-        Parsed configuration as a nested dictionary.
-
-    """
-    with open(config_path) as f:
-        config = yaml.safe_load(f)
-    return config
 
 
 def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
@@ -137,23 +118,60 @@ def load_wandb_model(
     )
 
     # Load model weights
-    model.model.load_state_dict(torch.load(weights_path, map_location=map_location))
+    model.model.load_state_dict(
+        torch.load(weights_path, map_location=get_available_device())
+    )
 
     return model
 
 
-def main() -> None:
+@hydra.main(version_base=None, config_path="../configs", config_name="placement")
+def main(config: DictConfig) -> None:
     """Run a greedy active-learning search for new station placements.
 
-    Parses CLI arguments, loads a trained ConvNP model together with its
-    data processor and task loader from a Weights & Biases run, builds the
-    target prediction grid and search-space mask, samples evaluation dates,
-    and runs deepsensor's `GreedyAlgorithm` with the requested acquisition
-    function to propose `n_new` new station locations. Results (the
-    acquisition function values and proposed placements) are saved to disk
-    and a summary figure is produced, unless a previous run's output
-    already exists on disk, in which case that output is loaded and only
-    re-plotted.
+    Loads a trained ConvNP model together with its data processor and task
+    loader from a Weights & Biases run, builds the target prediction grid
+    and search-space mask, samples evaluation dates, and runs deepsensor's
+    `GreedyAlgorithm` with the requested acquisition function to propose
+    `n_new` new station locations. Results (the acquisition function values
+    and proposed placements) are saved to disk and a summary figure is
+    produced, unless a previous run's output already exists on disk, in
+    which case that output is loaded and only re-plotted.
+
+    Parameters
+    ----------
+    config : DictConfig
+        Hydra-composed run configuration (see ``src/giant_sp/configs/``).
+        ``config.placement`` holds the run-specific parameters:
+
+        run_ref : str
+            Weights & Biases run reference (``"entity/project/run_id"``)
+            to load the trained model from.
+        weights_filename : str
+            Filename of the model weights within the run's files.
+        acq_fn : str
+            Name of the deepsensor acquisition function to use.
+        n_new : int
+            Number of new station locations to propose.
+        search_start_date, search_end_date : str
+            Date range (inclusive) over which evaluation dates are sampled.
+        temporal_subsampling_method : str
+            Either ``"seasonal"`` (Gaussian-weighted by day of year) or
+            ``"regular"`` (fixed-stride date range).
+        temporal_subsampling_every : int
+            Number of dates sampled per year (seasonal) or stride between
+            dates (regular).
+        pred_resolution : int
+            Coarsening factor for the target prediction grid; ``0`` uses
+            the native model grid.
+        search_mask_file : str
+            Optional path to a pre-computed search-space mask; if empty, a
+            default mask is derived from the land-sea mask.
+        search_resolution : int
+            Coarsening factor used to build the default search-space mask.
+        min_land : float
+            Minimum land fraction for a grid cell to be included in the
+            target/search masks.
 
     Returns
     -------
@@ -170,84 +188,32 @@ def main() -> None:
         not ``"seasonal"`` or ``"regular"``; or if no station locations
         remain after filtering to the model domain/land mask.
     NotImplementedError
-        If ``--acq_fn`` does not match a known deepsensor acquisition
+        If ``acq_fn`` does not match a known deepsensor acquisition
         function name.
-
-    Notes
-    -----
-    CLI Arguments
-        --config_file : str
-            Path to the YAML experiment configuration file.
-        --run_ref : str
-            Weights & Biases run reference (``"entity/project/run_id"``)
-            to load the trained model from.
-        --weights_filename : str
-            Filename of the model weights within the run's files.
-        --acq_fn : str
-            Name of the deepsensor acquisition function to use.
-        --n_new : int
-            Number of new station locations to propose.
-        --search_start_date, --search_end_date : str
-            Date range (inclusive) over which evaluation dates are sampled.
-        --temporal_subsampling_method : str
-            Either ``"seasonal"`` (Gaussian-weighted by day of year) or
-            ``"regular"`` (fixed-stride date range).
-        --temporal_subsampling_every : int
-            Number of dates sampled per year (seasonal) or stride between
-            dates (regular).
-        --pred_resolution : int
-            Coarsening factor for the target prediction grid; ``0`` uses
-            the native model grid.
-        --search_mask_file : str
-            Optional path to a pre-computed search-space mask; if empty, a
-            default mask is derived from the land-sea mask.
-        --search_resolution : int
-            Coarsening factor used to build the default search-space mask.
-        --min_land : float
-            Minimum land fraction for a grid cell to be included in the
-            target/search masks.
-
     """
-    # Trained model args
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config_file", default="src/giant_sp/configs/hirham5zarr_debug.yaml", type=str
-    )
-    parser.add_argument("--run_ref", default="acoca/giant-sp/4flbw8xy")
-    parser.add_argument("--weights_filename", default="best-weights-stnval.pt")
-    # Expt settings
-    parser.add_argument("--acq_fn", default="ContextDist", type=str)
-    parser.add_argument("--n_new", default=5, type=int)
-    parser.add_argument("--search_start_date", default="2016-01-01", type=str)
-    parser.add_argument("--search_end_date", default="2016-12-31", type=str)
-    parser.add_argument("--temporal_subsampling_method", default="seasonal", type=str)
-    parser.add_argument("--temporal_subsampling_every", default=50, type=int)
-    parser.add_argument("--pred_resolution", default=0, type=int)
-    parser.add_argument("--search_mask_file", default="")
-    parser.add_argument("--search_resolution", default=18, type=int)
-    parser.add_argument("--min_land", default=0.25, type=float)
-
-    args = parser.parse_args()
-    config_file = args.config_file
-    run_ref = args.run_ref
-    weights_fn = args.weights_filename
-    dates_start = args.search_start_date
-    dates_end = args.search_end_date
-    search_resolution = args.search_resolution
+    placement_config = config.placement
+    run_ref = placement_config.run_ref
+    weights_fn = placement_config.weights_filename
+    dates_start = placement_config.search_start_date
+    dates_end = placement_config.search_end_date
+    search_resolution = placement_config.search_resolution
+    acq_fn = placement_config.acq_fn
+    n_new = placement_config.n_new
+    pred_resolution = placement_config.pred_resolution
+    search_mask_file = placement_config.search_mask_file
+    min_land = placement_config.min_land
 
     run_id = run_ref.split("/")[-1]
 
     # Path and files
     output_path = f"outputs/{run_id}"
-    savedir = os.path.join(output_path, "placement", args.acq_fn)
+    savedir = os.path.join(output_path, "placement", acq_fn)
     figdir = os.path.join(output_path, "placement", "figures")
     if not os.path.exists(savedir):
         os.makedirs(savedir)
     if not os.path.exists(figdir):
         os.makedirs(figdir)
 
-    # Args
-    config = load_config(config_file)
     # coords_path = config["data"]["data_path"]
     source = config["data"]["source"]
     context_delta_t = config["dataloader"]["context_delta_t"]
@@ -270,8 +236,8 @@ def main() -> None:
 
     target_var = config["data"]["target_var_IDs"]
     frequency = config["dataloader"]["frequency"]
-    temporal_sampling_method = args.temporal_subsampling_method
-    temporal_sampling_every = args.temporal_subsampling_every
+    temporal_sampling_method = placement_config.temporal_subsampling_method
+    temporal_sampling_every = placement_config.temporal_subsampling_every
 
     if temporal_sampling_method == "seasonal":
         # source: https://github.com/eschlager/MeltEmulation/tree/main
@@ -334,18 +300,18 @@ def main() -> None:
     ds = data_processor(raw_ds)
 
     # Define target grid and gridbox weights
-    if args.pred_resolution == 0:
+    if pred_resolution == 0:
         target_grid = raw_ds
-        target_mask = lsm.where(lsm > args.min_land, other=0)
+        target_mask = lsm.where(lsm > min_land, other=0)
     else:
         lsm = data_loader.load_aux_ds(resolution="bedmachine")
-        coarsen_factor = int(args.pred_resolution / 1.0)
+        coarsen_factor = int(pred_resolution / 1.0)
         # xarray-stubs does not expose reduction methods (e.g. `.mean()`) on
         # DataArrayCoarsen, though they exist at runtime.
         target_grid = lsm.coarsen(
             {"lat": coarsen_factor, "lon": coarsen_factor}, boundary="trim"
         ).mean()  # type: ignore[attr-defined]
-        target_mask = target_grid.where(target_grid > args.min_land, other=0)
+        target_mask = target_grid.where(target_grid > min_land, other=0)
 
     stn_file = config["data"]["station_locations_file"]
     stn_locs_df = pd.read_csv(stn_file)[
@@ -440,7 +406,7 @@ def main() -> None:
 
     # Search space definition
     search_grid_is_default = False
-    if args.search_mask_file == "":
+    if search_mask_file == "":
         coarsen_factor = int(search_resolution / 1.0)
         lsm = data_loader.load_aux_ds(resolution="bedmachine")
         # xarray-stubs does not expose reduction methods (e.g. `.mean()`) on
@@ -449,11 +415,11 @@ def main() -> None:
             {"lat": coarsen_factor, "lon": coarsen_factor}, boundary="trim"
         ).mean()  # type: ignore[attr-defined]
         search_mask = aux_raw_ds.where(
-            aux_raw_ds > args.min_land, other=0
+            aux_raw_ds > min_land, other=0
         )  # search where True
         search_grid_is_default = True
     else:
-        search_mask = xr.open_dataarray(args.search_mask_file)
+        search_mask = xr.open_dataarray(search_mask_file)
 
     # Determine delta_factor_context for context_sampling_with_delta
     if context_delta_t is None:
@@ -467,8 +433,8 @@ def main() -> None:
 
     # Acquisition functions
     # Parallel
-    if args.acq_fn == "Random":
-        acq_fn = acq.Random()
+    if acq_fn == "Random":
+        acq_fn_type = acq.Random()
         tasks = tasks[:1]
     elif args.acq_fn == "ContextDist":
         acq_fn = acq.ContextDist(context_set_idx=0)
@@ -507,11 +473,9 @@ def main() -> None:
     elif args.acq_fn == "OracleBrierScore":
         acq_fn = OracleBrierScore(model)
     else:
-        raise NotImplementedError(
-            f"No deepsensor acquisition function named {args.acq_fn}"
-        )
+        raise NotImplementedError(f"No deepsensor acquisition function named {acq_fn}")
 
-    if args.acq_fn[:6] == "Oracle":
+    if acq_fn[:6] == "Oracle":
         # Args for fns needing ground truth
         greedy_gt_args = {
             "query_infill": ds[target_var],
@@ -537,7 +501,7 @@ def main() -> None:
         X_s=search_mask.astype(bool),
         X_s_mask=search_mask.astype(bool),
         X_t_mask=target_mask.astype(bool),
-        N_new_context=args.n_new,
+        N_new_context=n_new,
         progress_bar=True,
         **greedy_gt_args,
     )
@@ -545,7 +509,7 @@ def main() -> None:
     if not os.path.exists(
         os.path.join(
             savedir,
-            f"AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
+            f"AcqFn_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
         )
     ):
         # New placements
@@ -555,32 +519,32 @@ def main() -> None:
         acq_fn_da.to_netcdf(
             os.path.join(
                 savedir,
-                f"AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
+                f"AcqFn_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
             )
         )
         X_new_df.to_csv(
             os.path.join(
                 savedir,
-                f"NewPlace_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv",
+                f"NewPlace_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv",
             )
         )
 
     else:
         print(
-            f"Acquisition function file already exists. Skipping computation: {os.path.join(savedir, f'AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc')}"
+            f"Acquisition function file already exists. Skipping computation: {os.path.join(savedir, f'AcqFn_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc')}"
         )
         print("Plotting existing acquisition function file.")
         search_grid_is_default = True
         acq_fn_da = xr.open_dataarray(
             os.path.join(
                 savedir,
-                f"AcqFn_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
+                f"AcqFn_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
             )
         )
         X_new_df = pd.read_csv(
             os.path.join(
                 savedir,
-                f"NewPlace_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv",
+                f"NewPlace_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv",
             )
         )[["lat", "lon"]]
 
@@ -632,12 +596,12 @@ def main() -> None:
             X_new_df_plot,
             raw_stn_locs_plot[["lat", "lon"]],
             cmap="YlGnBu",
-            title=args.acq_fn,
+            title=acq_fn,
         )
         ax.get_figure().savefig(
             os.path.join(
                 figdir,
-                f"newplacements_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg",
+                f"newplacements_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg",
             ),
             bbox_inches="tight",
             dpi=300,
@@ -645,18 +609,12 @@ def main() -> None:
 
     else:
         fig, ax = myplt.new_placements_plot_xy(
-            acq_fn_da, X_new_df, raw_stn_locs[["lat", "lon"]], title=args.acq_fn
+            acq_fn_da, X_new_df, raw_stn_locs[["lat", "lon"]], title=acq_fn
         )
         fig.savefig(
             os.path.join(
                 figdir,
-                f"newplacements_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg",
-            )
-        )
-        fig.savefig(
-            os.path.join(
-                figdir,
-                f"newplacements_{args.acq_fn}_{args.n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg",
+                f"newplacements_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg",
             )
         )
 
