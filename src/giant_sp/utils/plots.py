@@ -241,10 +241,10 @@ def uncertainty_decomposition_plot(
         nrows=1, ncols=2, figsize=(10, 4), layout="constrained", subplot_kw=subplot_kw
     )
 
-ep_max = float(epistemic_std_da.mean(dim="time").max().compute().values)
-al_max = float(aleatoric_std_da.mean(dim="time").max().compute().values)
-vmax = max(ep_max, al_max)
-im_ratio = epistemic_std_da.shape[-2] / epistemic_std_da.shape[-1]
+    ep_max = float(epistemic_std_da.mean(dim="time").max().compute().values)
+    al_max = float(aleatoric_std_da.mean(dim="time").max().compute().values)
+    vmax = max(ep_max, al_max)
+    im_ratio = epistemic_std_da.shape[-2] / epistemic_std_da.shape[-1]
     cbar_kwargs = {"fraction": 0.046 * im_ratio, "pad": 0.04, "label": None}
 
     epistemic_std_da.mean(dim="time").plot(  # type: ignore[call-arg]

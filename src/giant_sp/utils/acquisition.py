@@ -205,10 +205,11 @@ class MeanOccurrenceEntropy(AcquisitionFunctionParallel):
         # like `Stddev`'s `self.model.stddev(task)[self.target_set_idx]`, to drop the
         # leading features axis and get the `(N_targets,)` shape GreedyAlgorithm's
         # boolean-mask assignment requires.
-entropy = self.model.occurrence_entropy(task)
-if isinstance(entropy, list):
-    entropy = entropy[self.target_set_idx]
-return entropy[0]
+        entropy = self.model.occurrence_entropy(task)
+        if isinstance(entropy, list):
+            entropy = entropy[self.target_set_idx]
+
+        return entropy[0]
 
 
 class OracleBrierScore(AcquisitionFunctionOracle):
