@@ -10,10 +10,9 @@ from deepsensor.data import DataProcessor, Task, TaskLoader
 from deepsensor.model import ConvNP
 from omegaconf import DictConfig
 
+from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
 from giant_sp.utils.config import to_plain
 from giant_sp.utils.model import get_available_device
-
-from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
 
 logger = logging.getLogger(__name__)
 

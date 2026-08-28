@@ -436,41 +436,41 @@ def main(config: DictConfig) -> None:
     if acq_fn == "Random":
         acq_fn_type = acq.Random()
         tasks = tasks[:1]
-    elif args.acq_fn == "ContextDist":
+    elif acq_fn == "ContextDist":
         acq_fn = acq.ContextDist(context_set_idx=0)
-    elif args.acq_fn == "Stddev":
+    elif acq_fn == "Stddev":
         acq_fn = acq.Stddev(model)
-    elif args.acq_fn == "MeanOccurrenceEntropy":
+    elif acq_fn == "MeanOccurrenceEntropy":
         acq_fn = MeanOccurrenceEntropy(model)
     # Sequential
-    elif args.acq_fn == "MeanStddev":
+    elif acq_fn == "MeanStddev":
         acq_fn = acq.MeanStddev(model)
-    elif args.acq_fn == "MeanVariance":
+    elif acq_fn == "MeanVariance":
         acq_fn = acq.MeanVariance(model)
-    elif args.acq_fn == "MeanMarginalEntropy":
+    elif acq_fn == "MeanMarginalEntropy":
         acq_fn = acq.MeanMarginalEntropy(model)
-    elif args.acq_fn == "JointEntropy":
+    elif acq_fn == "JointEntropy":
         acq_fn = acq.JointEntropy(model)
-    elif args.acq_fn == "ExpectedImprovement":
+    elif acq_fn == "ExpectedImprovement":
         acq_fn = acq.ExpectedImprovement(model)
-    elif args.acq_fn == "ExpectedEpistemicReduction":
+    elif acq_fn == "ExpectedEpistemicReduction":
         acq_fn = ExpectedEpistemicReduction(model)
-    elif args.acq_fn == "ExpectedOccurrenceEntropyReduction":
+    elif acq_fn == "ExpectedOccurrenceEntropyReduction":
         acq_fn = ExpectedOccurrenceEntropyReduction(model)
     # Oracle
-    elif args.acq_fn == "OracleRMSE":
+    elif acq_fn == "OracleRMSE":
         acq_fn = acq.OracleRMSE(model)
-    elif args.acq_fn == "OracleMAE":
+    elif acq_fn == "OracleMAE":
         acq_fn = acq.OracleMAE(model)
-    elif args.acq_fn == "OracleMarginalNLL":
+    elif acq_fn == "OracleMarginalNLL":
         acq_fn = acq.OracleMarginalNLL(model)
-    elif args.acq_fn == "OracleJointNLL":
+    elif acq_fn == "OracleJointNLL":
         acq_fn = acq.OracleJointNLL(model)
-    elif args.acq_fn == "OracleEpistemicReduction":
+    elif acq_fn == "OracleEpistemicReduction":
         acq_fn = OracleEpistemicReduction(model)
-    elif args.acq_fn == "OracleOccurrenceEntropyReduction":
+    elif acq_fn == "OracleOccurrenceEntropyReduction":
         acq_fn = OracleOccurrenceEntropyReduction(model)
-    elif args.acq_fn == "OracleBrierScore":
+    elif acq_fn == "OracleBrierScore":
         acq_fn = OracleBrierScore(model)
     else:
         raise NotImplementedError(f"No deepsensor acquisition function named {acq_fn}")
