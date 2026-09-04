@@ -89,8 +89,13 @@ def load_wandb_model(
         "likelihood": config["likelihood"],
     }
 
-    model = ConvNP(data_processor, task_loader, **model_args)
-
+    if config["likelihood"] == "mdn-zigamma":
+        model_args["mixture_components"] = config["mixture_components"]
+        install_mdn_zigamma_likelihood(config["mixture_components"])
+        model = MDNZIGammaConvNP(data_processor, task_loader, **model_args)
+    else:
+        model = ConvNP(data_processor, task_loader, **model_args)
+        
     # Load model weights
     model.model.load_state_dict(
         torch.load(weights_path, map_location=get_available_device())
