@@ -17,8 +17,23 @@ inter-component disagreement signal to split (see
 `MDNZIGammaConvNP.occurrence_entropy`'s docstring), so ``H(p_zero)`` mixes reducible
 and irreducible occurrence uncertainty -- the "expected reduction" framing still holds
 on average (more/closer context generally does shrink it) but isn't a strict epistemic
-guarantee the way ``ExpectedEpistemicReduction`` is. All require a model exposing
-``epistemic_variance``/``occurrence_entropy``/``p_zero`` (e.g.
+guarantee the way ``ExpectedEpistemicReduction`` is.
+
+`MeanMagnitudeVariance`/`ExpectedMagnitudeVarianceReduction`/
+`OracleMagnitudeVarianceReduction` are the occurrence-independent mirror image of the
+occurrence-entropy family: they isolate *magnitude* uncertainty on its own, via
+`MDNZIGammaConvNP.magnitude_variance` (the slab's raw inter-component disagreement,
+``sum_k pi_k*(mean_k-mean)**2``, *without* `_epistemic_frac_raw`'s ``p_slab``
+weighting). That weighting is exactly what makes `ExpectedEpistemicReduction`'s
+magnitude contribution shrink for locations where melt is unlikely to occur at all,
+regardless of how much the candidate Gamma components disagree about its size if it
+did -- these functions target that disagreement directly, independent of occurrence
+probability. Together with the occurrence-entropy family, this makes each mixture
+level's uncertainty independently targetable: occurrence-only, magnitude-only, or
+combined (`ExpectedEpistemicReduction`/`OracleEpistemicReduction`).
+
+All require a model exposing
+``epistemic_variance``/``occurrence_entropy``/``magnitude_variance``/``p_zero`` (e.g.
 :class:`giant_sp.models.mdn.MDNZIGammaConvNP`).
 
 The ``Expected*``/``Oracle*Reduction`` pairs share their scoring logic (via a mixin --
@@ -54,10 +69,13 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "ExpectedEpistemicReduction",
+    "ExpectedMagnitudeVarianceReduction",
     "ExpectedOccurrenceEntropyReduction",
+    "MeanMagnitudeVariance",
     "MeanOccurrenceEntropy",
     "OracleBrierScore",
     "OracleEpistemicReduction",
+    "OracleMagnitudeVarianceReduction",
     "OracleOccurrenceEntropyReduction",
 ]
 
@@ -121,6 +139,31 @@ class _MeanOccurrenceEntropyScorer:
         return _mean_over_target_set(entropy, self.target_set_idx)  # type: ignore[attr-defined]
 
 
+class _MeanMagnitudeVarianceScorer:
+    """Shared scoring logic for the magnitude-variance-reduction acquisition functions.
+
+    See `_MeanEpistemicVarianceScorer` for the ``diff=True`` usage note.
+    """
+
+    min_or_max = "min"
+
+    def __call__(self, task: Task) -> float:
+        """Return the mean magnitude-only epistemic variance over `task`'s target set.
+
+        Parameters
+        ----------
+        task : deepsensor.data.task.Task
+            Task object containing context and target sets.
+
+        Returns
+        -------
+        float
+            Mean magnitude-only epistemic variance over the target set.
+        """
+        magvar = self.model.magnitude_variance(task)  # type: ignore[attr-defined]
+        return _mean_over_target_set(magvar, self.target_set_idx)  # type: ignore[attr-defined]
+
+
 class ExpectedEpistemicReduction(_MeanEpistemicVarianceScorer, AcquisitionFunction):
     """Expected reduction in mean epistemic variance over the target set.
 
@@ -171,6 +214,33 @@ class OracleOccurrenceEntropyReduction(
     """
 
 
+class ExpectedMagnitudeVarianceReduction(
+    _MeanMagnitudeVarianceScorer, AcquisitionFunction
+):
+    """Expected reduction in mean magnitude-only epistemic variance over the target set.
+
+    Targets uncertainty in melt *magnitude* alone -- disagreement between the K Gamma
+    mixture components' means, weighted by how undecided the mixture is between them --
+    independent of *whether* melt is occurring at all. The occurrence-independent
+    mirror image of `ExpectedOccurrenceEntropyReduction`: together they let occurrence
+    and magnitude uncertainty be targeted separately, while `ExpectedEpistemicReduction`
+    targets their combined (occurrence-weighted) effect. See
+    `giant_sp.models.mdn.MDNZIGammaConvNP.magnitude_variance`'s docstring for the exact
+    quantity. Pseudo-observation/``diff`` mechanics are identical to
+    `ExpectedEpistemicReduction`'s.
+    """
+
+
+class OracleMagnitudeVarianceReduction(
+    _MeanMagnitudeVarianceScorer, AcquisitionFunctionOracle
+):
+    """Ground-truth-informed counterpart to `ExpectedMagnitudeVarianceReduction`.
+
+    Same relationship to `ExpectedMagnitudeVarianceReduction` as
+    `OracleEpistemicReduction` has to `ExpectedEpistemicReduction`.
+    """
+
+
 class MeanOccurrenceEntropy(AcquisitionFunctionParallel):
     """Bernoulli entropy of the predicted melt/no-melt occurrence probability.
 
@@ -210,6 +280,49 @@ class MeanOccurrenceEntropy(AcquisitionFunctionParallel):
             entropy = entropy[self.target_set_idx]
 
         return entropy[0]
+
+
+class MeanMagnitudeVariance(AcquisitionFunctionParallel):
+    """Magnitude-only epistemic variance of the predicted melt amount, if any occurs.
+
+    Cheap, single-pass counterpart to `ExpectedMagnitudeVarianceReduction`: evaluates
+    the model's current magnitude-only epistemic variance directly at each search
+    location (no hypothetical context augmentation, hence ``Parallel`` rather than
+    needing `GreedyAlgorithm`'s per-candidate sequential engine), mirroring how
+    `MeanOccurrenceEntropy` relates to `ExpectedOccurrenceEntropyReduction` (and
+    ``Stddev`` to ``ExpectedEpistemicReduction``).
+    """
+
+    min_or_max = "max"
+
+    def __call__(self, task: Task, X_s: np.ndarray, **kwargs: Any) -> np.ndarray:
+        """Compute the magnitude-only epistemic variance at each search point.
+
+        Parameters
+        ----------
+        task : deepsensor.data.task.Task
+            Task object containing context and target sets.
+        X_s : numpy.ndarray
+            Search points. Shape ``(2, N_search)``.
+
+        Returns
+        -------
+        numpy.ndarray
+            Magnitude-only epistemic variance at each search point, shape
+            ``(N_search,)``.
+        """
+        task = copy.deepcopy(task)
+        task["X_t"] = X_s
+        # `magnitude_variance` returns shape `(N_features, *N_targets)` (or a list of
+        # such arrays, one per target set) -- always index `[target_set_idx]`, exactly
+        # like `MeanOccurrenceEntropy`'s `self.model.occurrence_entropy(task)[...]`, to
+        # drop the leading features axis and get the `(N_targets,)` shape
+        # GreedyAlgorithm's boolean-mask assignment requires.
+        magvar = self.model.magnitude_variance(task)
+        if isinstance(magvar, list):
+            magvar = magvar[self.target_set_idx]
+
+        return magvar[0]
 
 
 class OracleBrierScore(AcquisitionFunctionOracle):

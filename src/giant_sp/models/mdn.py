@@ -606,3 +606,45 @@ class MDNZIGammaConvNP(ConvNP):
         """
         dist = self(task)
         return self.occurrence_entropy(dist)
+
+    @dispatch
+    def magnitude_variance(self, dist: AbstractMultiOutputDistribution):
+        """Epistemic variance of melt *magnitude* alone, independent of occurrence.
+
+        ``sum_k pi_k * (mean_k - slab.mean)**2`` (i.e. ``slab.epistemic_var``):
+        disagreement between the ``K`` Gamma components' means, weighted by how
+        undecided the mixture is between them -- the same law-of-total-variance
+        term Eksen et al.'s Gaussian-mixture epistemic variance uses, applied
+        to the slab alone. ``epistemic_variance`` additionally
+        scales this by ``p_slab`` (see ``_epistemic_frac_raw``'s docstring),
+        since the magnitude regime only matters conditional on melt occurring;
+        this method drops that weighting, isolating "how ambiguous is the
+        magnitude regime, given that melt occurs" independent of how likely
+        melt is to occur at all -- the magnitude-only complement to
+        ``occurrence_entropy``, which is symmetrically independent of magnitude.
+
+        Returned numpy arrays have shape ``(N_features, *N_targets)``.
+        """
+        self._assert_mdn_zigamma("magnitude_variance")
+        magvar = self._cast_numpy_and_squeeze(dist.slab.epistemic_var)
+        return self._maybe_concat_multi_targets(magvar)
+
+    @dispatch  # type: ignore[no-redef]
+    def magnitude_variance(self, task: Task):  # noqa: F811
+        """Epistemic variance of melt *magnitude* alone, independent of occurrence.
+
+        Returned numpy arrays have shape ``(N_features, *N_targets)``.
+
+        Parameters
+        ----------
+        task : deepsensor.data.task.Task
+            The task containing the context and target data.
+
+        Returns
+        -------
+        numpy.ndarray | list[numpy.ndarray]
+            Magnitude-only epistemic variance values.
+
+        """
+        dist = self(task)
+        return self.magnitude_variance(dist)

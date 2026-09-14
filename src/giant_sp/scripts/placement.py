@@ -28,10 +28,13 @@ from giant_sp.data.dataloader import BaseDataLoader
 from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
 from giant_sp.utils.acquisition import (
     ExpectedEpistemicReduction,
+    ExpectedMagnitudeVarianceReduction,
     ExpectedOccurrenceEntropyReduction,
+    MeanMagnitudeVariance,
     MeanOccurrenceEntropy,
     OracleBrierScore,
     OracleEpistemicReduction,
+    OracleMagnitudeVarianceReduction,
     OracleOccurrenceEntropyReduction,
 )
 from giant_sp.utils.data import context_sampling_with_delta, sample_dates_by_year_chunks
@@ -438,6 +441,8 @@ def main(config: DictConfig) -> None:
         acq_fn_type = acq.Stddev(model)
     elif acq_fn == "MeanOccurrenceEntropy":
         acq_fn_type = MeanOccurrenceEntropy(model)
+    elif acq_fn == "MeanMagnitudeVariance":
+        acq_fn_type = MeanMagnitudeVariance(model)
     # Sequential
     elif acq_fn == "MeanStddev":
         acq_fn_type = acq.MeanStddev(model)
@@ -453,6 +458,8 @@ def main(config: DictConfig) -> None:
         acq_fn_type = ExpectedEpistemicReduction(model)
     elif acq_fn == "ExpectedOccurrenceEntropyReduction":
         acq_fn_type = ExpectedOccurrenceEntropyReduction(model)
+    elif acq_fn == "ExpectedMagnitudeVarianceReduction":
+        acq_fn_type = ExpectedMagnitudeVarianceReduction(model)
     # Oracle
     elif acq_fn == "OracleRMSE":
         acq_fn_type = acq.OracleRMSE(model)
@@ -466,6 +473,8 @@ def main(config: DictConfig) -> None:
         acq_fn_type = OracleEpistemicReduction(model)
     elif acq_fn == "OracleOccurrenceEntropyReduction":
         acq_fn_type = OracleOccurrenceEntropyReduction(model)
+    elif acq_fn == "OracleMagnitudeVarianceReduction":
+        acq_fn_type = OracleMagnitudeVarianceReduction(model)
     elif acq_fn == "OracleBrierScore":
         acq_fn_type = OracleBrierScore(model)
     else:
@@ -481,11 +490,12 @@ def main(config: DictConfig) -> None:
     else:
         greedy_gt_args = {}
 
-    # The four "*Reduction" acquisition functions (Expected-/Oracle- x Epistemic-/
-    # OccurrenceEntropy-) score their target quantity directly; GreedyAlgorithm's
-    # `diff=True` turns that into `after - before` so the acquisition value reads as a
-    # reduction. None of them are AcquisitionFunctionParallel (for which `diff=True`
-    # would raise), so this is safe for all four. Other acquisition functions
+    # The six "*Reduction" acquisition functions (Expected-/Oracle- x Epistemic-/
+    # OccurrenceEntropy-/MagnitudeVariance-) score their target quantity directly;
+    # GreedyAlgorithm's `diff=True` turns that into `after - before` so the acquisition
+    # value reads as a reduction. None of them are AcquisitionFunctionParallel (for
+    # which `diff=True` would raise), so this is safe for all six. Other acquisition
+    # functions
     # (OracleMAE/OracleRMSE/OracleMarginalNLL/OracleJointNLL/OracleBrierScore included)
     # use GreedyAlgorithm's default `diff=False`, scoring the resulting task directly.
     greedy_call_args = {"diff": True} if acq_fn.endswith("Reduction") else {}

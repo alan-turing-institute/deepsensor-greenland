@@ -330,6 +330,32 @@ class TestMDNZIGammaConvNPEndToEnd:
         expected = -(p0 * np.log(p0) + (1 - p0) * np.log(1 - p0))
         np.testing.assert_allclose(entropy, expected, atol=1e-6)
 
+    def test_magnitude_variance_task_level(self, tiny_zigamma_dp_and_task_loader):
+        data_processor, task_loader, dates, _ds = tiny_zigamma_dp_and_task_loader
+        K = 2
+        install_mdn_zigamma_likelihood(K)
+        model = MDNZIGammaConvNP(
+            data_processor,
+            task_loader,
+            unet_channels=(4, 4),
+            likelihood="mdn-zigamma",
+            mixture_components=K,
+        )
+        task = task_loader(dates[0], context_sampling="all", target_sampling="all")
+
+        magvar = model.magnitude_variance(task)
+        epvar = model.epistemic_variance(task)
+        p_zero = model.p_zero(task)
+        if isinstance(magvar, list):
+            magvar, epvar, p_zero = magvar[0], epvar[0], p_zero[0]
+
+        # magnitude_variance is `_epistemic_frac_raw`'s "inner" term unweighted by
+        # `p_slab`; its `p_slab`-weighted contribution can never exceed the combined
+        # (occurrence + magnitude) epistemic_variance it's a non-negative summand of.
+        p_slab = 1 - p_zero
+        assert np.all(magvar >= -1e-6)
+        assert np.all(p_slab * magvar <= epvar + 1e-6)
+
     def test_slab_component_params_and_pit(self, tiny_zigamma_dp_and_task_loader):
         """Verify the per-component `pred_params` accessors and PIT computation.
 
