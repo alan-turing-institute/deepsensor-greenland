@@ -257,7 +257,7 @@
         <span class="label">Project overview</span>
         <span class="sub">What GIANT-SP does</span>
       </button>
-      <button class="nav-item" data-target="panel-hf">
+      <button class="nav-item" data-target="panel-earthmover">
         <span class="label">Data overview</span>
         <span class="sub">Explore the dataset</span>
       </button>
@@ -265,9 +265,9 @@
         <span class="label">Model details</span>
         <span class="sub">Architecture &amp; placement</span>
       </button>
-      <button class="nav-item" data-target="panel-earthmover">
+      <button class="nav-item" data-target="panel-hf">
         <span class="label">Model outputs</span>
-        <span class="sub">Earthmover / HIRHAM5</span>
+        <span class="sub">Demo dashboard</span>
       </button>
     </nav>
     <main>
@@ -283,11 +283,13 @@
               (ConvNP models) and PyTorch. It trains spatial-interpolation models on gridded
               climate reanalysis/RCM data plus in-situ station observations, then uses the
               trained model to run active-learning searches for new sensor placements.
-
+            </p>
+            <p>
+              
+            </p>
 
 
               GIANT helps us to answer the question of "where should we place new sensors to most improve our ability to predict the target variable?"
-            </p>
             <img class="overview-figure" src="Sensor_placement.png" alt="Sensor placement diagram" />
             <h3>Pipeline</h3>
             <p>Data loading → DeepSensor model/training → scripts that drive training, inference, and sensor placement.</p>
