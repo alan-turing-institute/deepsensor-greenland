@@ -34,7 +34,7 @@ dataloader:
 
 # Model architecture
 model:
-  likelihood: "bernoulli-gamma"
+  likelihood: "bernoulli-gamma" #for "mdn-zigamma", the mixture_components parameter must be specified in the model section of the config file, accepted values are 1 or 2
   unet_channels: [64, 64, 64, 64]
   num_basis_functions: 64
 

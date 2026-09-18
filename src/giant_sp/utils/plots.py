@@ -32,7 +32,10 @@ from giant_sp.utils.data import (
     normalize_lons,
     points_in_polygons,
 )
-from giant_sp.utils.metrics import compute_pit_bernoulli_gamma
+from giant_sp.utils.metrics import (
+    compute_pit_bernoulli_gamma,
+    compute_pit_zigamma_mixture,
+)
 
 
 def averaged_prediction_plot(
@@ -198,10 +201,74 @@ def averaged_prediction_plot(
     return fig, axes
 
 
+def uncertainty_decomposition_plot(
+    epistemic_std_da: xr.DataArray,
+    aleatoric_std_da: xr.DataArray,
+    cmap: str = "Greys",
+    crs: ccrs.CRS | None = None,
+) -> tuple[Figure, NDArray[Any]]:
+    """Plot time-averaged epistemic and aleatoric predictive-uncertainty maps.
+
+    Companion to :func:`averaged_prediction_plot`, for models exposing an
+    epistemic/aleatoric variance decomposition (e.g.
+    :class:`giant_sp.models.mdn.MDNZIGammaConvNP`). Both panels share the same color
+    scale so their magnitudes are directly comparable.
+
+    Parameters
+    ----------
+    epistemic_std_da : xarray.DataArray
+        Epistemic component of the predictive standard deviation, with a ``time``
+        dimension (e.g. ``giant_sp.utils.model.add_uncertainty_decomposition``'s
+        ``"epistemic_std"`` output).
+    aleatoric_std_da : xarray.DataArray
+        Aleatoric component of the predictive standard deviation, same shape as
+        `epistemic_std_da`.
+    cmap : str, default "Greys"
+        Colormap used for both panels.
+    crs : cartopy.crs.CRS or None, default None
+        If provided, subplots use this as their map projection and coastlines are
+        drawn on every axis.
+
+    Returns
+    -------
+    tuple[matplotlib.figure.Figure, numpy.ndarray]
+        The figure and a flattened array of its 2 :class:`~matplotlib.axes.Axes`
+        (or ``GeoAxes`` if `crs` is given), in the order ``[epistemic, aleatoric]``.
+
+    """
+    subplot_kw = {"projection": crs} if crs is not None else None
+    fig, axes = plt.subplots(
+        nrows=1, ncols=2, figsize=(10, 4), layout="constrained", subplot_kw=subplot_kw
+    )
+
+    ep_max = float(epistemic_std_da.mean(dim="time").max().compute().values)
+    al_max = float(aleatoric_std_da.mean(dim="time").max().compute().values)
+    vmax = max(ep_max, al_max)
+    im_ratio = epistemic_std_da.shape[-2] / epistemic_std_da.shape[-1]
+    cbar_kwargs = {"fraction": 0.046 * im_ratio, "pad": 0.04, "label": None}
+
+    epistemic_std_da.mean(dim="time").plot(  # type: ignore[call-arg]
+        ax=axes[0], cmap=cmap, vmin=0.0, vmax=vmax, cbar_kwargs=cbar_kwargs
+    )
+    axes[0].set_title("Epistemic uncertainty (std)")
+
+    aleatoric_std_da.mean(dim="time").plot(  # type: ignore[call-arg]
+        ax=axes[1], cmap=cmap, vmin=0.0, vmax=vmax, cbar_kwargs=cbar_kwargs
+    )
+    axes[1].set_title("Aleatoric uncertainty (std)")
+
+    if crs is not None:
+        for ax in axes:
+            ax.coastlines(linewidth=0.5)
+
+    return fig, axes
+
+
 def PIT_histogram(
     truth: NDArray[np.floating],
     val_pred: xr.Dataset,
     likelihood: str,
+    n_slab_components: int | None = None,
     **kwargs: Any,
 ) -> tuple[Figure, Axes]:
     """Plot a probability integral transform (PIT) histogram.
@@ -218,12 +285,25 @@ def PIT_histogram(
     val_pred : xarray.Dataset
         Predictive distribution parameters. Must contain a ``"mean"`` and
         ``"std"`` variable; if `likelihood` is ``"bernoulli-gamma"`` it must
-        also contain ``"mixture_probs_0"``, ``"k"`` and ``"scale"``.
+        also contain ``"mixture_probs_0"``, ``"k"`` and ``"scale"``; if
+        `likelihood` is ``"mdn-zigamma"`` it must also contain
+        ``"mixture_probs_0"`` and, for each ``i`` in ``range(n_slab_components)``,
+        ``"slab_probs_{i}"``, ``"slab_k_{i}"`` and ``"slab_scale_{i}"`` (see
+        :func:`giant_sp.models.mdn.install_mdn_zigamma_likelihood`, which attaches
+        the ``pred_params`` accessors these come from).
     likelihood : str
-        Predictive likelihood family. If ``"bernoulli-gamma"``, PIT values
-        are computed with :func:`~giant_sp.utils.metrics.compute_pit_bernoulli_gamma`
-        to account for the point mass at zero; otherwise a Normal CDF
-        (``scipy.stats.norm.cdf``) is used with `val_pred`'s mean/std.
+        Predictive likelihood family. If ``"bernoulli-gamma"``, PIT values are
+        computed with :func:`~giant_sp.utils.metrics.compute_pit_bernoulli_gamma`
+        to account for the point mass at zero. If ``"mdn-zigamma"``, PIT values
+        are computed with
+        :func:`~giant_sp.utils.metrics.compute_pit_zigamma_mixture`, the
+        ``K``-component-mixture generalisation of the same construction.
+        Otherwise a Normal CDF (``scipy.stats.norm.cdf``) is used with
+        `val_pred`'s mean/std.
+    n_slab_components : int or None, default=None
+        Number of Gamma mixture components ``K`` (the model's
+        ``mixture_components`` config value). Required if `likelihood` is
+        ``"mdn-zigamma"``; ignored otherwise.
     **kwargs : Any
         Accepted for interface compatibility but currently unused.
 
@@ -231,6 +311,11 @@ def PIT_histogram(
     -------
     tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]
         The figure and axis containing the PIT histogram.
+
+    Raises
+    ------
+    ValueError
+        If `likelihood` is ``"mdn-zigamma"`` and `n_slab_components` is ``None``.
 
     """
     pred_mean_plt_all = val_pred["mean"].values.flatten()
@@ -249,6 +334,36 @@ def PIT_histogram(
         k_plt = val_pred["k"].values.flatten()[valid]
         scale_plt = val_pred["scale"].values.flatten()[valid]
         pit_values = compute_pit_bernoulli_gamma(true_plt, p_zero_plt, k_plt, scale_plt)
+    elif likelihood == "mdn-zigamma":
+        # Also zero-inflated, but with a K-component Gamma "slab" (rather than a
+        # single Gamma) -- account for both the point mass at zero and the mixture.
+        if n_slab_components is None:
+            raise ValueError(
+                "PIT_histogram requires `n_slab_components` (the model's "
+                "`mixture_components` K) when likelihood='mdn-zigamma'."
+            )
+        p_zero_plt = val_pred["mixture_probs_0"].values.flatten()[valid]
+        pi_plt = np.stack(
+            [
+                val_pred[f"slab_probs_{i}"].values.flatten()[valid]
+                for i in range(n_slab_components)
+            ]
+        )
+        k_plt = np.stack(
+            [
+                val_pred[f"slab_k_{i}"].values.flatten()[valid]
+                for i in range(n_slab_components)
+            ]
+        )
+        scale_plt = np.stack(
+            [
+                val_pred[f"slab_scale_{i}"].values.flatten()[valid]
+                for i in range(n_slab_components)
+            ]
+        )
+        pit_values = compute_pit_zigamma_mixture(
+            true_plt, p_zero_plt, pi_plt, k_plt, scale_plt
+        )
     else:
         pit_values = sp.stats.norm.cdf(true_plt, loc=pred_mean_plt, scale=pred_std_plt)
     # Plot
