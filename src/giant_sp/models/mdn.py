@@ -648,3 +648,40 @@ class MDNZIGammaConvNP(ConvNP):
         """
         dist = self(task)
         return self.magnitude_variance(dist)
+
+    @dispatch
+    def magnitude_mean(self, dist: AbstractMultiOutputDistribution):
+        """Predicted melt magnitude, conditional on melt occurring at all.
+
+        ``dist.slab.mean`` (``sum_k pi_k * mean_k``): the slab-only mixture mean used
+        as ``slab_mean`` in ``_epistemic_frac_raw`` and as the occurrence term's
+        ``mu_s`` in the paper's decomposition, exposed on its own so it can be scored
+        against ground truth (restricted to points where melt actually occurs, since
+        it is only meaningful conditional on occurrence) -- the magnitude-calibration
+        counterpart to ``p_zero``, which plays the same role for occurrence.
+
+        Returned numpy arrays have shape ``(N_features, *N_targets)``.
+        """
+        self._assert_mdn_zigamma("magnitude_mean")
+        magmean = self._cast_numpy_and_squeeze(dist.slab.mean)
+        return self._maybe_concat_multi_targets(magmean)
+
+    @dispatch  # type: ignore[no-redef]
+    def magnitude_mean(self, task: Task):  # noqa: F811
+        """Predicted melt magnitude, conditional on melt occurring at all.
+
+        Returned numpy arrays have shape ``(N_features, *N_targets)``.
+
+        Parameters
+        ----------
+        task : deepsensor.data.task.Task
+            The task containing the context and target data.
+
+        Returns
+        -------
+        numpy.ndarray | list[numpy.ndarray]
+            Magnitude mean values, conditional on occurrence.
+
+        """
+        dist = self(task)
+        return self.magnitude_mean(dist)

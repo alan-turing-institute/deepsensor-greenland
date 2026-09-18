@@ -34,6 +34,7 @@ from giant_sp.utils.acquisition import (
     MeanOccurrenceEntropy,
     OracleBrierScore,
     OracleEpistemicReduction,
+    OracleMagnitudeMAE,
     OracleMagnitudeVarianceReduction,
     OracleOccurrenceEntropyReduction,
 )
@@ -477,6 +478,8 @@ def main(config: DictConfig) -> None:
         acq_fn_type = OracleMagnitudeVarianceReduction(model)
     elif acq_fn == "OracleBrierScore":
         acq_fn_type = OracleBrierScore(model)
+    elif acq_fn == "OracleMagnitudeMAE":
+        acq_fn_type = OracleMagnitudeMAE(model)
     else:
         raise NotImplementedError(f"No deepsensor acquisition function named {acq_fn}")
 
@@ -496,7 +499,8 @@ def main(config: DictConfig) -> None:
     # value reads as a reduction. None of them are AcquisitionFunctionParallel (for
     # which `diff=True` would raise), so this is safe for all six. Other acquisition
     # functions
-    # (OracleMAE/OracleRMSE/OracleMarginalNLL/OracleJointNLL/OracleBrierScore included)
+    # (OracleMAE/OracleRMSE/OracleMarginalNLL/OracleJointNLL/OracleBrierScore/
+    # OracleMagnitudeMAE included)
     # use GreedyAlgorithm's default `diff=False`, scoring the resulting task directly.
     greedy_call_args = {"diff": True} if acq_fn.endswith("Reduction") else {}
 

@@ -11,6 +11,7 @@ from giant_sp.utils.acquisition import (
     MeanOccurrenceEntropy,
     OracleBrierScore,
     OracleEpistemicReduction,
+    OracleMagnitudeMAE,
     OracleMagnitudeVarianceReduction,
     OracleOccurrenceEntropyReduction,
 )
@@ -60,6 +61,10 @@ class _StubModel:
     def p_zero(self, task: Task) -> np.ndarray:
         n_t = task["X_t"].shape[-1] if task["X_t"] is not None else 1
         return np.full((1, n_t), 0.3)
+
+    def magnitude_mean(self, task: Task) -> np.ndarray:
+        n_t = task["X_t"].shape[-1] if task["X_t"] is not None else 1
+        return np.full((1, n_t), 1.5)
 
 
 def _make_task(n_context: int, n_target: int) -> Task:
@@ -332,3 +337,42 @@ class TestOracleBrierScore:
 
     def test_min_or_max_is_min(self):
         assert OracleBrierScore.min_or_max == "min"
+
+
+class TestOracleMagnitudeMAE:
+    def test_matches_manual_mae(self):
+        model = _StubModel()
+        acq_fn = OracleMagnitudeMAE(model)
+        task = _make_task(n_context=3, n_target=4)
+        true = np.array([0.0, 1.0, 0.0, 2.0])
+        task["Y_t"] = [true]
+
+        result = acq_fn(task)
+
+        magmean = model.magnitude_mean(task)[0]
+        true_is_nonzero = np.abs(true) >= 1e-6
+        expected = np.mean(np.abs(magmean[true_is_nonzero] - true[true_is_nonzero]))
+        assert result == pytest.approx(expected)
+
+    def test_perfect_prediction_gives_zero_score(self):
+        class _PerfectModel(_StubModel):
+            def magnitude_mean(self, task: Task) -> np.ndarray:
+                return np.array([task["Y_t"][0]])
+
+        model = _PerfectModel()
+        acq_fn = OracleMagnitudeMAE(model)
+        task = _make_task(n_context=3, n_target=4)
+        task["Y_t"] = [np.array([0.0, 1.0, 0.0, 2.0])]
+
+        assert acq_fn(task) == pytest.approx(0.0)
+
+    def test_returns_nan_when_no_occurrence(self):
+        model = _StubModel()
+        acq_fn = OracleMagnitudeMAE(model)
+        task = _make_task(n_context=3, n_target=3)
+        task["Y_t"] = [np.zeros(3)]
+
+        assert np.isnan(acq_fn(task))
+
+    def test_min_or_max_is_min(self):
+        assert OracleMagnitudeMAE.min_or_max == "min"

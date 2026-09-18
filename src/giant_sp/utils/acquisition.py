@@ -31,10 +31,13 @@ did -- these functions target that disagreement directly, independent of occurre
 probability. Together with the occurrence-entropy family, this makes each mixture
 level's uncertainty independently targetable: occurrence-only, magnitude-only, or
 combined (`ExpectedEpistemicReduction`/`OracleEpistemicReduction`).
+`OracleMagnitudeMAE` is `MeanMagnitudeVariance`'s calibration/accuracy counterpart,
+scoring predicted magnitude against ground truth (restricted to points where melt
+actually occurs) exactly as `OracleBrierScore` does for occurrence.
 
 All require a model exposing
-``epistemic_variance``/``occurrence_entropy``/``magnitude_variance``/``p_zero`` (e.g.
-:class:`giant_sp.models.mdn.MDNZIGammaConvNP`).
+``epistemic_variance``/``occurrence_entropy``/``magnitude_variance``/``magnitude_mean``/
+``p_zero`` (e.g. :class:`giant_sp.models.mdn.MDNZIGammaConvNP`).
 
 The ``Expected*``/``Oracle*Reduction`` pairs share their scoring logic (via a mixin --
 see ``_MeanEpistemicVarianceScorer``/``_MeanOccurrenceEntropyScorer`` below) and differ
@@ -75,6 +78,7 @@ __all__ = [
     "MeanOccurrenceEntropy",
     "OracleBrierScore",
     "OracleEpistemicReduction",
+    "OracleMagnitudeMAE",
     "OracleMagnitudeVarianceReduction",
     "OracleOccurrenceEntropyReduction",
 ]
@@ -358,3 +362,48 @@ class OracleBrierScore(AcquisitionFunctionOracle):
         true = task["Y_t"][self.target_set_idx]
         true_is_nonzero = (np.abs(true) >= 1e-6).astype(float)
         return float(np.mean(((1 - p_zero) - true_is_nonzero) ** 2))
+
+
+class OracleMagnitudeMAE(AcquisitionFunctionOracle):
+    """MAE of the predicted melt magnitude against the truth, given melt occurs.
+
+    Ground-truth-informed calibration/accuracy counterpart to `MeanMagnitudeVariance`
+    (which scores pure model disagreement about magnitude, with no notion of whether
+    that magnitude estimate is accurate) -- the magnitude-uncertainty analogue of
+    `OracleBrierScore`, which plays the same role for occurrence. Scored against
+    ``task["Y_t"]`` as-is (no context augmentation), so use it with
+    :class:`~deepsensor.active_learning.algorithms.GreedyAlgorithm`'s default
+    ``diff=False``. Restricted to target points where melt actually occurs (true
+    value nonzero), since predicted magnitude is only meaningful conditional on
+    occurrence.
+    """
+
+    min_or_max = "min"
+
+    def __call__(self, task: Task) -> float:
+        """Return the MAE of predicted vs. true melt magnitude, given melt occurs.
+
+        Parameters
+        ----------
+        task : deepsensor.data.task.Task
+            Task object containing context and target sets.
+
+        Returns
+        -------
+        float
+            Mean absolute error between predicted melt magnitude (the slab mean,
+            conditional on occurrence) and the true value, over target points where
+            melt actually occurs. ``nan`` if no such points exist.
+        """
+        magmean = self.model.magnitude_mean(task)
+        if isinstance(magmean, list):
+            magmean = magmean[self.target_set_idx]
+        # Drop the leading `N_features` axis (size 1) so the boolean mask below indexes
+        # cleanly against `true`'s `(N_targets,)` shape -- exactly like
+        # `MeanMagnitudeVariance.__call__`'s `magvar[0]`.
+        magmean = magmean[0]
+        true = task["Y_t"][self.target_set_idx]
+        true_is_nonzero = np.abs(true) >= 1e-6
+        if not np.any(true_is_nonzero):
+            return float("nan")
+        return float(np.mean(np.abs(magmean[true_is_nonzero] - true[true_is_nonzero])))

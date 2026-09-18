@@ -356,6 +356,30 @@ class TestMDNZIGammaConvNPEndToEnd:
         assert np.all(magvar >= -1e-6)
         assert np.all(p_slab * magvar <= epvar + 1e-6)
 
+    def test_magnitude_mean_task_level(self, tiny_zigamma_dp_and_task_loader):
+        data_processor, task_loader, dates, _ds = tiny_zigamma_dp_and_task_loader
+        K = 2
+        install_mdn_zigamma_likelihood(K)
+        model = MDNZIGammaConvNP(
+            data_processor,
+            task_loader,
+            unet_channels=(4, 4),
+            likelihood="mdn-zigamma",
+            mixture_components=K,
+        )
+        task = task_loader(dates[0], context_sampling="all", target_sampling="all")
+
+        magmean = model.magnitude_mean(task)
+        p_zero = model.p_zero(task)
+        mean = model.mean(task)
+        if isinstance(magmean, list):
+            magmean, p_zero, mean = magmean[0], p_zero[0], mean[0]
+
+        # magnitude_mean is the slab-only mean (conditional on occurrence); the overall
+        # predictive mean is the zero-spike-weighted average of it and 0.
+        assert np.all(magmean >= -1e-6)
+        np.testing.assert_allclose(mean, (1 - p_zero) * magmean, atol=1e-5)
+
     def test_slab_component_params_and_pit(self, tiny_zigamma_dp_and_task_loader):
         """Verify the per-component `pred_params` accessors and PIT computation.
 
