@@ -96,7 +96,7 @@ def load_wandb_model(
         model = MDNZIGammaConvNP(data_processor, task_loader, **model_args)
     else:
         model = ConvNP(data_processor, task_loader, **model_args)
-        
+
     # Load model weights
     model.model.load_state_dict(
         torch.load(weights_path, map_location=get_available_device())
