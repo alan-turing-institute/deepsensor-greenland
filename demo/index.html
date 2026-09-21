@@ -132,34 +132,6 @@
       height: 100%;
       border: 0;
     }
-    .link-out {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1rem;
-      padding: 2rem;
-      text-align: center;
-      color: var(--muted);
-    }
-    .link-out p {
-      max-width: 32rem;
-      margin: 0;
-      font-size: 0.9rem;
-    }
-    .link-out .button {
-      color: var(--bg);
-      background: var(--accent);
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 0.95rem;
-      padding: 0.6rem 1.2rem;
-      border-radius: 6px;
-    }
-    .link-out .button:hover {
-      opacity: 0.9;
-    }
     .content {
       flex: 1;
       overflow-y: auto;
@@ -309,17 +281,13 @@
         <span class="label">Project overview</span>
         <span class="sub">What GIANT-SP does</span>
       </button>
-      <button class="nav-item" data-target="panel-earthmover">
+      <button class="nav-item" data-target="panel-hf">
         <span class="label">Data overview</span>
         <span class="sub">Explore the dataset</span>
       </button>
       <button class="nav-item" data-target="panel-models">
         <span class="label">Model details</span>
         <span class="sub">Architecture &amp; placement</span>
-      </button>
-      <button class="nav-item" data-target="panel-hf">
-        <span class="label">Model outputs</span>
-        <span class="sub">Demo dashboard</span>
       </button>
     </nav>
     <main>
@@ -443,24 +411,6 @@
             </div>
             <p>Placement runs load a trained model from a W&amp;B run and search via DeepSensor's <code>GreedyAlgorithm</code>.</p>
           </div>
-        </div>
-      </section>
-      <section class="panel" id="panel-earthmover">
-        <div class="panel-header">
-          <span class="title">HIRHAM5 data access (Earthmover)</span>
-          <span class="note">requires login — opens in a new tab</span>
-        </div>
-        <div class="link-out">
-          <p>
-            Earthmover's app doesn't render inside an embedded frame (its login session doesn't
-            survive being loaded cross-site in an iframe), so this panel links out instead.
-          </p>
-          <a
-            class="button"
-            href="https://app.earthmover.io/aria-giant/hirham5-erai-modis-test/data-access/main/baseline?method=tiles&view=0.00000%2C20.00000%2C1.00"
-            target="_blank"
-            rel="noopener"
-          >Open HIRHAM5 data access ↗</a>
         </div>
       </section>
     </main>
