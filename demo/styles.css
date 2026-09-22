@@ -14,7 +14,13 @@ html, body {
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
+site-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
 header {
+  flex: 0 0 auto;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -33,7 +39,8 @@ header p {
 }
 .layout {
   display: flex;
-  height: calc(100% - 4.2rem);
+  flex: 1;
+  min-height: 0;
 }
 nav.sidebar {
   flex: 0 0 220px;
@@ -98,10 +105,6 @@ main {
   font-weight: 600;
   font-size: 0.95rem;
 }
-.panel-header .note {
-  color: var(--muted);
-  font-size: 0.78rem;
-}
 .panel-header a {
   color: var(--accent);
   text-decoration: none;
@@ -129,10 +132,6 @@ iframe {
 }
 .content .inner {
   max-width: 860px;
-}
-.content h2 {
-  font-size: 1.3rem;
-  margin: 0 0 0.75rem;
 }
 .content h3 {
   font-size: 1rem;
