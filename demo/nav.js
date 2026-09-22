@@ -1,7 +1,7 @@
 const PAGES = [
   { id: "overview", href: "index.html", label: "Project overview", sub: "What GIANT-SP does" },
-  { id: "data", href: "data-overview.html", label: "Data overview", sub: "Explore the dataset" },
-  { id: "models", href: "model-details.html", label: "Model details", sub: "Architecture &amp; placement" },
+  { id: "data", href: "data.html", label: "Data", sub: "Explore the dataset" },
+  { id: "model", href: "model.html", label: "Model", sub: "Architecture &amp; placement" },
 ];
 
 class SiteShell extends HTMLElement {
@@ -17,10 +17,14 @@ class SiteShell extends HTMLElement {
         </a>`
     ).join("");
 
+    const currentIndex = PAGES.findIndex((page) => page.id === active);
+    const next = PAGES[(currentIndex + 1) % PAGES.length];
+
     this.innerHTML = `
       <header>
         <h1>GIANT Sensor Placement — Demo Dashboard</h1>
         <p>Explore the dataset and view model outputs</p>
+        <a class="next-btn" href="${next.href}">Next: ${next.label} →</a>
       </header>
       <div class="layout">
         <nav class="sidebar">${navItems}</nav>

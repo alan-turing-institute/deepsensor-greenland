@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GIANT Sensor Placement — Demo Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <site-shell active="model">
+    <section class="panel" id="panel-model">
+      <div class="panel-header">
+        <span class="title">Model overview</span>
+      </div>
+      <div class="content">
+        <div class="inner">
+          <p>
+            Models are DeepSensor <code>ConvNP</code>s (convolutional conditional neural processes) — a
+            set-convolution encoder maps sparse, irregularly located context observations onto a grid, a
+            U-Net processes that grid, and a decoder reads off a predictive distribution at target locations.
+          </p>
+          <div class="diagram-row">
+            <div class="diagram-col">
+              <p class="diagram-label">HIRHAM5 surface melt <em>context</em> points</p>
+              <img class="diagram-figure" src="3_context.gif" alt="Animated map of HIRHAM5 surface melt context points sampled across Greenland" />
+            </div>
+            <div class="diagram-col diagram-middle">
+              <div class="diagram-arrows">→</div>
+              <div class="diagram-model-box">ConvCNP</div>
+              <p class="diagram-caption">Train ~1 million parameters to maximise target probability</p>
+            </div>
+            <div class="diagram-col">
+              <p class="diagram-label">HIRHAM5 surface melt <em>target</em> points</p>
+              <img class="diagram-figure" src="3_target.gif" alt="Animated map of HIRHAM5 surface melt target points sampled across Greenland" />
+            </div>
+          </div>
+          <p><a href="model-detail.html">→ More on architecture &amp; training</a></p>
+        </div>
+      </div>
+    </section>
+  </site-shell>
+  <script src="nav.js"></script>
+</body>
+</html>
