@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GIANT Sensor Placement — Demo Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>GIANT Sensor Placement — Demo Dashboard</h1>
+    <p>Explore the dataset and view model outputs</p>
+  </header>
+  <div class="layout">
+    <nav class="sidebar">
+      <a class="nav-item" href="index.html">
+        <span class="label">Project overview</span>
+        <span class="sub">What GIANT-SP does</span>
+      </a>
+      <a class="nav-item" href="data-overview.html">
+        <span class="label">Data overview</span>
+        <span class="sub">Explore the dataset</span>
+      </a>
+      <a class="nav-item active" href="model-details.html">
+        <span class="label">Model details</span>
+        <span class="sub">Architecture &amp; placement</span>
+      </a>
+    </nav>
+    <main>
+      <section class="panel" id="panel-models">
+        <div class="panel-header">
+          <span class="title">Model details</span>
+        </div>
+        <div class="content">
+          <div class="inner">
+            <p>
+              Models are DeepSensor <code>ConvNP</code>s (convolutional conditional neural processes) — a
+              set-convolution encoder maps sparse, irregularly located context observations onto a grid, a
+              U-Net processes that grid, and a decoder reads off a predictive distribution at target locations.
+            </p>
+            <div class="diagram-row">
+              <div class="diagram-col">
+                <p class="diagram-label">HIRHAM5 surface melt <em>context</em> points</p>
+                <img class="diagram-figure" src="3_context.gif" alt="Animated map of HIRHAM5 surface melt context points sampled across Greenland" />
+              </div>
+              <div class="diagram-col diagram-middle">
+                <div class="diagram-arrows">→</div>
+                <div class="diagram-model-box">ConvCNP</div>
+                <p class="diagram-caption">Train ~1 million parameters to maximise target probability</p>
+              </div>
+              <div class="diagram-col">
+                <p class="diagram-label">HIRHAM5 surface melt <em>target</em> points</p>
+                <img class="diagram-figure" src="3_target.gif" alt="Animated map of HIRHAM5 surface melt target points sampled across Greenland" />
+              </div>
+            </div>
+            <h3>Architecture (configurable per experiment)</h3>
+            <ul>
+              <li><strong>unet_channels</strong> — number of channels per U-Net layer.</li>
+              <li><strong>unet_kernels</strong> — convolution kernel size.</li>
+              <li><strong>num_basis_functions</strong> — basis functions used by the decoder.</li>
+              <li><strong>likelihood</strong> — predictive distribution, e.g. Gaussian or zero-inflated
+                Bernoulli-Gamma for precipitation-like targets (mixture probability + gamma shape/scale).</li>
+            </ul>
+            <h3>Training</h3>
+            <p>
+              Adam/AdamW/SGD optimizer, reduce-on-plateau LR scheduling, early stopping on validation loss,
+              and periodic validation against both the gridded truth and held-out station observations.
+              Runs are tracked in Weights &amp; Biases (metrics, prediction maps, calibration/PIT histograms).
+            </p>
+            <h3>Sensor placement acquisition functions</h3>
+            <div class="card-grid">
+              <div class="card">
+                <div class="card-title">ContextDist</div>
+                <div class="card-body">Favors locations far from existing context observations.</div>
+              </div>
+              <div class="card">
+                <div class="card-title">Stddev</div>
+                <div class="card-body">Greedily picks the location with highest predictive uncertainty.</div>
+              </div>
+              <div class="card">
+                <div class="card-title">MeanMarginalEntropy</div>
+                <div class="card-body">Picks locations that most reduce mean marginal predictive entropy.</div>
+              </div>
+              <div class="card">
+                <div class="card-title">OracleRMSE</div>
+                <div class="card-body">Uses ground truth to pick the location that most reduces RMSE — an upper-bound reference, not a deployable strategy.</div>
+              </div>
+            </div>
+            <p>Placement runs load a trained model from a W&amp;B run and search via DeepSensor's <code>GreedyAlgorithm</code>.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

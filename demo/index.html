@@ -4,271 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GIANT Sensor Placement — Demo Dashboard</title>
-  <style>
-    :root {
-      --bg: #0f1720;
-      --panel-bg: #161f2b;
-      --border: #2a3644;
-      --text: #e6edf3;
-      --muted: #93a4b8;
-      --accent: #4da3ff;
-    }
-    * { box-sizing: border-box; }
-    html, body {
-      margin: 0;
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
-    header {
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: baseline;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-    }
-    header h1 {
-      font-size: 1.1rem;
-      margin: 0;
-    }
-    header p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-    .layout {
-      display: flex;
-      height: calc(100% - 4.2rem);
-    }
-    nav.sidebar {
-      flex: 0 0 220px;
-      background: var(--panel-bg);
-      border-right: 1px solid var(--border);
-      padding: 0.75rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-    }
-    nav.sidebar button {
-      all: unset;
-      cursor: pointer;
-      padding: 0.65rem 0.75rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      color: var(--text);
-      display: flex;
-      flex-direction: column;
-      gap: 0.15rem;
-    }
-    nav.sidebar button .label {
-      font-weight: 600;
-    }
-    nav.sidebar button .sub {
-      color: var(--muted);
-      font-size: 0.75rem;
-    }
-    nav.sidebar button:hover {
-      background: rgba(255, 255, 255, 0.05);
-    }
-    nav.sidebar button.active {
-      background: var(--accent);
-    }
-    nav.sidebar button.active .label,
-    nav.sidebar button.active .sub {
-      color: var(--bg);
-    }
-    main {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      background: var(--bg);
-    }
-    .panel {
-      flex: 1;
-      display: none;
-      flex-direction: column;
-      min-height: 0;
-    }
-    .panel.active {
-      display: flex;
-    }
-    .panel-header {
-      padding: 0.6rem 1rem;
-      background: var(--panel-bg);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 0.75rem;
-    }
-    .panel-header .title {
-      font-weight: 600;
-      font-size: 0.95rem;
-    }
-    .panel-header .note {
-      color: var(--muted);
-      font-size: 0.78rem;
-    }
-    .panel-header a {
-      color: var(--accent);
-      text-decoration: none;
-      font-size: 0.85rem;
-      white-space: nowrap;
-    }
-    .panel-header a:hover {
-      text-decoration: underline;
-    }
-    .frame-wrap {
-      flex: 1;
-      position: relative;
-    }
-    iframe {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      border: 0;
-    }
-    .content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 2rem;
-    }
-    .content .inner {
-      max-width: 860px;
-    }
-    .content h2 {
-      font-size: 1.3rem;
-      margin: 0 0 0.75rem;
-    }
-    .content h3 {
-      font-size: 1rem;
-      margin: 1.75rem 0 0.5rem;
-      color: var(--text);
-    }
-    .content p {
-      color: var(--muted);
-      line-height: 1.55;
-      margin: 0 0 0.9rem;
-    }
-    .content ul {
-      margin: 0 0 0.9rem;
-      padding-left: 1.25rem;
-      color: var(--muted);
-      line-height: 1.6;
-    }
-    .content li {
-      margin-bottom: 0.35rem;
-    }
-    .content li strong {
-      color: var(--text);
-    }
-    .content code {
-      background: var(--panel-bg);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 0.1rem 0.35rem;
-      font-size: 0.85em;
-      color: var(--text);
-    }
-    .content a {
-      color: var(--accent);
-    }
-    .overview-figure {
-      display: block;
-      max-width: 100%;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      margin: 0 0 1.25rem;
-    }
-    .diagram-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 1.5rem;
-      margin: 0 0 1.5rem;
-    }
-    .diagram-col {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.5rem;
-      width: 280px;
-    }
-    .diagram-label {
-      margin: 0;
-      font-size: 0.85rem;
-      text-align: center;
-      color: var(--text);
-    }
-    .diagram-figure {
-      display: block;
-      max-width: 100%;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: #fff;
-    }
-    .diagram-middle {
-      width: 200px;
-      gap: 0.65rem;
-    }
-    .diagram-arrows {
-      font-size: 1.6rem;
-      color: var(--accent);
-      line-height: 1;
-    }
-    .diagram-model-box {
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.4rem 1.1rem;
-      font-weight: 600;
-      font-size: 0.9rem;
-      color: var(--text);
-      background: var(--panel-bg);
-    }
-    .diagram-caption {
-      margin: 0;
-      font-size: 0.78rem;
-      text-align: center;
-      color: var(--muted);
-    }
-    .card-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 0.75rem;
-      margin: 0 0 1.25rem;
-    }
-    .card {
-      background: var(--panel-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.9rem 1rem;
-    }
-    .card .card-title {
-      font-weight: 600;
-      font-size: 0.9rem;
-      margin-bottom: 0.3rem;
-    }
-    .card .card-body {
-      color: var(--muted);
-      font-size: 0.82rem;
-      line-height: 1.5;
-    }
-    @media (max-width: 700px) {
-      .layout { flex-direction: column; }
-      nav.sidebar {
-        flex: 0 0 auto;
-        flex-direction: row;
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-        overflow-x: auto;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header>
@@ -277,26 +13,30 @@
   </header>
   <div class="layout">
     <nav class="sidebar">
-      <button class="nav-item active" data-target="panel-overview">
+      <a class="nav-item active" href="index.html">
         <span class="label">Project overview</span>
         <span class="sub">What GIANT-SP does</span>
-      </button>
-      <button class="nav-item" data-target="panel-hf">
+      </a>
+      <a class="nav-item" href="data-overview.html">
         <span class="label">Data overview</span>
         <span class="sub">Explore the dataset</span>
-      </button>
-      <button class="nav-item" data-target="panel-models">
+      </a>
+      <a class="nav-item" href="model-details.html">
         <span class="label">Model details</span>
         <span class="sub">Architecture &amp; placement</span>
-      </button>
+      </a>
     </nav>
     <main>
-      <section class="panel active" id="panel-overview">
+      <section class="panel" id="panel-overview">
         <div class="panel-header">
           <span class="title">Project overview</span>
         </div>
         <div class="content">
           <div class="inner">
+            <p class="lead">
+              GIANT answers the question of "where should we place new sensors to improve our ability to predict the target variable?"
+            </p>
+            <img class="overview-figure" src="1_PROMICE.png" alt="Map of current and potential PROMICE weather station locations across Greenland, with photos of example stations" />
             <p>
               <strong>giant-sp</strong> is a sensor-placement tool for GIANT, built on top of
               <a href="https://github.com/alan-turing-institute/deepsensor" target="_blank" rel="noopener">DeepSensor</a>
@@ -304,13 +44,6 @@
               climate reanalysis/RCM data plus in-situ station observations, then uses the
               trained model to run active-learning searches for new sensor placements.
             </p>
-            <p>
-
-            </p>
-
-
-              GIANT helps us to answer the question of "where should we place new sensors to most improve our ability to predict the target variable?"
-            <img class="overview-figure" src="1_PROMICE.png" alt="Map of current and potential PROMICE weather station locations across Greenland, with photos of example stations" />
             <h3>Pipeline</h3>
             <p>Data loading → DeepSensor model/training → scripts that drive training, inference, and sensor placement.</p>
             <div class="card-grid">
@@ -336,96 +69,7 @@
           </div>
         </div>
       </section>
-      <section class="panel" id="panel-hf">
-        <div class="panel-header">
-          <span class="title">Demo dashboard (Hugging Face Space)</span>
-          <a href="https://huggingface.co/spaces/hugging-science/acocac-demo-dashboard" target="_blank" rel="noopener">Open in new tab ↗</a>
-        </div>
-        <div class="frame-wrap">
-          <iframe
-            src="https://hugging-science-acocac-demo-dashboard.hf.space"
-            title="acocac demo dashboard"
-            loading="lazy"
-            allow="fullscreen"
-          ></iframe>
-        </div>
-      </section>
-      <section class="panel" id="panel-models">
-        <div class="panel-header">
-          <span class="title">Model details</span>
-        </div>
-        <div class="content">
-          <div class="inner">
-            <p>
-              Models are DeepSensor <code>ConvNP</code>s (convolutional conditional neural processes) — a
-              set-convolution encoder maps sparse, irregularly located context observations onto a grid, a
-              U-Net processes that grid, and a decoder reads off a predictive distribution at target locations.
-            </p>
-            <div class="diagram-row">
-              <div class="diagram-col">
-                <p class="diagram-label">HIRHAM5 surface melt <strong>context</strong> points</p>
-                <img class="diagram-figure" src="3_context.gif" alt="Animated map of HIRHAM5 surface melt context points sampled across Greenland" />
-              </div>
-              <div class="diagram-col diagram-middle">
-                <div class="diagram-arrows">→</div>
-                <div class="diagram-model-box">ConvCNP</div>
-                <p class="diagram-caption">Train ~1 million parameters to maximise target probability</p>
-              </div>
-              <div class="diagram-col">
-                <p class="diagram-label">HIRHAM5 surface melt <strong>target</strong> points</p>
-                <img class="diagram-figure" src="3_target.gif" alt="Animated map of HIRHAM5 surface melt target points sampled across Greenland" />
-              </div>
-            </div>
-            <h3>Architecture (configurable per experiment)</h3>
-            <ul>
-              <li><strong>unet_channels</strong> — number of channels per U-Net layer.</li>
-              <li><strong>unet_kernels</strong> — convolution kernel size.</li>
-              <li><strong>num_basis_functions</strong> — basis functions used by the decoder.</li>
-              <li><strong>likelihood</strong> — predictive distribution, e.g. Gaussian or zero-inflated
-                Bernoulli-Gamma for precipitation-like targets (mixture probability + gamma shape/scale).</li>
-            </ul>
-            <h3>Training</h3>
-            <p>
-              Adam/AdamW/SGD optimizer, reduce-on-plateau LR scheduling, early stopping on validation loss,
-              and periodic validation against both the gridded truth and held-out station observations.
-              Runs are tracked in Weights &amp; Biases (metrics, prediction maps, calibration/PIT histograms).
-            </p>
-            <h3>Sensor placement acquisition functions</h3>
-            <div class="card-grid">
-              <div class="card">
-                <div class="card-title">ContextDist</div>
-                <div class="card-body">Favors locations far from existing context observations.</div>
-              </div>
-              <div class="card">
-                <div class="card-title">Stddev</div>
-                <div class="card-body">Greedily picks the location with highest predictive uncertainty.</div>
-              </div>
-              <div class="card">
-                <div class="card-title">MeanMarginalEntropy</div>
-                <div class="card-body">Picks locations that most reduce mean marginal predictive entropy.</div>
-              </div>
-              <div class="card">
-                <div class="card-title">OracleRMSE</div>
-                <div class="card-body">Uses ground truth to pick the location that most reduces RMSE — an upper-bound reference, not a deployable strategy.</div>
-              </div>
-            </div>
-            <p>Placement runs load a trained model from a W&amp;B run and search via DeepSensor's <code>GreedyAlgorithm</code>.</p>
-          </div>
-        </div>
-      </section>
     </main>
   </div>
-  <script>
-    const navItems = document.querySelectorAll(".nav-item");
-    const panels = document.querySelectorAll(".panel");
-    navItems.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        navItems.forEach((b) => b.classList.remove("active"));
-        panels.forEach((p) => p.classList.remove("active"));
-        btn.classList.add("active");
-        document.getElementById(btn.dataset.target).classList.add("active");
-      });
-    });
-  </script>
 </body>
 </html>

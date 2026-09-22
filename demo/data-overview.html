@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GIANT Sensor Placement — Demo Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>GIANT Sensor Placement — Demo Dashboard</h1>
+    <p>Explore the dataset and view model outputs</p>
+  </header>
+  <div class="layout">
+    <nav class="sidebar">
+      <a class="nav-item" href="index.html">
+        <span class="label">Project overview</span>
+        <span class="sub">What GIANT-SP does</span>
+      </a>
+      <a class="nav-item active" href="data-overview.html">
+        <span class="label">Data overview</span>
+        <span class="sub">Explore the dataset</span>
+      </a>
+      <a class="nav-item" href="model-details.html">
+        <span class="label">Model details</span>
+        <span class="sub">Architecture &amp; placement</span>
+      </a>
+    </nav>
+    <main>
+      <section class="panel" id="panel-hf">
+        <div class="panel-header">
+          <span class="title">Demo dashboard (Hugging Face Space)</span>
+          <a href="https://huggingface.co/spaces/hugging-science/acocac-demo-dashboard" target="_blank" rel="noopener">Open in new tab ↗</a>
+        </div>
+        <div class="frame-wrap">
+          <iframe
+            src="https://hugging-science-acocac-demo-dashboard.hf.space"
+            title="acocac demo dashboard"
+            loading="lazy"
+            allow="fullscreen"
+          ></iframe>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
