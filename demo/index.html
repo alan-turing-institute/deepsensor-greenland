@@ -7,69 +7,50 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header>
-    <h1>GIANT Sensor Placement — Demo Dashboard</h1>
-    <p>Explore the dataset and view model outputs</p>
-  </header>
-  <div class="layout">
-    <nav class="sidebar">
-      <a class="nav-item active" href="index.html">
-        <span class="label">Project overview</span>
-        <span class="sub">What GIANT-SP does</span>
-      </a>
-      <a class="nav-item" href="data-overview.html">
-        <span class="label">Data overview</span>
-        <span class="sub">Explore the dataset</span>
-      </a>
-      <a class="nav-item" href="model-details.html">
-        <span class="label">Model details</span>
-        <span class="sub">Architecture &amp; placement</span>
-      </a>
-    </nav>
-    <main>
-      <section class="panel" id="panel-overview">
-        <div class="panel-header">
-          <span class="title">Project overview</span>
-        </div>
-        <div class="content">
-          <div class="inner">
-            <p class="lead">
-              GIANT answers the question of "where should we place new sensors to improve our ability to predict the target variable?"
-            </p>
-            <img class="overview-figure" src="1_PROMICE.png" alt="Map of current and potential PROMICE weather station locations across Greenland, with photos of example stations" />
-            <p>
-              <strong>giant-sp</strong> is a sensor-placement tool for GIANT, built on top of
-              <a href="https://github.com/alan-turing-institute/deepsensor" target="_blank" rel="noopener">DeepSensor</a>
-              (ConvNP models) and PyTorch. It trains spatial-interpolation models on gridded
-              climate reanalysis/RCM data plus in-situ station observations, then uses the
-              trained model to run active-learning searches for new sensor placements.
-            </p>
-            <h3>Pipeline</h3>
-            <p>Data loading → DeepSensor model/training → scripts that drive training, inference, and sensor placement.</p>
-            <div class="card-grid">
-              <div class="card">
-                <div class="card-title">1. Data loading</div>
-                <div class="card-body">Per-source data loaders normalize gridded data and build DeepSensor context/target task samplers.</div>
-              </div>
-              <div class="card">
-                <div class="card-title">2. Training</div>
-                <div class="card-body">A ConvNP model is trained to interpolate the target variable from sparse context observations, validated against both gridded truth and held-out stations.</div>
-              </div>
-              <div class="card">
-                <div class="card-title">3. Placement</div>
-                <div class="card-body">The trained model drives a greedy active-learning search to propose new sensor locations that most reduce predictive uncertainty.</div>
-              </div>
+  <site-shell active="overview">
+    <section class="panel" id="panel-overview">
+      <div class="panel-header">
+        <span class="title">Project overview</span>
+      </div>
+      <div class="content">
+        <div class="inner">
+          <p class="lead">
+            GIANT answers the question of "where should we place new sensors to improve our ability to predict the target variable?"
+          </p>
+          <img class="overview-figure" src="1_PROMICE.png" alt="Map of current and potential PROMICE weather station locations across Greenland, with photos of example stations" />
+          <p>
+            <strong>giant-sp</strong> is a sensor-placement tool for GIANT, built on top of
+            <a href="https://github.com/alan-turing-institute/deepsensor" target="_blank" rel="noopener">DeepSensor</a>
+            (ConvNP models) and PyTorch. It trains spatial-interpolation models on gridded
+            climate reanalysis/RCM data plus in-situ station observations, then uses the
+            trained model to run active-learning searches for new sensor placements.
+          </p>
+          <h3>Pipeline</h3>
+          <p>Data loading → DeepSensor model/training → scripts that drive training, inference, and sensor placement.</p>
+          <div class="card-grid">
+            <div class="card">
+              <div class="card-title">1. Data loading</div>
+              <div class="card-body">Per-source data loaders normalize gridded data and build DeepSensor context/target task samplers.</div>
             </div>
-            <h3>Data sources</h3>
-            <ul>
-              <li><strong>CARRA2</strong> — reanalysis data, temperature (<code>2t_abs</code>) target.</li>
-              <li><strong>HIRHAM5</strong> — regional climate model data (NetCDF), snowmelt (<code>snmel_abs</code>) target.</li>
-              <li><strong>HIRHAM5 (Zarr)</strong> — the same HIRHAM5 source, pre-processed into Zarr with an added rolling 10-year-average covariate.</li>
-            </ul>
+            <div class="card">
+              <div class="card-title">2. Training</div>
+              <div class="card-body">A ConvNP model is trained to interpolate the target variable from sparse context observations, validated against both gridded truth and held-out stations.</div>
+            </div>
+            <div class="card">
+              <div class="card-title">3. Placement</div>
+              <div class="card-body">The trained model drives a greedy active-learning search to propose new sensor locations that most reduce predictive uncertainty.</div>
+            </div>
           </div>
+          <h3>Data sources</h3>
+          <ul>
+            <li><strong>CARRA2</strong> — reanalysis data, temperature (<code>2t_abs</code>) target.</li>
+            <li><strong>HIRHAM5</strong> — regional climate model data (NetCDF), snowmelt (<code>snmel_abs</code>) target.</li>
+            <li><strong>HIRHAM5 (Zarr)</strong> — the same HIRHAM5 source, pre-processed into Zarr with an added rolling 10-year-average covariate.</li>
+          </ul>
         </div>
-      </section>
-    </main>
-  </div>
+      </div>
+    </section>
+  </site-shell>
+  <script src="nav.js"></script>
 </body>
 </html>
