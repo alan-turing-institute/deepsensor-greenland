@@ -162,6 +162,14 @@ iframe {
   color: var(--text);
   font-weight: 700;
 }
+.content p.lead-box {
+  text-align: center;
+  color: var(--bg);
+  background: #cfe6ff;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+}
 .content ul {
   margin: 0 0 0.9rem;
   padding-left: 1.25rem;
@@ -240,6 +248,21 @@ iframe {
   font-size: 0.9rem;
   color: var(--text);
   background: var(--panel-bg);
+}
+.diagram-flow {
+  flex-wrap: nowrap;
+  gap: 1rem;
+}
+.diagram-flow .diagram-col {
+  width: auto;
+}
+.diagram-flow .diagram-label {
+  font-size: 1.5rem;
+}
+.diagram-connector {
+  font-size: 1.6rem;
+  color: var(--accent);
+  line-height: 1;
 }
 .diagram-caption {
   margin: 0;
