@@ -5,15 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GIANT Sensor Placement — Demo Dashboard</title>
   <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
-  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body)"></script>
 </head>
 <body>
-  <site-shell active="overview">
-    <section class="panel" id="panel-overview">
+  <site-shell active="home">
+    <section class="panel" id="panel-home">
       <div class="panel-header">
-        <span class="title">Project overview</span>
+        <span class="title">Home</span>
       </div>
       <div class="content">
         <div class="inner">
@@ -21,45 +18,7 @@
           Where should we invest in new sensors to improve our ability to monitor climate tipping points?
           </p>
           <img class="overview-figure" src="images/1_PROMICE.png" alt="Map of current and potential PROMICE weather station locations across Greenland, with photos of example stations" />
-          <p>
-            <strong>GIANT-sp</strong> is a tool to aid optimal sensor placement for monitoring climate tipping points.
-          </p>
-          <ul>
-            <li>Building on the principles of active learning, it uses <a href="https://github.com/alan-turing-institute/deepsensor" target="_blank" rel="noopener">DeepSensor</a> (ConvNP models) and PyTorch.</li>
-            <li>It trains spatial-interpolation models on gridded climate reanalysis/RCM data plus in-situ station observations, then uses the trained model to run active-learning searches for new sensor placements.</li>
-            <li>This demo showcases the tool's capabilities and provides a dashboard for exploring the data, model, and sensor-placement results for <strong>surface melt</strong>.</li>
-          </ul>
-          <h3>The recipe</h3>
-          <div class="diagram-row diagram-flow">
-            <div class="diagram-col">
-              <p class="diagram-label">model \(p(\boldsymbol{y} \mid \text{data})\)</p>
-            </div>
-            <div class="diagram-connector" aria-hidden="true">→</div>
-            <div class="diagram-col">
-              <p class="diagram-label">acquisition function \(\alpha(x)\)</p>
-            </div>
-            <div class="diagram-connector" aria-hidden="true">→</div>
-            <div class="diagram-col">
-              <p class="diagram-label">placements \(x^*\)</p>
-            </div>
-          </div>
-          <img class="overview-figure" src="images/1b_overview_al.gif" alt="Animation of the greedy active-learning loop proposing new sensor placements" />
-          <h3>Pipeline</h3>
-          <p>Data loading → DeepSensor model/training → scripts that drive training, inference, and sensor placement.</p>
-          <div class="card-grid">
-            <div class="card">
-              <div class="card-title">1. Data loading</div>
-              <div class="card-body">Per-source data loaders normalize gridded data and build DeepSensor context/target task samplers.</div>
-            </div>
-            <div class="card">
-              <div class="card-title">2. Training</div>
-              <div class="card-body">A ConvNP model is trained to interpolate the target variable from sparse context observations, validated against both gridded truth and held-out stations.</div>
-            </div>
-            <div class="card">
-              <div class="card-title">3. Placement</div>
-              <div class="card-body">The trained model drives a greedy active-learning search to propose new sensor locations that most reduce predictive uncertainty.</div>
-            </div>
-          </div>
+          
         </div>
       </div>
     </section>
