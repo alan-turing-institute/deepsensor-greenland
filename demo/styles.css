@@ -210,7 +210,8 @@ iframe {
 .content a {
   color: var(--accent);
 }
-.overview-figure {
+.overview-figure,
+.detail-figure {
   display: block;
   max-width: 100%;
   background: #ffffff;
@@ -218,6 +219,9 @@ iframe {
   border-radius: 8px;
   padding: 1rem;
   margin: 0 0 1.25rem;
+}
+.detail-figure {
+  width: 100%;
 }
 .diagram-row {
   display: flex;

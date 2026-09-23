@@ -3,6 +3,7 @@ const PAGES = [
   { id: "overview", href: "overview.html", label: "Project overview", sub: "What GIANT-SP does" },
   { id: "data", href: "data.html", label: "Data", sub: "Explore the dataset" },
   { id: "model", href: "model.html", label: "Model", sub: "Architecture &amp; placement" },
+  { id: "results", href: "results.html", label: "Results", sub: "Proposed sensor locations" },
 ];
 
 class SiteShell extends HTMLElement {
