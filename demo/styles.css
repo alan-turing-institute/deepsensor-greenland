@@ -223,6 +223,25 @@ iframe {
 .detail-figure {
   width: 100%;
 }
+.credits-figure {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0 0 1.25rem;
+}
+.credits-logos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2.5rem;
+  margin: 2rem 0 0;
+}
+.credits-logos img {
+  height: 60px;
+  width: auto;
+}
 .diagram-row {
   display: flex;
   align-items: center;

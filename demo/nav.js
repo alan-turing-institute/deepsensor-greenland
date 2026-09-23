@@ -4,6 +4,7 @@ const PAGES = [
   { id: "data", href: "data.html", label: "Data", sub: "Explore the dataset" },
   { id: "model", href: "model.html", label: "Model", sub: "Architecture &amp; placement" },
   { id: "results", href: "results.html", label: "Results", sub: "Proposed sensor locations" },
+  { id: "credits", href: "credits.html", label: "Credits", sub: "Project &amp; partners" },
 ];
 
 class SiteShell extends HTMLElement {
