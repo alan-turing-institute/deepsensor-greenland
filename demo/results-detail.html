@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GIANT Sensor Placement — Demo Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <site-shell active="results">
+    <section class="panel" id="panel-results-detail">
+      <div class="panel-header">
+        <span class="title">Results details</span>
+        <a href="results.html">← Back to Results</a>
+      </div>
+      <div class="content">
+        <div class="inner">
+          <p>
+            We compare acquisition functions by running ten iterations of greedy placement with each
+            and tracking how much every new sensor improves the model's predictions of surface melt.
+            The oracle variants score candidates against the ground truth, so they are not available in
+            practice but give an upper bound on what each strategy could achieve.
+          </p>
+          <img class="detail-figure" src="images/result_details.png" alt="Line plots of RMSE, MAE and NLL over ten placement iterations for each acquisition function, above maps of Greenland showing each acquisition function with context stations and numbered proposed placements" />
+          <ul>
+            <li><strong>(a) Error over placement iterations:</strong> RMSE, MAE and negative log-likelihood
+              after each new sensor. Expected Occurrence Entropy reduces error the most of the practical
+              acquisition functions and tracks its oracle closely, while the Mean Variance baseline and
+              Expected Total Epistemic improve only slightly.</li>
+            <li><strong>(b) Where each strategy places sensors:</strong> the acquisition function across
+              Greenland, with existing context stations in black and proposed placements in red, numbered
+              in the order they were chosen. The dashed line separates the practical acquisition
+              functions (left) from the oracles (right).</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </site-shell>
+  <script src="nav.js"></script>
+</body>
+</html>
