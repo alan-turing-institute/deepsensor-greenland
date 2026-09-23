@@ -22,9 +22,16 @@ class SiteShell extends HTMLElement {
 
     this.innerHTML = `
       <header>
-        <h1>GIANT Sensor Placement — Demo Dashboard</h1>
-        <p>Explore the dataset and view model outputs</p>
+        <img class="header-logo" src="logos/giant.png" alt="GIANT" />
+        <div class="header-title">
+          <h1>GIANT Sensor Placement — Demo Dashboard</h1>
+          <p>Explore the dataset and view model outputs</p>
+        </div>
         <a class="next-btn" href="${next.href}">Next: ${next.label} →</a>
+        <div class="partner-logos">
+          <img class="header-logo" src="logos/turing_white.png" alt="The Alan Turing Institute" />
+          <img class="header-logo" src="logos/aria_white.png" alt="ARIA" />
+        </div>
       </header>
       <div class="layout">
         <nav class="sidebar">${navItems}</nav>

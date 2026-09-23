@@ -24,6 +24,12 @@ header {
   padding: 1.5rem 2rem;
   border-bottom: 1px solid var(--border);
   display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.header-title {
+  display: flex;
   align-items: baseline;
   gap: 1rem;
   flex-wrap: wrap;
@@ -36,6 +42,17 @@ header p {
   margin: 0;
   color: var(--muted);
   font-size: 1.05rem;
+}
+.header-logo {
+  align-self: center;
+  height: 44px;
+  width: auto;
+}
+.partner-logos {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
 }
 .next-btn {
   margin-left: auto;
