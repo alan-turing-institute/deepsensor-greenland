@@ -438,9 +438,8 @@ def main(config: DictConfig) -> None:
     if acq_fn == "Random":
         n_random_seeds = placement_config.N_random_seeds
         random_seeds = np.arange(seed, seed + n_random_seeds)
-        acq_fn_type = [acq.Random(seed=seed) for seed in random_seeds]
-        seeds = random_seeds.astype('str')
-        # acq_fn_type = acq.Random()
+        acq_fn_type = [acq.Random(seed=s) for s in random_seeds]
+        seeds = random_seeds.tolist()
         tasks = tasks[:1]
     elif acq_fn == "ContextDist":
         acq_fn_type = [acq.ContextDist(context_set_idx=0)]
@@ -522,48 +521,27 @@ def main(config: DictConfig) -> None:
         **greedy_gt_args,
     )
 
-    for seed, acq_fn_run in zip(seeds, acq_fn_type):
-        if not os.path.exists(
-            os.path.join(
-                savedir,
-                f"AcqFn_{acq_fn}_seed{seed}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
-            )
-        ):
+    for run_seed, acq_fn_run in zip(seeds, acq_fn_type, strict=True):
+        run_suffix = f"{acq_fn}_seed{run_seed}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}"
+        acq_fn_path = os.path.join(savedir, f"AcqFn_{run_suffix}.nc")
+        new_place_path = os.path.join(savedir, f"NewPlace_{run_suffix}.csv")
+
+        if not os.path.exists(acq_fn_path):
             # New placements
             X_new_df, acq_fn_da = greedy_alg(acq_fn_run, tasks, **greedy_call_args)
 
             # Save
-            acq_fn_da.to_netcdf(
-                os.path.join(
-                    savedir,
-                    f"AcqFn_{acq_fn}_seed{seed}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
-                )
-            )
-            X_new_df.to_csv(
-                os.path.join(
-                    savedir,
-                    f"NewPlace_seed{seed}_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv",
-                )
-            )
+            acq_fn_da.to_netcdf(acq_fn_path)
+            X_new_df.to_csv(new_place_path)
 
         else:
             print(
-                f"Acquisition function file already exists. Skipping computation: {os.path.join(savedir, f'AcqFn_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc')}"
+                f"Acquisition function file already exists. Skipping computation: {acq_fn_path}"
             )
             print("Plotting existing acquisition function file.")
             search_grid_is_default = True
-            acq_fn_da = xr.open_dataarray(
-                os.path.join(
-                    savedir,
-                    f"AcqFn_{acq_fn}_seed{seed}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
-                )
-            )
-            X_new_df = pd.read_csv(
-                os.path.join(
-                    savedir,
-                    f"NewPlace_{acq_fn}_seed{seed}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv",
-                )
-            )[["lat", "lon"]]
+            acq_fn_da = xr.open_dataarray(acq_fn_path)
+            X_new_df = pd.read_csv(new_place_path)[["lat", "lon"]]
 
         if source == "hirham5zarr" and search_grid_is_default:
             # acq_fn_da's lat/lon coords are native-grid-index averages from coarsening
@@ -618,7 +596,7 @@ def main(config: DictConfig) -> None:
             ax.get_figure().savefig(
                 os.path.join(
                     figdir,
-                    f"newplacements_{acq_fn}_seed{seed}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg",
+                    f"newplacements_{run_suffix}.jpg",
                 ),
                 bbox_inches="tight",
                 dpi=300,
@@ -631,7 +609,7 @@ def main(config: DictConfig) -> None:
             fig.savefig(
                 os.path.join(
                     figdir,
-                    f"newplacements_{acq_fn}_seed{seed}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg",
+                    f"newplacements_{run_suffix}.jpg",
                 )
             )
 
