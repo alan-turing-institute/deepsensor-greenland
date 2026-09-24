@@ -612,6 +612,7 @@ def main(config: DictConfig) -> None:
                     f"newplacements_{run_suffix}.jpg",
                 )
             )
+        plt.close(fig)
 
 
 if __name__ == "__main__":
