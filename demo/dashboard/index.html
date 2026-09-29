@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GIANT data dashboard</title>
+<link rel="stylesheet" href="./style.css" />
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+<main class="main">
+  <p class="lede">
+    Data streamed live from the <code>aria-giant/hirham5-erai-modis-test</code> repository on
+    Earthmover (Arraylake). Toggle experiments and variables on and off, and smooth the series.
+    Click a point on a chart, or pick a date, to map that day.
+  </p>
+
+  <div id="error" class="error hidden"></div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Experiments / groups</h2>
+      <div id="experiment-list" class="experiment-list">
+        <p class="muted">loading…</p>
+      </div>
+
+      <h2>Smoothing</h2>
+      <select id="smooth-select">
+        <option value="1">Raw</option>
+        <option value="5">5-point mean</option>
+        <option value="11" selected>11-point mean</option>
+        <option value="31">31-point mean</option>
+      </select>
+
+      <h2>Variables</h2>
+      <div id="variable-list" class="experiment-list">
+        <p class="muted">loading…</p>
+      </div>
+    </aside>
+
+    <div id="plots" class="plots"></div>
+  </div>
+</main>
+
+<footer class="footer">
+  <span id="footer-info" class="muted">loading…</span>
+  <button id="refresh-btn">Refresh data</button>
+</footer>
+
+<div id="lightbox" class="lightbox hidden">
+  <img id="lightbox-img" alt="" />
+</div>
+
+<script src="./app.js"></script>
+</body>
+</html>

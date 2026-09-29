@@ -110,6 +110,16 @@ check whether the same fix is needed in the other two scripts.
 `scripts/preprocessing/hirham5_create_basefile.py` is a standalone preprocessing script (not part
 of the train/infer/place pipeline above) that builds the HIRHAM5 base NetCDF file.
 
+### Demo site (`demo/`, `src/giant_sp/demo/`)
+
+`demo/` is a static presentation site (plain HTML + `nav.js`'s `<site-shell>` element). Its Data
+page iframes `demo/dashboard/`, a Plotly dashboard that reads `./api/*` from the local server in
+`src/giant_sp/demo/` (`uv run python -m giant_sp.demo`, Python 3.12+ — see the README): `source.py`
+opens the Arraylake/Icechunk repo, `dashboard.py` discovers experiments/variables and builds
+domain-mean series and on-demand cartopy maps (cached per snapshot), and `server.py` is the FastAPI
+app serving `/dashboard/api/*` plus the static site at `/`. Its deps are the `demo` dependency
+group; tests (`tests/demo/`) use an in-memory zarr group instead of Arraylake.
+
 ### Plotting & metrics (`utils/plots.py`, `utils/metrics.py`)
 
 `utils/plots.py` holds all matplotlib/cartopy figure-building code (prediction maps, PIT

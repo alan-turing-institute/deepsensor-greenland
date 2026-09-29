@@ -87,6 +87,26 @@ uv run src/giant_sp/scripts/interpolation.py --config-name=<name>.local
 Any config value can also be overridden from the command line, e.g.
 `--config-name=<name>.local training.num_epochs=5`.
 
+## Demo site
+
+`demo/` is a static site presenting the project. Its Data page embeds a dashboard that streams the
+`aria-giant/hirham5-erai-modis-test` dataset live from Earthmover (Arraylake): domain-mean time
+series per experiment/variable, plus a map for any chosen date, rendered on demand. The data isn't
+stored locally, so the site is served by a small local server (`giant_sp.demo`) rather than opened
+as files.
+
+The Arraylake client needs Python 3.12+, so run the demo in its own environment (this leaves your
+main `.venv` alone):
+
+```bash
+uvx --python 3.12 arraylake auth login   # one-time; caches a token in ~/.arraylake
+UV_PROJECT_ENVIRONMENT=.venv-demo uv run --python 3.12 python -m giant_sp.demo
+```
+
+Then open <http://127.0.0.1:8000>. Use `--port`/`--host` to change where it listens. Instead of the
+cached login you can set `ARRAYLAKE_TOKEN`, and `ARRAYLAKE_REPO`/`ARRAYLAKE_BRANCH`/
+`ARRAYLAKE_ROOT_PATH` point it at a different repo.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on how to contribute.
