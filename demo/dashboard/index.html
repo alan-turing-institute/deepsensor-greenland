@@ -11,7 +11,8 @@
 <main class="main">
   <p class="lede">
     Data streamed live from the <code>aria-giant/hirham5-erai-modis-test</code> repository on
-    Earthmover (Arraylake). Toggle experiments and variables on and off, and smooth the series.
+    Earthmover (Arraylake). Toggle experiments and variables on and off.
+    Each series is smoothed with an 11-point running mean (11 days).
     Click a point on a chart, or pick a date, to map that day.
   </p>
 
@@ -23,14 +24,6 @@
       <div id="experiment-list" class="experiment-list">
         <p class="muted">loading…</p>
       </div>
-
-      <h2>Smoothing</h2>
-      <select id="smooth-select">
-        <option value="1">Raw</option>
-        <option value="5">5-point mean</option>
-        <option value="11" selected>11-point mean</option>
-        <option value="31">31-point mean</option>
-      </select>
 
       <h2>Variables</h2>
       <div id="variable-list" class="experiment-list">

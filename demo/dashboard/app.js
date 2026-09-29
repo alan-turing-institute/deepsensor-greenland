@@ -25,7 +25,8 @@ let catalog = null;
 let selected = new Set();
 let selectedVariables = new Set();
 let seriesCache = new Map(); // `${experiment}::${variable}` -> series payload
-let smoothWindow = 11;
+// Every series is shown as a running mean over this many points.
+const SMOOTH_WINDOW = 11;
 let mapState = new Map(); // group title -> { experiment, date }
 
 const $ = (sel) => document.querySelector(sel);
@@ -34,7 +35,6 @@ const expList = $("#experiment-list");
 const varList = $("#variable-list");
 const plotsDiv = $("#plots");
 const footerInfo = $("#footer-info");
-const smoothSelect = $("#smooth-select");
 const refreshBtn = $("#refresh-btn");
 const lightbox = $("#lightbox");
 const lightboxImg = $("#lightbox-img");
@@ -270,7 +270,7 @@ function renderPlots() {
       if (!varKey) continue;
       const s = seriesCache.get(`${exp.name}::${varKey}`);
       if (!s) continue;
-      const y = rollingMean(s.values, smoothWindow);
+      const y = rollingMean(s.values, SMOOTH_WINDOW);
       traces.push({ x: s.time, y, mode: "lines", name: traceLabel(exp.name) });
       traceMeta.push({ experiment: exp.name, time: s.time, y });
     }
@@ -533,10 +533,6 @@ async function refresh() {
   }
 }
 
-smoothSelect.addEventListener("change", (e) => {
-  smoothWindow = parseInt(e.target.value, 10);
-  renderPlots();
-});
 refreshBtn.addEventListener("click", refresh);
 
 refresh();
