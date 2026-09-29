@@ -53,7 +53,7 @@
           </div>
           <img class="overview-figure" src="images/1b_overview_al.gif" alt="Animation of the greedy active-learning loop proposing new sensor placements" />
           <ul>
-            <li>Building on the principles of active learning, it uses probabilistic models, specifically Convolutional Neural Process (ConvNP) models, available in the <a href="https://github.com/alan-turing-institute/deepsensor" target="_blank" rel="noopener">DeepSensor</a> library.</li>
+            <li>Building on the principles of active learning, it uses probabilistic models, specifically Convolutional Conditional Neural Process (ConvCNP) models, available in the <a href="https://github.com/alan-turing-institute/deepsensor" target="_blank" rel="noopener">DeepSensor</a> library.</li>
             <li>It trains spatial-interpolation models on gridded RCM data plus augmented station locations, then uses the trained model to run active-learning searches for new sensor placements.</li>
             <li>This demo showcases the tool's capabilities and provides a dashboard for exploring the data, model, and sensor-placement results for <strong>surface melt</strong>.</li>
           </ul>
@@ -65,7 +65,7 @@
             </div>
             <div class="card">
               <div class="card-title">2. Training</div>
-              <div class="card-body">A ConvNP model is trained to interpolate the target variable from sparse context observations, validated against unseen ground truth.</div>
+              <div class="card-body">A ConvCNP model is trained to interpolate the target variable from sparse context observations, validated against unseen ground truth.</div>
             </div>
             <div class="card">
               <div class="card-title">3. Placement</div>
