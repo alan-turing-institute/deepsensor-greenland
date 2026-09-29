@@ -1,3 +1,5 @@
+const SITE_TITLE = "GIANT Sensor Placement — Demo Dashboard";
+
 const PAGES = [
   { id: "home", href: "index.html", label: "Home", sub: "Why sensor placement matters" },
   { id: "overview", href: "overview.html", label: "Overview", sub: "What GIANT-SP does" },
@@ -10,6 +12,7 @@ const PAGES = [
 class SiteShell extends HTMLElement {
   connectedCallback() {
     const active = this.getAttribute("active");
+    document.title = SITE_TITLE;
     const content = Array.from(this.childNodes);
 
     const navItems = PAGES.map(
@@ -27,7 +30,7 @@ class SiteShell extends HTMLElement {
       <header>
         <img class="header-logo" src="logos/giant.png" alt="GIANT" />
         <div class="header-title">
-          <h1>GIANT Sensor Placement — Demo Dashboard</h1>
+          <h1>${SITE_TITLE}</h1>
           <p>Explore the dataset and view model outputs</p>
         </div>
         <a class="next-btn" href="${next.href}">Next: ${next.label} →</a>

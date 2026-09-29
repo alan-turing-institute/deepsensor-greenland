@@ -23,6 +23,7 @@ from omegaconf import DictConfig
 import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
+from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
 from giant_sp.utils.data import context_sampling_with_delta
 from giant_sp.utils.model import get_available_device
 
@@ -89,7 +90,12 @@ def load_wandb_model(
         "likelihood": config["likelihood"],
     }
 
-    model = ConvNP(data_processor, task_loader, **model_args)
+    if config["likelihood"] == "mdn-zigamma":
+        model_args["mixture_components"] = config["mixture_components"]
+        install_mdn_zigamma_likelihood(config["mixture_components"])
+        model = MDNZIGammaConvNP(data_processor, task_loader, **model_args)
+    else:
+        model = ConvNP(data_processor, task_loader, **model_args)
 
     # Load model weights
     model.model.load_state_dict(
@@ -311,13 +317,22 @@ def main(config: DictConfig) -> None:
     )
     likelihood = model.config["likelihood"]
 
-    # Bernoulli-Gamma predictions are zero-inflated (non-continuous): PIT needs
-    # the zero-mass probability and Gamma parameters, not just mean/std.
+    # Bernoulli-Gamma/mdn-zigamma predictions are zero-inflated (non-continuous): PIT
+    # needs the zero-mass probability and Gamma (mixture) parameters, not just mean/std.
     # Must be a list: deepsensor's Model.predict mutates pred_params in place
     # (list.remove/.append) when "mixture_probs" is requested.
     pred_params = ["mean", "std"]
     if plot and likelihood == "bernoulli-gamma":
         pred_params += ["mixture_probs", "k", "scale"]
+    elif plot and likelihood == "mdn-zigamma":
+        n_slab_components = model.config["mixture_components"]
+        pred_params += ["mixture_probs"]
+        for component in range(n_slab_components):
+            pred_params += [
+                f"slab_probs_{component}",
+                f"slab_k_{component}",
+                f"slab_scale_{component}",
+            ]
 
     # Determine delta_factor_context for context_sampling_with_delta
     if context_delta_t is None:
@@ -552,7 +567,16 @@ def main(config: DictConfig) -> None:
         true_plt = raw_ds[target_var].sel(time=dates_plt).values.flatten()
         val_pred_plt = val_pred[target_var].sel(time=dates_plt)
 
-        fig, _ = myplt.PIT_histogram(true_plt, val_pred_plt, likelihood=likelihood)
+        fig, _ = myplt.PIT_histogram(
+            true_plt,
+            val_pred_plt,
+            likelihood=likelihood,
+            n_slab_components=(
+                model.config["mixture_components"]
+                if likelihood == "mdn-zigamma"
+                else None
+            ),
+        )
 
         fig.savefig(os.path.join(figfolder, f"{fname}_pit_histogram.png"))
 
