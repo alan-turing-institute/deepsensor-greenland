@@ -16,6 +16,27 @@
       </div>
       <div class="content">
         <div class="inner">
+          <p>
+            <strong>GIANT-sp</strong> is a tool to aid optimal sensor placement for monitoring climate tipping points.
+          </p>
+          <h3>The challenge: surface melt as a proof of concept</h3>
+          <p>
+            The Greenland Ice Sheet is one of the climate system's key tipping elements. We use <strong>surface melt prediction</strong> as a proof-of-concept challenge.
+          </p>
+          <div class="card-grid">
+            <div class="card">
+              <div class="card-title">Tipping-relevant</div>
+              <div class="card-body">Surface melt drives a large share of Greenland's mass loss and the melt–elevation feedback, so better melt monitoring feeds directly into tracking the tipping point.</div>
+            </div>
+            <div class="card">
+              <div class="card-title">Testable</div>
+              <div class="card-body">Outputs of regional climate models (RCM) are treated as "truth" to score against, alongside locations of long-term stations. This lets us measure how much each proposed sensor actually helps.</div>
+            </div>
+            <div class="card">
+              <div class="card-title">Transferable</div>
+              <div class="card-body">Nothing in the method is specific to melt. The same model and search can be retargeted to other variables and tipping elements once the approach is proven here.</div>
+            </div>
+          </div>
           <h3>The recipe</h3>
           <div class="diagram-row diagram-flow">
             <div class="diagram-col">
@@ -31,24 +52,20 @@
             </div>
           </div>
           <img class="overview-figure" src="images/1b_overview_al.gif" alt="Animation of the greedy active-learning loop proposing new sensor placements" />
-          <p>
-            <strong>GIANT-sp</strong> is a tool to aid optimal sensor placement for monitoring climate tipping points.
-          </p>
           <ul>
-            <li>Building on the principles of active learning, it uses <a href="https://github.com/alan-turing-institute/deepsensor" target="_blank" rel="noopener">DeepSensor</a> (ConvNP models) and PyTorch.</li>
-            <li>It trains spatial-interpolation models on gridded climate reanalysis/RCM data plus in-situ station observations, then uses the trained model to run active-learning searches for new sensor placements.</li>
+            <li>Building on the principles of active learning, it uses probabilistic models, specifically Convolutional Neural Process (ConvNP) models, available in the <a href="https://github.com/alan-turing-institute/deepsensor" target="_blank" rel="noopener">DeepSensor</a> library.</li>
+            <li>It trains spatial-interpolation models on gridded RCM data plus augmented station locations, then uses the trained model to run active-learning searches for new sensor placements.</li>
             <li>This demo showcases the tool's capabilities and provides a dashboard for exploring the data, model, and sensor-placement results for <strong>surface melt</strong>.</li>
           </ul>
           <h3>Pipeline</h3>
-          <p>Data loading → DeepSensor model/training → scripts that drive training, inference, and sensor placement.</p>
           <div class="card-grid">
             <div class="card">
               <div class="card-title">1. Data loading</div>
-              <div class="card-body">Per-source data loaders normalize gridded data and build DeepSensor context/target task samplers.</div>
+              <div class="card-body">Per-source data loaders normalize gridded data and build data iterators readable for ConvNP models.</div>
             </div>
             <div class="card">
               <div class="card-title">2. Training</div>
-              <div class="card-body">A ConvNP model is trained to interpolate the target variable from sparse context observations, validated against both gridded truth and held-out stations.</div>
+              <div class="card-body">A ConvNP model is trained to interpolate the target variable from sparse context observations, validated against unseen ground truth.</div>
             </div>
             <div class="card">
               <div class="card-title">3. Placement</div>
