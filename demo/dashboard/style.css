@@ -17,7 +17,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .hidden { display: none; }
 
 .main { max-width: 1200px; margin: 0 auto; padding: 24px; }
-.lede { color: var(--fg-muted); max-width: 720px; line-height: 1.6; margin: 0 0 24px; }
+.intro {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 24px; flex-wrap: wrap; margin: 0 0 24px;
+}
+.lede { color: var(--fg-muted); max-width: 720px; line-height: 1.6; margin: 0; }
+.intro-logo { height: 33px; width: auto; flex-shrink: 0; }
 
 .error {
   border: 1px solid rgba(239,68,68,0.4);

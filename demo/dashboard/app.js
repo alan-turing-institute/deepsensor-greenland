@@ -31,7 +31,6 @@ let mapState = new Map(); // group title -> { experiment, date }
 
 const $ = (sel) => document.querySelector(sel);
 const errorBox = $("#error");
-const expList = $("#experiment-list");
 const varList = $("#variable-list");
 const plotsDiv = $("#plots");
 const footerInfo = $("#footer-info");
@@ -80,26 +79,6 @@ function rollingMean(values, window) {
     out[i] = count > 0 ? sum / count : null;
   }
   return out;
-}
-
-function renderExperimentList() {
-  expList.innerHTML = "";
-  if (!catalog.experiments.length) {
-    expList.innerHTML = `<p class="muted">No experiments discovered in the dataset.</p>`;
-    return;
-  }
-  for (const exp of catalog.experiments) {
-    const row = document.createElement("label");
-    row.className = "experiment-row";
-    const checked = selected.has(exp.name) ? "checked" : "";
-    row.innerHTML = `<input type="checkbox" ${checked}/> <span>${exp.name}</span>` +
-      (exp.n_points != null ? ` <span class="muted">(${exp.n_points} pts)</span>` : "");
-    row.querySelector("input").addEventListener("change", (e) => {
-      if (e.target.checked) selected.add(exp.name); else selected.delete(exp.name);
-      loadAndRender();
-    });
-    expList.appendChild(row);
-  }
 }
 
 function selectedExperimentVariableKeys() {
@@ -479,7 +458,6 @@ function buildMapRow(g) {
 }
 
 async function loadAndRender() {
-  renderExperimentList();
   renderVariableList();
   await ensureSeriesLoaded();
   renderPlots();
@@ -492,9 +470,8 @@ async function refresh() {
     const [c, r] = await Promise.all([api.catalog(), api.repo()]);
     catalog = c;
     seriesCache = new Map();
-    if (selected.size === 0) {
-      selected = new Set(catalog.experiments.slice(0, 4).map((e) => e.name));
-    }
+
+    selected = new Set(catalog.experiments.map((e) => e.name));
     if (selectedVariables.size === 0) {
       // Match on long_name so every experiment's key for the same quantity
       // (e.g. "tas" and "tas_10yr-avg") is picked up.

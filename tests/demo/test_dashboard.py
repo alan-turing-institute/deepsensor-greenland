@@ -3,6 +3,8 @@ import pytest
 import zarr
 
 from giant_sp.demo.dashboard import (
+    EXCLUDED_EXPERIMENTS,
+    EXCLUDED_VARIABLES,
     Dashboard,
     build_catalog,
     build_series,
@@ -51,6 +53,25 @@ def test_build_catalog(root):
         "long_name": "Acc snow melt",
         "spatial_mean": True,
     }
+
+
+@pytest.mark.parametrize("name", sorted(EXCLUDED_VARIABLES))
+def test_excluded_variables_are_hidden(root, name):
+    root["baseline"].create_array(name, shape=(4, 3), dtype="f8")
+    catalog = build_catalog(root)
+    assert name not in catalog["experiments"][0]["variables"]
+    assert name not in {v["key"] for v in catalog["variables"]}
+    with pytest.raises(KeyError):
+        build_series(root, "baseline", name)
+
+
+@pytest.mark.parametrize("name", sorted(EXCLUDED_EXPERIMENTS))
+def test_excluded_experiments_are_hidden(root, add_experiment, name):
+    add_experiment(root, name)
+    assert name not in discover_experiments(root)
+    assert name not in {e["name"] for e in build_catalog(root)["experiments"]}
+    with pytest.raises(KeyError):
+        build_series(root, name, "melt")
 
 
 def test_build_series_domain_mean_and_decoded_time(root):

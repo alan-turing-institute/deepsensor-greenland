@@ -9,22 +9,20 @@
 </head>
 <body>
 <main class="main">
-  <p class="lede">
-    Data streamed live from the <code>aria-giant/hirham5-erai-modis-test</code> repository on
-    Earthmover (Arraylake). Toggle experiments and variables on and off.
-    Each series is smoothed with an 11-point running mean (11 days).
-    Click a point on a chart, or pick a date, to map that day.
-  </p>
+  <div class="intro">
+    <p class="lede">
+      Data streamed live from the <code>aria-giant/hirham5-erai-modis-test</code> repository on
+      Earthmover (Arraylake). Toggle variables on and off.
+      Each series is smoothed with an 11-point running mean (11 days).
+      Click a point on a chart, or pick a date, to map that day.
+    </p>
+    <img class="intro-logo" src="../images/earthmover-logo-white.svg" alt="Earthmover" />
+  </div>
 
   <div id="error" class="error hidden"></div>
 
   <div class="layout">
     <aside class="sidebar">
-      <h2>Experiments / groups</h2>
-      <div id="experiment-list" class="experiment-list">
-        <p class="muted">loading…</p>
-      </div>
-
       <h2>Variables</h2>
       <div id="variable-list" class="experiment-list">
         <p class="muted">loading…</p>

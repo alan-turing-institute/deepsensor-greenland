@@ -4,10 +4,11 @@ The dataset layout is discovered rather than hardcoded:
 
 - Any group (up to one level of nesting below the root) that directly holds a
   recognized time coordinate is an "experiment"; static groups such as
-  land masks or zone ids have no time coordinate and are skipped.
+  land masks or zone ids have no time coordinate and are skipped, as is
+  anything in ``EXCLUDED_EXPERIMENTS``.
 - Every 1-D or 2-D array in an experiment is a plottable variable, except the
   time coordinate and any array named in another array's CF ``coordinates``
-  attribute (e.g. ``lat``/``lon``).
+  attribute (e.g. ``lat``/``lon``) and anything in ``EXCLUDED_VARIABLES``.
 - A 2-D ``(time, points)`` variable is reduced to a domain-mean time series.
 
 Results are cached per snapshot: each request makes one cheap metastore call
@@ -38,6 +39,14 @@ from giant_sp.demo.source import DataSource, Snapshot
 logger = logging.getLogger(__name__)
 
 TIME_NAMES = ("time", "time_centered", "valid_time", "time_counter")
+
+# Variables present in the data but deliberately hidden from the dashboard
+# (runoff and albedo).
+EXCLUDED_VARIABLES = frozenset({"rogl", "albedom"})
+
+# Experiments present in the data but deliberately hidden from the dashboard
+# (the 10-year rolling-mean baseline).
+EXCLUDED_EXPERIMENTS = frozenset({"baseline_10year"})
 
 # NSIDC Sea Ice Polar Stereographic North (EPSG:3413), defined by its parameters
 # rather than ccrs.epsg(3413), which clips to the CRS's registered area of use.
@@ -103,7 +112,8 @@ def discover_experiments(base: zarr.Group) -> dict[str, zarr.Group]:
     dict[str, zarr.Group]
         ``{name: group}`` for every child (or grandchild, named
         ``"child/grandchild"``) of ``base`` holding a time coordinate, or
-        ``{"root": base}`` if there are none but ``base`` itself has one.
+        ``{"root": base}`` if there are none but ``base`` itself has one,
+        minus anything in ``EXCLUDED_EXPERIMENTS``.
     """
     found: dict[str, zarr.Group] = {}
     for name, sub in base.groups():
@@ -115,7 +125,7 @@ def discover_experiments(base: zarr.Group) -> dict[str, zarr.Group]:
                 found[f"{name}/{name2}"] = sub2
     if not found and time_array_name(base) is not None:
         found["root"] = base
-    return found
+    return {k: v for k, v in found.items() if k not in EXCLUDED_EXPERIMENTS}
 
 
 def build_catalog(base: zarr.Group) -> dict[str, Any]:
@@ -141,7 +151,7 @@ def build_catalog(base: zarr.Group) -> dict[str, Any]:
         coord_names = coordinate_names(group)
         exp_variables = []
         for var_name in group.array_keys():
-            if var_name in coord_names:
+            if var_name in coord_names or var_name in EXCLUDED_VARIABLES:
                 continue
             arr = _array(group, var_name)
             if arr.ndim not in (1, 2):
@@ -221,7 +231,7 @@ def _experiment_variable(
     if experiment not in experiments:
         raise KeyError(f"unknown experiment: {experiment}")
     group = experiments[experiment]
-    if variable not in set(group.array_keys()):
+    if variable in EXCLUDED_VARIABLES or variable not in set(group.array_keys()):
         raise KeyError(f"unknown variable: {variable} in experiment {experiment}")
     return group, _array(group, variable)
 
