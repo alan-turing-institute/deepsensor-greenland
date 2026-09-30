@@ -17,6 +17,11 @@ function assertOk(r) {
 // (the sidebar title).
 const DEFAULT_VARIABLE_NAMES = ["Acc snow melt", "2-m Temperature"];
 
+// Variables listed under "Output variable" in the sidebar, keyed
+// case-insensitively on long_name, mapped to the title shown in the
+// sidebar and chart headings; everything else is an input variable.
+const OUTPUT_VARIABLES = new Map([["acc snow melt", "Surface melt"]]);
+
 // Experiments that appear in the time-series charts but are never offered
 // on the maps.
 const MAP_EXCLUDED_EXPERIMENTS = new Set(["baseline_10year"]);
@@ -31,7 +36,8 @@ let mapState = new Map(); // group title -> { experiment, date }
 
 const $ = (sel) => document.querySelector(sel);
 const errorBox = $("#error");
-const varList = $("#variable-list");
+const outputVarList = $("#output-variable-list");
+const inputVarList = $("#input-variable-list");
 const plotsDiv = $("#plots");
 const footerInfo = $("#footer-info");
 const refreshBtn = $("#refresh-btn");
@@ -100,7 +106,13 @@ function variableGroups() {
   for (const v of catalog.variables) {
     const groupKey = v.long_name || v.key;
     if (!groups.has(groupKey)) {
-      groups.set(groupKey, { title: v.long_name || v.key, units: v.units, spatial_mean: v.spatial_mean, keys: new Set() });
+      groups.set(groupKey, {
+        title: OUTPUT_VARIABLES.get(groupKey.toLowerCase()) ?? groupKey,
+        longName: groupKey,
+        units: v.units,
+        spatial_mean: v.spatial_mean,
+        keys: new Set(),
+      });
     }
     groups.get(groupKey).keys.add(v.key);
   }
@@ -108,7 +120,8 @@ function variableGroups() {
 }
 
 function renderVariableList() {
-  varList.innerHTML = "";
+  outputVarList.innerHTML = "";
+  inputVarList.innerHTML = "";
   const available = selectedExperimentVariableKeys();
   for (const k of [...selectedVariables]) {
     if (!available.has(k)) selectedVariables.delete(k);
@@ -117,11 +130,17 @@ function renderVariableList() {
     .map((g) => ({ ...g, availableKeys: [...g.keys].filter((k) => available.has(k)) }))
     .filter((g) => g.availableKeys.length)
     .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base", numeric: true }));
-  if (!groups.length) {
-    varList.innerHTML = `<p class="muted">No variables for the selected experiment(s).</p>`;
-    return;
+  const isOutput = (g) => OUTPUT_VARIABLES.has(g.longName.toLowerCase());
+  for (const [list, label, inList] of [
+    [outputVarList, "output", isOutput],
+    [inputVarList, "input", (g) => !isOutput(g)],
+  ]) {
+    if (!groups.some(inList)) {
+      list.innerHTML = `<p class="muted">No ${label} variables in the dataset.</p>`;
+    }
   }
   for (const g of groups) {
+    const varList = isOutput(g) ? outputVarList : inputVarList;
     const row = document.createElement("label");
     row.className = "experiment-row";
     const checked = g.availableKeys.some((k) => selectedVariables.has(k)) ? "checked" : "";
