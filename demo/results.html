@@ -20,7 +20,10 @@
             of a candidate location, scored by the ConvCNP acquisition function, and its
             <strong>cost</strong>, measured here as remoteness.
           </p>
-          <img class="detail-figure" src="images/placement_results.png" alt="Scatter plot of informativeness against remoteness cost for candidate sensor locations with Pareto-optimal points highlighted, alongside a map of Greenland shaded by Pareto rank with existing stations marked" />
+          <!-- Filled from images/pareto/manifest.json by results.js; regenerate with
+               `uv run python demo/results/placement_pareto_demo.py`. -->
+          <select id="pareto-select" hidden aria-label="Placement result"></select>
+          <img id="pareto-figure" class="detail-figure" alt="Scatter plot of informativeness against remoteness cost for candidate sensor locations with Pareto-optimal points highlighted, alongside a map of Greenland shaded by Pareto rank with existing stations marked" />
           <ul>
             <li><strong>Left:</strong> every candidate location plotted by cost and informativeness. The red
               points are Pareto optimal: no other location is both cheaper and more informative.</li>
@@ -33,5 +36,6 @@
     </section>
   </site-shell>
   <script src="nav.js"></script>
+  <script src="results.js"></script>
 </body>
 </html>
