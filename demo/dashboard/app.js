@@ -1,16 +1,44 @@
+// The live API (served by `python -m giant_sp.demo`) and the saved copy of it
+// written by `python -m giant_sp.demo.snapshot`, which is used instead
+// whenever the live one can't be reached.
+const LIVE_API = "./api";
+const SAVED_API = "./static-api";
+// How long to wait for the live catalog before falling back to the saved copy.
+const LIVE_TIMEOUT_MS = 20000;
+let offline = false;
+let useSaved = false; // set by the "Use saved copy" button
+let savedMaps = {}; // offline only: experiment -> variable -> ["YYYY-MM-DD", ...]
+
+const q = encodeURIComponent;
+// Nested experiment names ("project/run1") are nested folders in the saved copy.
+const savedPath = (name) => name.split("/").map(q).join("/");
+
 const api = {
-  catalog: () => fetch("./api/catalog").then(assertOk),
-  repo: () => fetch("./api/repo").then(assertOk),
+  catalog: (opts) => getJson(offline ? `${SAVED_API}/catalog.json` : `${LIVE_API}/catalog`, opts),
+  repo: (opts) => getJson(offline ? `${SAVED_API}/repo.json` : `${LIVE_API}/repo`, opts),
   series: (experiment, variable) =>
-    fetch(`./api/series?experiment=${encodeURIComponent(experiment)}&variable=${encodeURIComponent(variable)}`)
-      .then(assertOk),
+    getJson(offline
+      ? `${SAVED_API}/series/${savedPath(experiment)}/${q(variable)}.json`
+      : `${LIVE_API}/series?experiment=${q(experiment)}&variable=${q(variable)}`),
   mapUrl: (experiment, variable, date) =>
-    `./api/map?experiment=${encodeURIComponent(experiment)}&variable=${encodeURIComponent(variable)}&date=${encodeURIComponent(date)}`,
+    offline
+      ? `${SAVED_API}/maps/${savedPath(experiment)}/${q(variable)}/${date}.png`
+      : `${LIVE_API}/map?experiment=${q(experiment)}&variable=${q(variable)}&date=${q(date)}`,
 };
+
+function getJson(url, opts) {
+  return fetch(url, opts).then(assertOk);
+}
 
 function assertOk(r) {
   if (!r.ok) return r.text().then((t) => { throw new Error(`${r.status} ${r.statusText}: ${t}`); });
   return r.json();
+}
+
+// The saved map date nearest `isoDate` for one experiment/variable.
+function nearestSavedMapDate(experiment, variable, isoDate) {
+  const dates = savedMaps[experiment]?.[variable] ?? [];
+  return dates.length ? dates[nearestIndexForDate(dates, isoDate)] : null;
 }
 
 // Variables shown on first load, matched case-insensitively on long_name
@@ -41,6 +69,7 @@ const inputVarList = $("#input-variable-list");
 const plotsDiv = $("#plots");
 const footerInfo = $("#footer-info");
 const refreshBtn = $("#refresh-btn");
+const savedBtn = $("#saved-btn");
 const lightbox = $("#lightbox");
 const lightboxImg = $("#lightbox-img");
 
@@ -61,7 +90,8 @@ document.addEventListener("keydown", (e) => {
 function showError(msg) {
   errorBox.textContent =
     `Failed to load data from Arraylake: ${msg}. ` +
-    "The dashboard needs the local demo server: run `uv run python -m giant_sp.demo`.";
+    "The dashboard needs the local demo server (run `uv run python -m giant_sp.demo`), " +
+    "or a saved copy (run `uv run python -m giant_sp.demo.snapshot` while online).";
   errorBox.classList.remove("hidden");
 }
 function clearError() {
@@ -351,7 +381,10 @@ function experimentsForGroup(g) {
 // its own { experiment, date } selection in `mapState` so switching tabs /
 // re-rendering doesn't reset it.
 function buildMapRow(g) {
-  const options = experimentsForGroup(g).filter((o) => !MAP_EXCLUDED_EXPERIMENTS.has(o.experiment));
+  const options = experimentsForGroup(g).filter((o) =>
+    !MAP_EXCLUDED_EXPERIMENTS.has(o.experiment) &&
+    // The saved copy may only have maps for some variables (`--map-variables`).
+    (!offline || savedMaps[o.experiment]?.[o.variable]));
   if (!options.length) return null;
 
   let ms = mapState.get(g.title);
@@ -440,6 +473,11 @@ function buildMapRow(g) {
 
   function updateMapImg() {
     if (ms.date === null || ms.date === "") return;
+    if (offline && dateIsIso) {
+      // Only some dates were saved: show (and say) which one is mapped.
+      ms.date = nearestSavedMapDate(ms.experiment, currentVar(), ms.date);
+      dateInput.value = ms.date;
+    }
     img.classList.add("loading");
     spinner.classList.add("visible");
     img.src = api.mapUrl(ms.experiment, currentVar(), ms.date);
@@ -482,11 +520,41 @@ async function loadAndRender() {
   renderPlots();
 }
 
+// Load the catalog and repo info from the live API, falling back to the saved
+// copy (and switching every later request to it) if that fails — or straight
+// from the saved copy if the "Use saved copy" button chose it.
+async function loadCatalog() {
+  if (useSaved) return loadSaved();
+  offline = false;
+  const opts = { signal: AbortSignal.timeout(LIVE_TIMEOUT_MS) };
+  try {
+    return await Promise.all([api.catalog(opts), api.repo(opts)]);
+  } catch (liveErr) {
+    console.warn("live data unavailable, trying the saved copy", liveErr);
+    try {
+      return await loadSaved();
+    } catch {
+      offline = false;
+      throw liveErr;
+    }
+  }
+}
+
+async function loadSaved() {
+  offline = true;
+  const [c, r, maps] = await Promise.all([
+    api.catalog(), api.repo(), getJson(`${SAVED_API}/maps/index.json`),
+  ]);
+  savedMaps = maps;
+  return [c, r];
+}
+
 async function refresh() {
   refreshBtn.disabled = true;
+  savedBtn.disabled = true;
   refreshBtn.textContent = "Refreshing…";
   try {
-    const [c, r] = await Promise.all([api.catalog(), api.repo()]);
+    const [c, r] = await loadCatalog();
     catalog = c;
     seriesCache = new Map();
 
@@ -518,17 +586,36 @@ async function refresh() {
     }
     footerInfo.innerHTML =
       `Data: <code>${r.repo}</code>${r.root_path ? ` · <code>${r.root_path}</code>` : ""} · snapshot ` +
-      `<code>${r.snapshot.id.slice(0, 12)}</code> · ${new Date(r.snapshot.written_at).toLocaleString()}`;
+      `<code>${r.snapshot.id.slice(0, 12)}</code> · ${new Date(r.snapshot.written_at).toLocaleString()}` +
+      (offline ? ` · saved copy from ${new Date(r.saved_at).toLocaleString()}` : "");
+    // Lets the embedding Data page drop its "(live from Earthmover)" label.
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: "dashboard-data-mode", offline }, location.origin);
+    }
     clearError();
     await loadAndRender();
   } catch (e) {
     showError(e.message || String(e));
   } finally {
     refreshBtn.disabled = false;
+    savedBtn.disabled = false;
     refreshBtn.textContent = "Refresh data";
+    savedBtn.textContent = offline ? "Use live data" : "Use saved copy";
   }
 }
 
 refreshBtn.addEventListener("click", refresh);
+
+// Switch between live data and the saved copy. From an automatic fallback
+// (offline but not chosen), this retries live data.
+savedBtn.addEventListener("click", () => {
+  useSaved = !offline;
+  refresh();
+});
+
+// Only offer the switch when a saved copy exists.
+fetch(`${SAVED_API}/repo.json`, { method: "HEAD" })
+  .then((r) => { savedBtn.hidden = !r.ok; })
+  .catch(() => {});
 
 refresh();

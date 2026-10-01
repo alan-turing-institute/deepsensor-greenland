@@ -91,6 +91,7 @@ select {
   display: flex; justify-content: space-between; align-items: center;
   max-width: 1200px; margin: 0 auto; font-size: 0.8rem;
 }
+.footer-actions { display: flex; gap: 8px; flex-shrink: 0; }
 button {
   background: transparent; border: 1px solid var(--border); color: var(--fg-muted);
   padding: 6px 12px; border-radius: 8px; cursor: pointer;

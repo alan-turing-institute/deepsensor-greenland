@@ -1,0 +1,9 @@
+[
+  {
+    "file": "images/pareto/xjmlsyei_ExpectedOccurrenceEntropyReduction_distance.png",
+    "label": "Expected Occurrence Entropy Reduction vs distance (run xjmlsyei)",
+    "run": "xjmlsyei",
+    "acq_fn": "ExpectedOccurrenceEntropyReduction",
+    "cost": "distance"
+  }
+]

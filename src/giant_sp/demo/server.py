@@ -43,18 +43,7 @@ def _api_router(dashboard: Dashboard) -> APIRouter:
 
     @router.get("/repo")
     def repo() -> dict[str, Any]:
-        source = dashboard.source
-        snapshot = dashboard.snapshot()
-        return {
-            "repo": source.repo,
-            "branch": source.branch,
-            "root_path": source.root_path,
-            "snapshot": {
-                "id": snapshot.id,
-                "written_at": snapshot.written_at,
-                "message": snapshot.message,
-            },
-        }
+        return dashboard.repo_info()
 
     @router.get("/catalog")
     def catalog() -> dict[str, Any]:

@@ -6,6 +6,8 @@
 <title>GIANT data dashboard</title>
 <link rel="stylesheet" href="./style.css" />
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<!-- No internet: use the copy saved by `python -m giant_sp.demo.snapshot`. -->
+<script>window.Plotly || document.write('<script src="./static-api/plotly.min.js"><\/script>');</script>
 </head>
 <body>
 <main class="main">
@@ -39,7 +41,10 @@
 
 <footer class="footer">
   <span id="footer-info" class="muted">loading…</span>
-  <button id="refresh-btn">Refresh data</button>
+  <div class="footer-actions">
+    <button id="saved-btn" hidden>Use saved copy</button>
+    <button id="refresh-btn">Refresh data</button>
+  </div>
 </footer>
 
 <div id="lightbox" class="lightbox hidden">
