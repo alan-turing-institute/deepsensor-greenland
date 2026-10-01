@@ -36,7 +36,8 @@
             </div>
           </div>
           <div class="inner">
-          <img class="detail-figure" src="images/placement_results.png" alt="Scatter plot of informativeness against remoteness cost for candidate sensor locations with Pareto-optimal points highlighted, alongside a map of Greenland shaded by Pareto rank with existing stations marked" />
+          <!-- Same figure as the Results tab, filled from images/pareto/manifest.json by results.js. -->
+          <img id="pareto-figure" class="detail-figure" alt="Scatter plot of informativeness against remoteness cost for candidate sensor locations with Pareto-optimal points highlighted, alongside a map of Greenland shaded by Pareto rank with existing stations marked" />
           <ul>
             <li><strong>Left:</strong> every candidate location plotted by cost and informativeness. The red
               points are Pareto optimal: no other location is both cheaper and more informative.</li>
@@ -50,5 +51,6 @@
     </section>
   </site-shell>
   <script src="nav.js"></script>
+  <script src="results.js"></script>
 </body>
 </html>
