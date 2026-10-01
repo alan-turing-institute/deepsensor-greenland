@@ -223,13 +223,13 @@ iframe {
 .detail-figure {
   width: 100%;
 }
-.detail-figure--half {
+#overview-figure {
   width: 50%;
   margin-left: auto;
   margin-right: auto;
 }
 @media (max-width: 700px) {
-  .detail-figure--half {
+  #overview-figure {
     width: 100%;
   }
 }
