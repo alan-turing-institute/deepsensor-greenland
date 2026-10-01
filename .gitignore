@@ -12,6 +12,9 @@ build/
 .venv/
 .venv-demo/
 
+# Offline copy of the demo dashboard's data (`python -m giant_sp.demo.snapshot`)
+demo/dashboard/static-api/
+
 # Testing
 .pytest_cache/
 .coverage

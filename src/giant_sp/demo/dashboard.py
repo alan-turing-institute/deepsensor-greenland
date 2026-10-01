@@ -457,6 +457,27 @@ class Dashboard:
         """
         return self._ensure_state().snapshot
 
+    def repo_info(self) -> dict[str, Any]:
+        """Describe the repo and the snapshot currently being served.
+
+        Returns
+        -------
+        dict[str, Any]
+            ``repo``, ``branch``, ``root_path`` and ``snapshot`` (``id``,
+            ``written_at``, ``message``).
+        """
+        snapshot = self.snapshot()
+        return {
+            "repo": self.source.repo,
+            "branch": self.source.branch,
+            "root_path": self.source.root_path,
+            "snapshot": {
+                "id": snapshot.id,
+                "written_at": snapshot.written_at,
+                "message": snapshot.message,
+            },
+        }
+
     def catalog(self) -> dict[str, Any]:
         """Return the (cached) ``build_catalog`` result for the current snapshot.
 

@@ -107,6 +107,23 @@ Then open <http://127.0.0.1:8000>. Use `--port`/`--host` to change where it list
 cached login you can set `ARRAYLAKE_TOKEN`, and `ARRAYLAKE_REPO`/`ARRAYLAKE_BRANCH`/
 `ARRAYLAKE_ROOT_PATH` point it at a different repo.
 
+### Offline copy of the dashboard
+
+In case Arraylake or the internet is unreachable during a demo, save a copy of the dashboard's data
+beforehand, while online:
+
+```bash
+UV_PROJECT_ENVIRONMENT=.venv-demo uv run --python 3.12 python -m giant_sp.demo.snapshot
+```
+
+This writes every time series, maps for every variable on the first of each month (~200 files, ~23 MB),
+and a copy of Plotly to `demo/dashboard/static-api/` (git-ignored). Use `--map-variables` and
+`--map-freq` (a pandas offset alias, e.g. `W` for weekly) to save more maps. When the live data
+can't be loaded, the dashboard switches to this copy automatically (the footer shows when it was saved), and map dates snap
+to the nearest saved one. You can also switch by hand with the "Use saved copy" / "Use live data"
+button at the bottom of the dashboard (shown once a saved copy exists). If the demo server can't run at all, any static server will do:
+`python -m http.server -d demo`, then open <http://127.0.0.1:8000>.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on how to contribute.
