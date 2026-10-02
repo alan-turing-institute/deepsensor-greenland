@@ -22,9 +22,9 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+import cartopy.crs as ccrs
 import colorcet as cc
 import matplotlib.colors as mcolors
-import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -100,7 +100,9 @@ def plot_result(
     cost = np.load(RESULTS_DIR / "cost" / f"{result.cost}.npy")
     mask = np.load(RESULTS_DIR / "mask" / f"{result.stem}.npy")
     # rank_da = xr.open_dataarray(RESULTS_DIR / "background" / f"{result.stem}.nc")
-    rank_da = xr.open_dataarray(RESULTS_DIR / "background" / "hirham5_mean_temporalsampling_50dates_2016.nc")
+    rank_da = xr.open_dataarray(
+        RESULTS_DIR / "background" / "hirham5_mean_temporalsampling_50dates_2016.nc"
+    )
     newplace_df = pd.read_csv(
         RESULTS_DIR / "placements" / f"{result.stem}.csv", index_col=[0]
     )
@@ -177,11 +179,11 @@ def plot_result(
         cax=cbar_ax,
         fraction=0.0,
         pad=0.0,
-        ticks=np.arange(0, rank_da.max() + 1, 5),
+        ticks=np.arange(0, float(rank_da.max()) + 1, 5),
     )
     cb.ax.minorticks_off()
     cb.ax.tick_params(labelsize=16)
-    cb.set_label('Surface melt (mm w.e. per day)', size=LABEL_FONTSIZE)
+    cb.set_label("Surface melt (mm w.e. per day)", size=LABEL_FONTSIZE)
 
     fig.savefig(out_file, dpi=200, bbox_inches="tight")
     plt.close(fig)
