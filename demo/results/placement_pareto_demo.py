@@ -129,7 +129,7 @@ def plot_result(
         y_pareto[:, 1],
         y_pareto[:, 0] * -1,
         marker="o",
-        color="r",
+        color="green",
         s=6**2,
         linewidths=0.35,
         label="Pareto optimal",
@@ -150,6 +150,8 @@ def plot_result(
     for coll in ax1.collections:
         if isinstance(coll, PathCollection):
             coll.set_sizes([8**2])
+            if coll.get_label() == "New placements":
+                coll.set_color("green")
     for txt in list(ax1.texts):
         txt.remove()
     existing_handle = Line2D(
