@@ -22,6 +22,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+import colorcet as cc
+import matplotlib.colors as mcolors
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
@@ -97,10 +99,13 @@ def plot_result(
     acqfn = np.load(RESULTS_DIR / "acq" / f"{result.run}_{result.acq_fn}.npy")
     cost = np.load(RESULTS_DIR / "cost" / f"{result.cost}.npy")
     mask = np.load(RESULTS_DIR / "mask" / f"{result.stem}.npy")
-    rank_da = xr.open_dataarray(RESULTS_DIR / "rank" / f"{result.stem}.nc")
+    # rank_da = xr.open_dataarray(RESULTS_DIR / "background" / f"{result.stem}.nc")
+    rank_da = xr.open_dataarray(RESULTS_DIR / "background" / "hirham5_mean_temporalsampling_50dates_2016.nc")
     newplace_df = pd.read_csv(
         RESULTS_DIR / "placements" / f"{result.stem}.csv", index_col=[0]
     )
+
+    cmap = mcolors.ListedColormap(cc.linear_kryw_5_100_c67[::-1])
 
     alpha_df = pd.DataFrame({"alpha_1": acqfn, "alpha_2": cost}).dropna(axis=0)
 
@@ -140,7 +145,7 @@ def plot_result(
 
     ax1 = fig.add_subplot(gs[0, 1], projection=DISPLAY_CRS)
     ax1, pcm = myplt.plot_greenland_only(
-        rank_da, newplace_df, existing_df, ax=ax1, pcolormesh_kwargs={"cmap": "Greys"}
+        rank_da, newplace_df, existing_df, ax=ax1, pcolormesh_kwargs={"cmap": cmap}
     )
     for coll in ax1.collections:
         if isinstance(coll, PathCollection):
@@ -174,7 +179,7 @@ def plot_result(
     )
     cb.ax.minorticks_off()
     cb.ax.tick_params(labelsize=16)
-    cb.set_label("Pareto rank", size=LABEL_FONTSIZE)
+    cb.set_label('Surface melt (mm w.e. per day)', size=LABEL_FONTSIZE)
 
     fig.savefig(out_file, dpi=200, bbox_inches="tight")
     plt.close(fig)
