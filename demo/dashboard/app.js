@@ -316,10 +316,9 @@ function renderPlots() {
       margin: { t: 10, r: 10, b: 40, l: 55 },
       xaxis: { title: "time" },
       yaxis: { title: g.units || "" },
-      // Plotly's default horizontal legend sits just below the tick labels,
-      // on top of the "time" axis title; push it further down (Plotly grows
-      // the bottom margin to fit it, including when it wraps onto more rows).
-      legend: { orientation: "h", x: 0, xanchor: "left", y: -0.3, yanchor: "top" },
+      // Only one experiment is ever plotted, so a legend adds nothing (Plotly
+      // would otherwise show one once the highlight marker gets a point).
+      showlegend: false,
       paper_bgcolor: "transparent",
       plot_bgcolor: "transparent",
       font: { color: "#e6edf3" },
