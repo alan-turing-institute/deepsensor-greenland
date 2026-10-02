@@ -127,7 +127,11 @@ next plain `uv run` rebuilds it — pulling the environment out from under a run
 
 Data the dashboard should hide is excluded server-side, in `dashboard.py`'s
 `EXCLUDED_VARIABLES` (runoff `rogl`, albedo `albedom`) and `EXCLUDED_EXPERIMENTS`
-(`baseline_10year`), which both the catalog and the series/map endpoints honour. Display-side
+(`baseline_10year`), which both the catalog and the series/map endpoints honour. Map colormaps
+are also chosen server-side, in `dashboard.py`'s `MAP_CMAPS` (keyed on lowercased `long_name`;
+surface melt uses the Results figure's reversed colorcet `linear_kryw_5_100_c67`, everything else
+`DEFAULT_MAP_CMAP`, viridis). Every date of a variable's map shares one colour scale: the
+`MAP_PERCENTILES` (1st to 99th) over all dates and points, cached per snapshot. Display-side
 choices live at the top of `demo/dashboard/app.js`: `DEFAULT_VARIABLE_NAMES` (shown on first load)
 and `OUTPUT_VARIABLES` (long_name → display title for the sidebar's "Output variable" section;
 everything else is an input variable). Variables are matched on `long_name`, not key. There's no

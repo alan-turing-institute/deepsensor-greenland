@@ -29,8 +29,10 @@ from typing import Any, cast
 
 import cartopy.crs as ccrs
 import cftime
+import colorcet as cc
 import numpy as np
 import zarr
+from matplotlib.colors import Colormap, ListedColormap
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
 
@@ -53,6 +55,18 @@ EXCLUDED_EXPERIMENTS = frozenset({"baseline_10year"})
 MAP_PROJECTION = ccrs.Stereographic(
     central_latitude=90, central_longitude=-45, true_scale_latitude=70
 )
+
+# Map colormap per variable, keyed on lowercased ``long_name``; anything not
+# listed uses ``DEFAULT_MAP_CMAP``. Surface melt matches the Results tab's
+# figure (``demo/results/placement_pareto_demo.py``).
+DEFAULT_MAP_CMAP: str | Colormap = "viridis"
+MAP_CMAPS: dict[str, str | Colormap] = {
+    "acc snow melt": ListedColormap(cc.linear_kryw_5_100_c67[::-1]),
+}
+
+# Percentiles (over every date and point) bounding each variable's map colour
+# scale, so all its dates share one scale.
+MAP_PERCENTILES = (1, 99)
 
 
 def _array(group: zarr.Group, name: str) -> zarr.Array:
@@ -320,8 +334,48 @@ def nearest_time_index(group: zarr.Group, time_name: str, date: str) -> int:
     return int(np.nanargmin(np.abs(raw - target)))
 
 
+def map_color_range(
+    base: zarr.Group, experiment: str, variable: str
+) -> tuple[float, float] | None:
+    """Return the colour range shared by every date's map of ``variable``.
+
+    The 1st to 99th percentile over all dates and points, so a few extreme
+    values don't squash most maps into one end of the scale.
+
+    Parameters
+    ----------
+    base : zarr.Group
+        Root group of the dataset.
+    experiment : str
+        Experiment name.
+    variable : str
+        Variable name.
+
+    Returns
+    -------
+    tuple[float, float] | None
+        ``(vmin, vmax)``, or ``None`` if the variable has no finite values.
+
+    Raises
+    ------
+    KeyError
+        If ``experiment`` or ``variable`` doesn't exist.
+    """
+    _, arr = _experiment_variable(base, experiment, variable)
+    raw = np.asarray(arr[:], dtype=float)
+    finite = raw[np.isfinite(raw)]
+    if not finite.size:
+        return None
+    vmin, vmax = np.percentile(finite, MAP_PERCENTILES)
+    return float(vmin), float(vmax)
+
+
 def render_map_png(
-    base: zarr.Group, experiment: str, variable: str, date: str
+    base: zarr.Group,
+    experiment: str,
+    variable: str,
+    date: str,
+    color_range: tuple[float, float] | None = None,
 ) -> bytes:
     """Render a map of ``variable`` at the time step nearest ``date``.
 
@@ -338,6 +392,9 @@ def render_map_png(
         A ``(time, points)`` variable in the experiment.
     date : str
         Date to map; see ``nearest_time_index``.
+    color_range : tuple[float, float] | None, optional
+        Fixed ``(vmin, vmax)`` for the colour scale (see ``map_color_range``);
+        by default it is fitted to this date's values.
 
     Returns
     -------
@@ -376,11 +433,16 @@ def render_map_png(
     # skewed, mostly-empty frame).
     xy = MAP_PROJECTION.transform_points(ccrs.PlateCarree(), lon, lat)
     x, y = xy[:, 0], xy[:, 1]
+    vmin, vmax = color_range if color_range else (None, None)
     sc = ax.scatter(
         x,
         y,
         c=values,
-        cmap="viridis",
+        cmap=MAP_CMAPS.get(
+            str(arr.attrs.get("long_name", "")).strip().lower(), DEFAULT_MAP_CMAP
+        ),
+        vmin=vmin,
+        vmax=vmax,
         s=2,
         linewidths=0,
         transform=MAP_PROJECTION,
@@ -406,7 +468,15 @@ def render_map_png(
     gl.top_labels = False
     gl.right_labels = False
     gl.xlabel_style = gl.ylabel_style = {"size": 7}
-    cbar = fig.colorbar(sc, ax=ax, shrink=0.8, orientation="horizontal", pad=0.06)
+    cbar = fig.colorbar(
+        sc,
+        ax=ax,
+        shrink=0.8,
+        orientation="horizontal",
+        pad=0.06,
+        # Arrows mark values beyond a fixed range (clipped by the percentiles).
+        extend="both" if color_range else "neither",
+    )
     cbar.ax.tick_params(labelsize=9)
     cbar.set_label(str(arr.attrs.get("units", "")), fontsize=9)
     fig.tight_layout()
@@ -421,6 +491,9 @@ class _SnapshotState:
     group: zarr.Group
     catalog: dict[str, Any] | None = None
     series: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
+    map_ranges: dict[tuple[str, str], tuple[float, float] | None] = field(
+        default_factory=dict
+    )
 
 
 class Dashboard:
@@ -515,6 +588,9 @@ class Dashboard:
     def map_png(self, experiment: str, variable: str, date: str) -> bytes:
         """Render ``render_map_png`` against the current snapshot.
 
+        Every date of one experiment/variable shares the same (cached)
+        ``map_color_range`` colour scale.
+
         Parameters
         ----------
         experiment : str
@@ -529,4 +605,10 @@ class Dashboard:
         bytes
             PNG image.
         """
-        return render_map_png(self._ensure_state().group, experiment, variable, date)
+        state = self._ensure_state()
+        key = (experiment, variable)
+        if key not in state.map_ranges:
+            state.map_ranges[key] = map_color_range(state.group, experiment, variable)
+        return render_map_png(
+            state.group, experiment, variable, date, state.map_ranges[key]
+        )

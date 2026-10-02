@@ -1,16 +1,19 @@
 import numpy as np
 import pytest
 import zarr
+from cartopy.mpl.geoaxes import GeoAxes
 
 from giant_sp.demo.dashboard import (
     EXCLUDED_EXPERIMENTS,
     EXCLUDED_VARIABLES,
+    MAP_CMAPS,
     Dashboard,
     build_catalog,
     build_series,
     coordinate_names,
     decode_time,
     discover_experiments,
+    map_color_range,
     nearest_time_index,
     render_map_png,
     time_array_name,
@@ -118,6 +121,54 @@ def test_nearest_time_index_without_units_clamps_sample_index(add_experiment):
 def test_render_map_png_rejects_1d_variable(root):
     with pytest.raises(ValueError, match="no time dimension"):
         render_map_png(root, "baseline", "total", "2000-01-01")
+
+
+@pytest.mark.parametrize(
+    ("long_name", "expected"),
+    [("Acc snow melt", MAP_CMAPS["acc snow melt"]), ("2-m Temperature", "viridis")],
+)
+def test_render_map_png_picks_cmap_by_long_name(root, monkeypatch, long_name, expected):
+    root["baseline"]["melt"].attrs["long_name"] = long_name
+    seen = []
+    original = GeoAxes.scatter
+
+    def spy(self, *args, **kwargs):
+        seen.append(kwargs.get("cmap"))
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(GeoAxes, "scatter", spy)
+    render_map_png(root, "baseline", "melt", "2000-01-02")
+    assert seen == [expected]
+
+
+def test_map_color_range_spans_all_dates(root):
+    # melt is 0..11 over 4 dates x 3 points; NaNs are ignored.
+    root["baseline"]["melt"][0, 0] = np.nan
+    vmin, vmax = map_color_range(root, "baseline", "melt")
+    finite = np.arange(1, 12, dtype=float)
+    assert vmin == pytest.approx(np.percentile(finite, 1))
+    assert vmax == pytest.approx(np.percentile(finite, 99))
+
+
+def test_map_color_range_none_without_finite_values(root):
+    root["baseline"]["melt"][:] = np.nan
+    assert map_color_range(root, "baseline", "melt") is None
+
+
+def test_dashboard_maps_share_one_color_range(fake_source, monkeypatch):
+    seen = []
+    original = GeoAxes.scatter
+
+    def spy(self, *args, **kwargs):
+        seen.append((kwargs.get("vmin"), kwargs.get("vmax")))
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(GeoAxes, "scatter", spy)
+    dashboard = Dashboard(fake_source)
+    dashboard.map_png("baseline", "melt", "2000-01-01")
+    dashboard.map_png("baseline", "melt", "2000-01-04")
+    expected = map_color_range(fake_source.group, "baseline", "melt")
+    assert seen == [expected, expected]
 
 
 def test_render_map_png_requires_lat_lon():
