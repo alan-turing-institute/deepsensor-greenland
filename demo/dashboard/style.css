@@ -22,7 +22,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
   gap: 24px; flex-wrap: wrap; margin: 0 0 24px;
 }
 .lede { color: var(--fg-muted); max-width: 720px; line-height: 1.6; margin: 0; }
-.intro-logo { height: 33px; width: auto; flex-shrink: 0; }
+.intro-logos { display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
+.intro-logo { height: 33px; width: auto; }
+/* The DMI mark is roughly square, so it needs more height to read at the same weight. */
+.intro-logo-square { height: 64px; }
 
 .error {
   border: 1px solid rgba(239,68,68,0.4);
