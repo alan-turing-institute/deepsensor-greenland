@@ -36,12 +36,35 @@
             </div>
           </div>
           <div class="inner">
-          <img id="overview-figure" src="images/1a_xjmlsyei_ExpectedOccurrenceEntropyReduction_map.png" class="detail-figure" alt="Map of Greenland shaded by average surface melt of 50 dates with existing and proposed stations marked" />
+          </p>
+          <h3>From human-driven to AI-driven multi-objective sensor placement</h3>
+          <p>
+          <div id="overview-figure" class="detail-figure">
+            <div id="overview-controls" class="overview-controls" hidden>
+              <button type="button" id="overview-start">&#9654; Start</button>
+              <button type="button" id="overview-pause">&#10074;&#10074; Pause</button>
+            </div>
+            <figure>
+              <figcaption>Distance to current stations<br />(Human-driven)</figcaption>
+              <img data-src="images/2_overview_distance.gif" width="998" height="1807" alt="Animation of sensor placements proposed by distance from existing stations" />
+            </figure>
+            <div class="overview-operator" data-show="after-next" aria-hidden="true">&times;</div>
+            <figure>
+              <figcaption>Melt occurrence entropy<br />(AI-driven)</figcaption>
+              <img data-src="images/2_overview_ocurrence.gif" width="998" height="1807" alt="Animation of sensor placements proposed by expected melt-occurrence uncertainty" />
+            </figure>
+            <div class="overview-operator" aria-hidden="true">=</div>
+            <figure>
+              <figcaption>Multi-objective<br />(Human- and AI-driven)</figcaption>
+              <img data-src="images/2_overview_combination.png" width="1253" height="1607" alt="Static combination of the pareto result combining multiple criteria" />
+            </figure>
+          </div>
         </div>
         </div>
       </div>
     </section>
   </site-shell>
   <script src="nav.js"></script>
+  <script src="overview.js"></script>
 </body>
 </html>

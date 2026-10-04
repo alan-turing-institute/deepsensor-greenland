@@ -224,13 +224,76 @@ iframe {
   width: 100%;
 }
 #overview-figure {
-  width: 50%;
-  margin-left: auto;
-  margin-right: auto;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: end;
+  gap: 1rem;
+}
+#overview-figure .overview-controls {
+  grid-column: 1 / -1;
+  justify-self: end;
+  display: flex;
+  gap: 0.5rem;
+}
+#overview-figure .overview-controls[hidden] {
+  display: none;
+}
+#overview-figure .overview-controls button {
+  padding: 0.35rem 0.9rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+#overview-figure .overview-controls button:hover:not(:disabled),
+#overview-figure .overview-controls button:focus-visible {
+  filter: brightness(1.1);
+}
+#overview-figure .overview-controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+#overview-figure figure,
+#overview-figure .overview-operator {
+  margin: 0;
+  transition: opacity 0.6s ease;
+}
+/* Hidden until overview.js reveals it (only when the images use data-src). */
+#overview-figure figure:has(img[data-src]):not(.shown),
+#overview-figure:has(img[data-src]) .overview-operator:not(.shown) {
+  opacity: 0;
+}
+#overview-figure figcaption {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  color: #1f2328;
+}
+#overview-figure img,
+#overview-figure canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+#overview-figure img[hidden] {
+  display: none;
+}
+#overview-figure .overview-operator {
+  align-self: center;
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  color: #1f2328;
 }
 @media (max-width: 700px) {
   #overview-figure {
-    width: 100%;
+    grid-template-columns: 1fr;
   }
 }
 .credits-figure {
