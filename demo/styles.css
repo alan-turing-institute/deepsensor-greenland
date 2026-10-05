@@ -262,16 +262,20 @@ iframe {
   align-items: end;
   gap: 1rem;
 }
-#overview-figure .overview-controls {
-  grid-column: 1 / -1;
-  justify-self: end;
+/* Start/Pause buttons for overview.js's step-by-step reveals. */
+.overview-controls {
   display: flex;
   gap: 0.5rem;
 }
-#overview-figure .overview-controls[hidden] {
+#overview-figure .overview-controls,
+.card-grid .overview-controls {
+  grid-column: 1 / -1;
+  justify-self: end;
+}
+.overview-controls[hidden] {
   display: none;
 }
-#overview-figure .overview-controls button {
+.overview-controls button {
   padding: 0.35rem 0.9rem;
   font: inherit;
   font-size: 0.85rem;
@@ -282,11 +286,11 @@ iframe {
   border-radius: 6px;
   cursor: pointer;
 }
-#overview-figure .overview-controls button:hover:not(:disabled),
-#overview-figure .overview-controls button:focus-visible {
+.overview-controls button:hover:not(:disabled),
+.overview-controls button:focus-visible {
   filter: brightness(1.1);
 }
-#overview-figure .overview-controls button:disabled {
+.overview-controls button:disabled {
   opacity: 0.4;
   cursor: default;
 }
@@ -432,6 +436,14 @@ iframe {
   font-weight: 600;
   font-size: 0.9rem;
   margin-bottom: 0.3rem;
+}
+/* Cards behind a Start button are hidden until overview.js reveals them (only
+   once it has shown the button, so they stay visible without JS). */
+.card-grid:has(> .overview-controls) .card {
+  transition: opacity 0.6s ease;
+}
+.card-grid:has(> .overview-controls:not([hidden])) .card:not(.shown) {
+  opacity: 0;
 }
 .card .card-body {
   color: var(--muted);

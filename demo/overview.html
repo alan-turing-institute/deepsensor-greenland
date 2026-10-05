@@ -21,14 +21,18 @@
           <p>
             The Greenland Ice Sheet is one of the climate system's key tipping elements. We use <strong>surface melt prediction</strong> as a proof-of-concept challenge.
           </p>
-          <div class="card-grid">
+          <div id="challenge-cards" class="card-grid">
+            <div id="challenge-controls" class="overview-controls" hidden>
+              <button type="button" id="challenge-prev" aria-label="Previous card">&lsaquo;</button>
+              <button type="button" id="challenge-next" aria-label="Next card">&rsaquo;</button>
+            </div>
             <div class="card">
               <div class="card-title">Tipping-relevant</div>
               <div class="card-body">Surface melt drives a large share of Greenland's mass loss and the melt–elevation feedback, so better melt monitoring feeds directly into tracking the tipping point.</div>
             </div>
             <div class="card">
               <div class="card-title">Testable</div>
-              <div class="card-body">Outputs of regional climate models (RCM) are treated as "truth" to score against, alongside locations of long-term stations. This lets us measure how much each proposed sensor actually helps.</div>
+              <div class="card-body">Outputs of regional climate models (RCMs) are treated as "truth" to score against, alongside locations of stations. This lets us measure how much each proposed sensor actually helps.</div>
             </div>
             <div class="card">
               <div class="card-title">Transferable</div>
