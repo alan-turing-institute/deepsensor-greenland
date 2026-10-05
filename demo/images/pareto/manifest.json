@@ -1,9 +1,34 @@
 [
   {
-    "file": "images/pareto/xjmlsyei_ExpectedOccurrenceEntropyReduction_distance.png",
-    "label": "Expected Occurrence Entropy Reduction vs distance (run xjmlsyei)",
-    "run": "xjmlsyei",
+    "file": "images/pareto/vloyijco_ExpectedOccurrenceEntropyReduction_distance2border.png",
+    "run": "vloyijco",
     "acq_fn": "ExpectedOccurrenceEntropyReduction",
-    "cost": "distance"
+    "acq_fn_label": "Expected occurrence entropy reduction",
+    "cost": "distance2border",
+    "cost_label": "Distance to border"
+  },
+  {
+    "file": "images/pareto/vloyijco_ExpectedOccurrenceEntropyReduction_distance2stations.png",
+    "run": "vloyijco",
+    "acq_fn": "ExpectedOccurrenceEntropyReduction",
+    "acq_fn_label": "Expected occurrence entropy reduction",
+    "cost": "distance2stations",
+    "cost_label": "Distance to stations"
+  },
+  {
+    "file": "images/pareto/vloyijco_MeanVariance_distance2border.png",
+    "run": "vloyijco",
+    "acq_fn": "MeanVariance",
+    "acq_fn_label": "Mean variance",
+    "cost": "distance2border",
+    "cost_label": "Distance to border"
+  },
+  {
+    "file": "images/pareto/vloyijco_MeanVariance_distance2stations.png",
+    "run": "vloyijco",
+    "acq_fn": "MeanVariance",
+    "acq_fn_label": "Mean variance",
+    "cost": "distance2stations",
+    "cost_label": "Distance to stations"
   }
 ]

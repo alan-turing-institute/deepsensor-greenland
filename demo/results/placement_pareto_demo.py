@@ -5,7 +5,7 @@ named ``mask/<run>_<acq_fn>_<cost>.npy``, alongside:
 
 - ``acq/<run>_<acq_fn>.npy``: acquisition-function value per grid cell
 - ``cost/<cost>.npy``: cost per grid cell
-- ``rank/<run>_<acq_fn>_<cost>.nc``: Pareto rank map
+- ``rank/<run>_<acq_fn>_<cost>.npy``: Pareto rank per candidate site
 - ``placements/<run>_<acq_fn>_<cost>.csv``: lat/lon of the Pareto-optimal sites
 - ``existing_stations.csv``: lat/lon of existing stations (shared by all results)
 
@@ -40,6 +40,13 @@ OUTPUT_DIR = Path(__file__).resolve().parents[1] / "images" / "pareto"
 LABEL_FONTSIZE = 20
 DISPLAY_CRS = ccrs.NorthPolarStereo(central_longitude=-40)
 
+# Display names for the Results tab's "Cost" picker, keyed on cost file stem;
+# other costs fall back to the stem with underscores as spaces.
+COST_LABELS = {
+    "distance2stations": "Distance to stations",
+    "distance2border": "Distance to border",
+}
+
 
 @dataclass(frozen=True)
 class ParetoResult:
@@ -55,10 +62,15 @@ class ParetoResult:
         return f"{self.run}_{self.acq_fn}_{self.cost}"
 
     @property
-    def label(self) -> str:
-        """Human-readable name shown in the Results tab's picker."""
+    def acq_fn_label(self) -> str:
+        """Name shown in the Results tab's "Informativeness" picker."""
         acq_words = re.sub(r"(?<!^)(?=[A-Z])", " ", self.acq_fn)
-        return f"{acq_words} vs {self.cost.replace('_', ' ')} (run {self.run})"
+        return acq_words.capitalize()
+
+    @property
+    def cost_label(self) -> str:
+        """Name shown in the Results tab's "Cost" picker."""
+        return COST_LABELS.get(self.cost, self.cost.replace("_", " ").capitalize())
 
 
 def discover_results(results_dir: Path) -> list[ParetoResult]:
@@ -78,7 +90,7 @@ def discover_results(results_dir: Path) -> list[ParetoResult]:
             p
             for p in (
                 results_dir / "acq" / f"{run}_{result.acq_fn}.npy",
-                results_dir / "rank" / f"{result.stem}.nc",
+                results_dir / "rank" / f"{result.stem}.npy",
                 results_dir / "placements" / f"{result.stem}.csv",
             )
             if not p.exists()
@@ -109,15 +121,19 @@ def plot_result(
 
     cmap = mcolors.ListedColormap(cc.linear_kryw_5_100_c67[::-1])
 
-    alpha_df = pd.DataFrame({"alpha_1": acqfn, "alpha_2": cost}).dropna(axis=0)
+    # acq/cost are grids; the mask indexes their non-NaN (land) cells in
+    # row-major order.
+    alpha_df = pd.DataFrame({"alpha_1": acqfn.ravel(), "alpha_2": cost.ravel()}).dropna(
+        axis=0
+    )
 
     fig = plt.figure(figsize=(16, 8), frameon=False)
     gs = fig.add_gridspec(1, 2)
 
     ax0 = fig.add_subplot(gs[0, 0])
     ax0.scatter(
-        cost,
-        acqfn * -1,
+        alpha_df["alpha_2"],
+        alpha_df["alpha_1"] * -1,
         marker="o",
         color="k",
         s=6**2,
@@ -137,10 +153,10 @@ def plot_result(
         label="Pareto optimal",
     )
     ax0.legend(loc="lower right", prop={"size": 15})
-    ax0.set_xlabel("Cost (Remoteness)", size=LABEL_FONTSIZE)
-    ax0.set_ylabel(
-        "Informativeness\n(ConvCNP Acquisition Function)", size=LABEL_FONTSIZE
-    )
+    # Generic labels: which cost/acquisition function is shown is picked on the
+    # Results tab.
+    ax0.set_xlabel("Cost", size=LABEL_FONTSIZE)
+    ax0.set_ylabel("Informativeness", size=LABEL_FONTSIZE)
     ax0.tick_params(axis="both", which="major", labelsize=18)
     for spine in ax0.spines.values():
         spine.set_color("gray")
@@ -206,10 +222,11 @@ def main() -> None:
         manifest.append(
             {
                 "file": f"images/pareto/{out_file.name}",
-                "label": result.label,
                 "run": result.run,
                 "acq_fn": result.acq_fn,
+                "acq_fn_label": result.acq_fn_label,
                 "cost": result.cost,
+                "cost_label": result.cost_label,
             }
         )
     (OUTPUT_DIR / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")

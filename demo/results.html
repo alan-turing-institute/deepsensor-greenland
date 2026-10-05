@@ -22,7 +22,11 @@
           </p>
           <!-- Filled from images/pareto/manifest.json by results.js; regenerate with
                `uv run python demo/results/placement_pareto_demo.py`. -->
-          <select id="pareto-select" hidden aria-label="Placement result"></select>
+          <div id="pareto-controls" class="pareto-controls" hidden>
+            <label>Cost <select id="pareto-cost"></select></label>
+            <label>Informativeness <select id="pareto-acq"></select></label>
+          </div>
+          <p id="pareto-missing" class="pareto-missing" hidden>No result for this combination.</p>
           <img id="pareto-figure" class="detail-figure" alt="Scatter plot of informativeness against remoteness cost for candidate sensor locations with Pareto-optimal points highlighted, alongside a map of Greenland shaded by Pareto rank with existing stations marked" />
           <ul>
             <li><strong>Left:</strong> every candidate location plotted by cost and informativeness. The red

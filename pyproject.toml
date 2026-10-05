@@ -92,6 +92,9 @@ filterwarnings = [
   # netCDF4's compiled extension does an in-place ndarray.shape assignment on
   # write, deprecated under numpy>=2.5; not actionable from giant_sp.
   "ignore:Setting the shape on a NumPy array.*:DeprecationWarning",
+  # cartopy fetches Natural Earth coastlines on first use (e.g. on a fresh CI
+  # runner with no cache) and warns that it's downloading; not a failure.
+  "ignore::cartopy.io.DownloadWarning",
 ]
 log_cli_level = "INFO"
 testpaths = [
