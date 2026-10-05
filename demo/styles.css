@@ -170,6 +170,11 @@ iframe {
   margin: 1.75rem 0 0.5rem;
   color: var(--text);
 }
+/* Whatever a page opens with (heading, text, figure), .content's padding is
+   the only gap below the panel header. */
+.content .inner > :first-child {
+  margin-top: 0;
+}
 .content p {
   color: var(--muted);
   line-height: 1.55;
@@ -268,7 +273,8 @@ iframe {
   gap: 0.5rem;
 }
 #overview-figure .overview-controls,
-.card-grid .overview-controls {
+.card-grid .overview-controls,
+.input-grid .overview-controls {
   grid-column: 1 / -1;
   justify-self: end;
 }
@@ -420,11 +426,29 @@ iframe {
   text-align: center;
   color: var(--muted);
 }
-.card-grid {
+/* .card-grid and .input-grid lay out their --cols items all on one row while
+   each gets at least --card-min-width, and one per row (full width) otherwise,
+   never in between (no 2+1 rows). The clamp() picks the column minimum: a
+   1/--cols share when the row fits (its middle term goes negative), else 100%. */
+:root {
+  --card-min-width: 180px;
+  --card-gap: 0.75rem;
+}
+.card-grid,
+.input-grid {
+  --cols: 3;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(clamp(
+    (100% - (var(--cols) - 1) * var(--card-gap)) / var(--cols) - 0.1px,
+    (var(--cols) * var(--card-min-width) + (var(--cols) - 1) * var(--card-gap) - 100%) * 999,
+    100%
+  ), 1fr));
+  gap: var(--card-gap);
   margin: 0 0 1.25rem;
+}
+.card-grid:has(> :nth-child(4 of .card)),
+.input-grid:has(> :nth-child(4 of .input-item)) {
+  --cols: 4;
 }
 .card {
   background: var(--panel-bg);
@@ -449,6 +473,65 @@ iframe {
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1.5;
+}
+/* Cards with an icon above each one (data details inputs, model approach),
+   laid out by the .input-grid rules above. */
+.input-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+.input-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.input-icon .dot {
+  fill: var(--accent);
+}
+.input-item .card {
+  flex: 1;
+  width: 100%;
+}
+/* Inputs with ‹/› buttons are hidden until input-steps.js reveals them (only
+   once it has shown the buttons, so they stay visible without JS). */
+.input-grid:has(> .overview-controls) .input-item {
+  transition: opacity 0.6s ease;
+}
+.input-grid:has(> .overview-controls:not([hidden])) .input-item:not(.shown) {
+  opacity: 0;
+}
+.content .references {
+  margin-top: 2rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border);
+}
+.content .references p {
+  font-size: 0.78rem;
+  margin: 0;
+}
+.content .references p + p {
+  margin-top: 0.5rem;
+}
+.content .references a {
+  color: var(--accent);
+  word-break: break-all;
+}
+.content sup a {
+  color: var(--accent);
+  text-decoration: none;
+  padding: 0 0.1em;
+}
+.content sup a:hover {
+  text-decoration: underline;
+}
+.content :target {
+  scroll-margin-top: 1rem;
 }
 @media (max-width: 700px) {
   .layout { flex-direction: column; }
