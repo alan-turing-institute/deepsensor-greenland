@@ -9,15 +9,16 @@
   <site-shell active="results">
     <section class="panel" id="panel-results-detail">
       <div class="panel-header">
-        <span class="title">Acquisition function comparisons</span>
+        <span class="title">Acquisition functions and multi-objective pareto optimisation</span>
         <a href="results.html">← Back to Results</a>
       </div>
       <div class="content">
         <div class="inner">
           <h3>What is an acquisition function?</h3>
           <p>
-            An acquisition function scores how useful a new sensor would be at each candidate
-            location. The placement search then picks the locations with the best scores:
+            An acquisition function gives every possible sensor location a score.
+            A high score means a new sensor there would be useful.
+            The search has three steps. Step 2 uses one of two kinds of score: 2a or 2b.
           </p>
           <div class="input-grid">
             <div class="overview-controls" hidden>
@@ -31,8 +32,8 @@
                 <rect class="dot" x="9" y="9" width="6" height="6" />
               </svg>
               <div class="card">
-                <div class="card-title">Score every candidate</div>
-                <div class="card-body">Each candidate location on the ice sheet gets a score for how much a sensor there would add to what the existing stations already tell us.</div>
+                <div class="card-title">1. List possible locations</div>
+                <div class="card-body">Every grid cell on the ice sheet is a possible place for a new sensor.</div>
               </div>
             </div>
             <div class="input-item">
@@ -42,8 +43,8 @@
                 <path d="M6 16.5l11.6-8.6" stroke-dasharray="2 2" />
               </svg>
               <div class="card">
-                <div class="card-title">Human-driven rules</div>
-                <div class="card-body">Simple rules of thumb, such as distance from existing stations, fill gaps in coverage without needing a model.</div>
+                <div class="card-title">2a. Score by distance</div>
+                <div class="card-body">A simple rule. No model is needed. Places far from existing stations get a high score.</div>
               </div>
             </div>
             <div class="input-item">
@@ -53,8 +54,8 @@
                 <path d="M8 13h8M9.5 11.5L8 13l1.5 1.5M14.5 11.5L16 13l-1.5 1.5" />
               </svg>
               <div class="card">
-                <div class="card-title">AI-driven uncertainty</div>
-                <div class="card-body">The trained model's predictive distribution shows where it is least certain about melt, so a sensor there is expected to teach it the most, without needing a real measurement first.</div>
+                <div class="card-title">2b. Score by model uncertainty</div>
+                <div class="card-body">Uses the trained model. Places where the model is least sure about melt get a high score. No real measurement is needed.</div>
               </div>
             </div>
             <div class="input-item">
@@ -62,13 +63,13 @@
                 <path d="M3 20h5v-5h5v-5h5V5h3" />
               </svg>
               <div class="card">
-                <div class="card-title">One sensor at a time</div>
-                <div class="card-body">The best-scoring location is added as a new station, the scores are recomputed, and the search repeats, so each new sensor takes account of the ones placed before it.</div>
+                <div class="card-title">3. Add one sensor, then repeat</div>
+                <div class="card-body">Put a sensor at the place with the highest score. Count it as an existing station. Score again, then pick the next place.</div>
               </div>
             </div>
           </div>
           <p>
-            This greedy search follows
+            Adding one sensor at a time like this is called a greedy search. It follows
             <strong>Andersson <em>et al.</em> (2023)</strong><sup class="ref-mark"><a href="#ref-1" id="cite-1">1</a></sup>
             and uses DeepSensor's <code>GreedyAlgorithm</code>, with the model loaded from a trained
             Weights &amp; Biases run.
@@ -91,25 +92,72 @@
               in the order they were chosen. The dashed line separates the practical acquisition
               functions (left) from the oracles (right).</li>
           </ul>
-          <h3>Sensor placement acquisition functions</h3>
-          <div class="card-grid">
-            <div class="card">
-              <div class="card-title">ContextDist</div>
-              <div class="card-body">Favors locations far from existing context observations.</div>
+          <h3>What is multi-objective (Pareto) optimisation?</h3>
+          <p>
+            The most useful place for a sensor is not always easy to reach.
+            So we score every possible location on two goals at the same time.
+            The goals pull in different directions, so there is no single best location.
+            Instead, there is a set of best trade-offs.
+          </p>
+          <div class="input-grid">
+            <div class="overview-controls" hidden>
+              <button type="button" class="step-prev" aria-label="Previous idea">&lsaquo;</button>
+              <button type="button" class="step-next" aria-label="Next idea">&rsaquo;</button>
             </div>
-            <div class="card">
-              <div class="card-title">Stddev</div>
-              <div class="card-body">Greedily picks the location with highest predictive uncertainty.</div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 20V4M7 9l5-5 5 5" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Goal 1: high informativeness</div>
+                <div class="card-body">The acquisition function score from above. Higher is better.</div>
+              </div>
             </div>
-            <div class="card">
-              <div class="card-title">MeanMarginalEntropy</div>
-              <div class="card-body">Picks locations that most reduce mean marginal predictive entropy.</div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 4v16M7 15l5 5 5-5" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Goal 2: low cost</div>
+                <div class="card-body">How hard the place is to reach. We test two measures: distance to the nearest station, and distance to the border. Lower is better.</div>
+              </div>
             </div>
-            <div class="card">
-              <div class="card-title">OracleRMSE</div>
-              <div class="card-body">Uses ground truth to pick the location that most reduces RMSE — an upper-bound reference, not a deployable strategy.</div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 3v18h18" />
+                <path d="M5 17C6 11 10 7 18 5" stroke-dasharray="2 2" />
+                <circle class="dot" cx="7" cy="11.7" r="1.5" />
+                <circle class="dot" cx="11.3" cy="7.7" r="1.5" />
+                <circle class="dot" cx="16" cy="5.6" r="1.5" />
+                <circle cx="13" cy="14" r="1.3" />
+                <circle cx="17.5" cy="11" r="1.3" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Pareto optimal</div>
+                <div class="card-body">A location is Pareto optimal when no other location is both more informative and cheaper. Together, these locations form the Pareto front.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7l2 2 3-4M4 15l2 2 3-4M12 7h8M12 15h8" />
+              </svg>
+              <div class="card">
+                <div class="card-title">People choose</div>
+                <div class="card-body">The method does not pick one winner. It gives a short list of the best trade-offs. People then choose from this list, using knowledge the model does not have, such as field logistics.</div>
+              </div>
             </div>
           </div>
+          <p><strong>Example with three locations:</strong></p>
+          <ul>
+            <li><strong>Location A:</strong> informativeness 8, cost 5.</li>
+            <li><strong>Location B:</strong> informativeness 6, cost 7. A is better than B on both goals, so B is <em>not</em> Pareto optimal.</li>
+            <li><strong>Location C:</strong> informativeness 4, cost 2. C is less informative than A, but cheaper. Neither beats the other on both goals, so A and C are <em>both</em> Pareto optimal.</li>
+          </ul>
+          <p>
+            On the <a href="results.html">Results</a> page, the left plot shows every location as a
+            point, with cost on the x-axis and informativeness on the y-axis. The blue points are the
+            Pareto-optimal locations. The map on the right shows where those locations are in Greenland.
+          </p>
           <footer class="references">
             <p id="ref-1">
               <sup><a href="#cite-1" aria-label="Back to text">1</a></sup>
@@ -125,6 +173,6 @@
     </section>
   </site-shell>
   <script src="nav.js"></script>
-  <script src="input-steps.js"></script>
+  <script src="steps.js"></script>
 </body>
 </html>

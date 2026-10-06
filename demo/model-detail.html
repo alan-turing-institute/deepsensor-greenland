@@ -36,7 +36,7 @@
               </svg>
               <div class="card">
                 <div class="card-title">Any observations, anywhere</div>
-                <div class="card-body">Takes a <em>context set</em> of any number of observations at any locations, here surface melt at scattered points, alongside gridded inputs.</div>
+                <div class="card-body">The model can use any number of observations, taken at any locations. We call these the <em>context set</em>. Here, they are surface melt values at scattered points. The model also uses gridded input maps.</div>
               </div>
             </div>
             <div class="input-item">
@@ -47,7 +47,7 @@
               </svg>
               <div class="card">
                 <div class="card-title">Predictions with uncertainty</div>
-                <div class="card-body">Outputs a probability distribution at each <em>target</em> location rather than a single value, giving both the expected melt and how uncertain it is.</div>
+                <div class="card-body">A <em>target</em> is a location where we want a prediction. At each target, the model gives a range of likely values, not just one number. This shows the expected surface melt and how uncertain the model is.</div>
               </div>
             </div>
             <div class="input-item">
@@ -61,7 +61,7 @@
               </svg>
               <div class="card">
                 <div class="card-title">Learned from data</div>
-                <div class="card-body">Like a Gaussian process, but it learns how observations relate from data instead of needing that relationship specified by hand, and predicts in a single pass through the network.</div>
+                <div class="card-body">A Gaussian process needs a person to define how observations relate to each other. Our model learns this relationship from the data instead. It makes all its predictions in one step.</div>
               </div>
             </div>
             <div class="input-item">
@@ -72,7 +72,7 @@
               </svg>
               <div class="card">
                 <div class="card-title">Same pattern, same prediction</div>
-                <div class="card-body">Convolutions make it translation equivariant: a pattern leads to the same prediction wherever it appears, so it learns a large domain with few parameters and copes with station layouts it has not seen.</div>
+                <div class="card-body">The model uses convolutions. So the same pattern gives the same prediction, wherever it appears on the map (this is called <em>translation equivariance</em>).  </div>
               </div>
             </div>
           </div>
@@ -110,7 +110,7 @@
           </ul>
           <p>
             Most days outside summer have little or no melt, so we do not train on every day.
-            Following Schlager <em>et al.</em> (2026), each year contributes 150 days, sampled with
+            Following <strong>Schlager <em>et al.</em> (2026)</strong><sup class="ref-mark"><a href="#ref-3" id="cite-3">3</a></sup>, each year contributes 150 days, sampled with
             a weighting that peaks on 24 July, the height of the melt season, and falls off over
             about two months either side. These days stay fixed across epochs.
           </p>
@@ -161,12 +161,19 @@
               <em>Environmental Data Science</em>, 2, e32, 2023.
               <a href="https://doi.org/10.1017/eds.2023.22">https://doi.org/10.1017/eds.2023.22</a>
             </p>
+            <p id="ref-3">
+              <sup><a href="#cite-3" aria-label="Back to text">3</a></sup>
+              Schlager, E., Scher, S., Mottram, R. H., and Langen, P. L.: Learning to melt:
+              Emulating Greenland surface melt from a polar RCM with machine learning,
+              <em>The Cryosphere</em>, 20, 3313–3343, 2026.
+              <a href="https://doi.org/10.5194/tc-20-3313-2026">https://doi.org/10.5194/tc-20-3313-2026</a>
+            </p>
           </footer>
         </div>
       </div>
     </section>
   </site-shell>
   <script src="nav.js"></script>
-  <script src="input-steps.js"></script>
+  <script src="steps.js"></script>
 </body>
 </html>
