@@ -32,24 +32,45 @@
             </div>
           </div>
           <img class="overview-figure" src="images/2_overview-detail_al.gif" alt="Animation of the greedy active-learning loop proposing new sensor placements" />
-          <ul>
-            <li>Building on the principles of active learning, it uses probabilistic models, specifically Convolutional Conditional Neural Process (ConvCNP) models, available in the <a href="https://github.com/alan-turing-institute/deepsensor" target="_blank" rel="noopener">DeepSensor</a> library.</li>
-            <li>It trains spatial-interpolation models on gridded RCM data plus augmented station locations, then uses the trained model to run active-learning searches for new sensor placements.</li>
-            <li>This demo showcases the tool's capabilities and provides a dashboard for exploring the data, model, and sensor-placement results for <strong>surface melt</strong>.</li>
-          </ul>
+          <p> 
+            Building on the principles of active learning, <strong>GIANT-sp</strong> trains probabilistic models, specifically Convolutional Conditional Neural Process (ConvCNP) models, available in the <a href="https://github.com/alan-turing-institute/deepsensor" target="_blank" rel="noopener">DeepSensor</a> library.</li>
+          </p>
           <h3>Pipeline</h3>
-          <div class="card-grid">
-            <div class="card">
-              <div class="card-title">1. Data loading</div>
-              <div class="card-body">Per-source data loaders normalize gridded data and build data iterators readable for ConvNP models.</div>
+          <div class="input-grid">
+            <div class="overview-controls" hidden>
+              <button type="button" class="step-prev" aria-label="Previous step">&lsaquo;</button>
+              <button type="button" class="step-next" aria-label="Next step">&rsaquo;</button>
             </div>
-            <div class="card">
-              <div class="card-title">2. Training</div>
-              <div class="card-body">A ConvCNP model is trained to interpolate the target variable from sparse context observations, validated against unseen ground truth.</div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <ellipse cx="12" cy="5" rx="8" ry="3" />
+                <path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5" />
+                <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" />
+              </svg>
+              <div class="card">
+                <div class="card-title">1. Data loading</div>
+                <div class="card-body">Per-source data loaders normalize input data and build data iterators readable for ConvNP models.</div>
+              </div>
             </div>
-            <div class="card">
-              <div class="card-title">3. Placement</div>
-              <div class="card-body">The trained model drives a greedy active-learning search to propose new sensor locations that most reduce predictive uncertainty.</div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 3v18h18" />
+                <path d="M6 6c2 7 4 10 14 11" />
+              </svg>
+              <div class="card">
+                <div class="card-title">2. Training</div>
+                <div class="card-body">A ConvCNP model is trained to interpolate the target variable from sparse context observations, validated against unseen ground truth.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 22s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12z" />
+                <circle class="dot" cx="12" cy="10" r="2.4" />
+              </svg>
+              <div class="card">
+                <div class="card-title">3. Placement</div>
+                <div class="card-body">The trained model drives a greedy active-learning search to propose new sensor locations that most reduce predictive uncertainty.</div>
+              </div>
             </div>
           </div>
         </div>
@@ -57,5 +78,6 @@
     </section>
   </site-shell>
   <script src="nav.js"></script>
+  <script src="steps.js"></script>
 </body>
 </html>
