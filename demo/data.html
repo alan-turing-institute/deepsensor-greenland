@@ -23,12 +23,5 @@
     </section>
   </site-shell>
   <script src="nav.js"></script>
-  <script>
-    // The dashboard reports whether it's showing live data or its saved copy.
-    window.addEventListener("message", (e) => {
-      if (e.origin !== location.origin || e.data?.type !== "dashboard-data-mode") return;
-      document.getElementById("live-label").hidden = e.data.offline;
-    });
-  </script>
 </body>
 </html>

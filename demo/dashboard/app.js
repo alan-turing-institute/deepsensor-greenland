@@ -587,10 +587,7 @@ async function refresh() {
       `Data: <code>${r.repo}</code>${r.root_path ? ` · <code>${r.root_path}</code>` : ""} · snapshot ` +
       `<code>${r.snapshot.id.slice(0, 12)}</code> · ${new Date(r.snapshot.written_at).toLocaleString()}` +
       (offline ? ` · saved copy from ${new Date(r.saved_at).toLocaleString()}` : "");
-    // Lets the embedding Data page drop its "(live from Earthmover)" label.
-    if (window.parent !== window) {
-      window.parent.postMessage({ type: "dashboard-data-mode", offline }, location.origin);
-    }
+    document.getElementById("live-label").hidden = offline;
     clearError();
     await loadAndRender();
   } catch (e) {
