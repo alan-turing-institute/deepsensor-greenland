@@ -2,17 +2,22 @@ import numpy as np
 import pytest
 import zarr
 from cartopy.mpl.geoaxes import GeoAxes
+from matplotlib.colors import LogNorm
+from matplotlib.figure import Figure
 
 from giant_sp.demo.dashboard import (
     EXCLUDED_EXPERIMENTS,
     EXCLUDED_VARIABLES,
     MAP_CMAPS,
+    MAP_LOG_DECADES,
+    MAP_LOG_UPPER_PERCENTILE,
     Dashboard,
     build_catalog,
     build_series,
     coordinate_names,
     decode_time,
     discover_experiments,
+    is_log_scale,
     map_color_range,
     nearest_time_index,
     render_map_png,
@@ -143,6 +148,7 @@ def test_render_map_png_picks_cmap_by_long_name(root, monkeypatch, long_name, ex
 
 def test_map_color_range_spans_all_dates(root):
     # melt is 0..11 over 4 dates x 3 points; NaNs are ignored.
+    root["baseline"]["melt"].attrs["long_name"] = "2-m Temperature"
     root["baseline"]["melt"][0, 0] = np.nan
     vmin, vmax = map_color_range(root, "baseline", "melt")
     finite = np.arange(1, 12, dtype=float)
@@ -150,7 +156,63 @@ def test_map_color_range_spans_all_dates(root):
     assert vmax == pytest.approx(np.percentile(finite, 99))
 
 
-def test_map_color_range_none_without_finite_values(root):
+def test_map_color_range_log_scale_spans_decades_below_upper_percentile(root):
+    # "Acc snow melt" is log-scaled; zeros are left out of the percentile.
+    assert is_log_scale(root["baseline"]["melt"])
+    vmin, vmax = map_color_range(root, "baseline", "melt")
+    positive = np.arange(1, 12, dtype=float)
+    assert vmax == pytest.approx(np.percentile(positive, MAP_LOG_UPPER_PERCENTILE))
+    assert vmin == pytest.approx(vmax / 10**MAP_LOG_DECADES)
+
+
+def test_map_color_range_log_scale_falls_back_to_linear_without_positives(root):
+    root["baseline"]["melt"][:] = 0.0
+    assert map_color_range(root, "baseline", "melt") == (0.0, 0.0)
+
+
+def test_render_map_png_log_scale_lifts_zeros_to_bottom(root, monkeypatch):
+    seen = []
+    original = GeoAxes.scatter
+
+    def spy(self, *args, **kwargs):
+        seen.append((kwargs["norm"], np.asarray(kwargs["c"])))
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(GeoAxes, "scatter", spy)
+    render_map_png(root, "baseline", "melt", "2000-01-01", (0.5, 50.0))
+    [(norm, values)] = seen
+    assert isinstance(norm, LogNorm)
+    assert (norm.vmin, norm.vmax) == (0.5, 50.0)
+    assert values.tolist() == [0.5, 1.0, 2.0]
+
+
+def test_render_map_png_log_scale_colorbar_has_plain_number_labels(root, monkeypatch):
+    cbars = []
+    original = Figure.colorbar
+
+    def spy(self, *args, **kwargs):
+        cbars.append(original(self, *args, **kwargs))
+        return cbars[-1]
+
+    monkeypatch.setattr(Figure, "colorbar", spy)
+    render_map_png(root, "baseline", "melt", "2000-01-01", (0.05, 50.0))
+    [cbar] = cbars
+    axis = cbar.ax.xaxis
+    ticks = [t for t in axis.get_majorticklocs() if 0.05 <= t <= 50.0]
+    assert ticks == pytest.approx([0.1, 0.3, 1, 3, 10, 30])
+    assert [axis.get_major_formatter()(t, 0) for t in ticks] == [
+        "0.1",
+        "0.3",
+        "1",
+        "3",
+        "10",
+        "30",
+    ]
+
+
+@pytest.mark.parametrize("long_name", ["Acc snow melt", "2-m Temperature"])
+def test_map_color_range_none_without_finite_values(root, long_name):
+    root["baseline"]["melt"].attrs["long_name"] = long_name
     root["baseline"]["melt"][:] = np.nan
     assert map_color_range(root, "baseline", "melt") is None
 
@@ -160,7 +222,7 @@ def test_dashboard_maps_share_one_color_range(fake_source, monkeypatch):
     original = GeoAxes.scatter
 
     def spy(self, *args, **kwargs):
-        seen.append((kwargs.get("vmin"), kwargs.get("vmax")))
+        seen.append((kwargs["norm"].vmin, kwargs["norm"].vmax))
         return original(self, *args, **kwargs)
 
     monkeypatch.setattr(GeoAxes, "scatter", spy)

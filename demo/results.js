@@ -4,6 +4,12 @@
 // (its acquisition function, the y-axis), choose which figure is shown; each
 // appears only when it has more than one option. If several runs share a
 // cost and acquisition function, the first in the manifest is shown.
+//
+// The figure shown first; falls back to the first in the manifest if it's
+// missing.
+const DEFAULT_COST = "distance2stations";
+const DEFAULT_ACQ_FN = "ExpectedOccurrenceEntropyReduction";
+
 (async () => {
   const img = document.getElementById("pareto-figure");
   const controls = document.getElementById("pareto-controls");
@@ -44,8 +50,11 @@
 
   const nCost = fill(costSelect, "cost", "cost_label");
   const nAcq = fill(acqSelect, "acq_fn", "acq_fn_label");
-  costSelect.value = results[0].cost;
-  acqSelect.value = results[0].acq_fn;
+  const initial =
+    results.find((r) => r.cost === DEFAULT_COST && r.acq_fn === DEFAULT_ACQ_FN) ??
+    results[0];
+  costSelect.value = initial.cost;
+  acqSelect.value = initial.acq_fn;
   costSelect.addEventListener("change", show);
   acqSelect.addEventListener("change", show);
   controls.hidden = nCost < 2 && nAcq < 2;

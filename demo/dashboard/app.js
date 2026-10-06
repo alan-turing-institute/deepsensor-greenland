@@ -57,6 +57,11 @@ const MAP_EXCLUDED_EXPERIMENTS = new Set(["baseline_10year"]);
 let catalog = null;
 let selected = new Set();
 let selectedVariables = new Set();
+// long_name -> when it was last ticked in the sidebar, so newly added plots
+// go to the top (just under the output variables). Defaults have no entry
+// and keep catalog order below anything the user has added.
+const variableSelectedAt = new Map();
+let selectionCounter = 0;
 let seriesCache = new Map(); // `${experiment}::${variable}` -> series payload
 // Every series is shown as a running mean over this many points.
 const SMOOTH_WINDOW = 11;
@@ -179,6 +184,7 @@ function renderVariableList() {
       for (const k of g.availableKeys) {
         if (e.target.checked) selectedVariables.add(k); else selectedVariables.delete(k);
       }
+      if (e.target.checked) variableSelectedAt.set(g.longName, ++selectionCounter);
       loadAndRender();
     });
     varList.appendChild(row);
@@ -227,6 +233,13 @@ function renderPlots() {
   const groups = variableGroups()
     .map((g) => ({ ...g, activeKeys: [...g.keys].filter((k) => selectedVariables.has(k)) }))
     .filter((g) => g.activeKeys.length);
+  // Output variables always come first, then the most recently ticked
+  // variables; defaults (never ticked) keep catalog order (stable sort).
+  const isOutput = (g) => OUTPUT_VARIABLES.has(g.longName.toLowerCase());
+  groups.sort((a, b) =>
+    (isOutput(b) - isOutput(a)) ||
+    ((variableSelectedAt.get(b.longName) ?? 0) - (variableSelectedAt.get(a.longName) ?? 0))
+  );
   if (!groups.length) {
     plotsDiv.innerHTML = `<p class="muted">Select one or more variables in the sidebar to plot them.</p>`;
     return;
