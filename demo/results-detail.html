@@ -14,6 +14,66 @@
       </div>
       <div class="content">
         <div class="inner">
+          <h3>What is an acquisition function?</h3>
+          <p>
+            An acquisition function scores how useful a new sensor would be at each candidate
+            location. The placement search then picks the locations with the best scores:
+          </p>
+          <div class="input-grid">
+            <div class="overview-controls" hidden>
+              <button type="button" class="step-prev" aria-label="Previous property">&lsaquo;</button>
+              <button type="button" class="step-next" aria-label="Next property">&rsaquo;</button>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M9 3v18M15 3v18M3 9h18M3 15h18" />
+                <rect class="dot" x="9" y="9" width="6" height="6" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Score every candidate</div>
+                <div class="card-body">Each candidate location on the ice sheet gets a score for how much a sensor there would add to what the existing stations already tell us.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="dot" cx="4" cy="18" r="1.8" />
+                <circle cx="19.5" cy="6.5" r="2.2" />
+                <path d="M6 16.5l11.6-8.6" stroke-dasharray="2 2" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Human-driven rules</div>
+                <div class="card-body">Simple rules of thumb, such as distance from existing stations, fill gaps in coverage without needing a model.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2 20h20" />
+                <path d="M3 20c4 0 5-14 9-14s5 14 9 14" />
+                <path d="M8 13h8M9.5 11.5L8 13l1.5 1.5M14.5 11.5L16 13l-1.5 1.5" />
+              </svg>
+              <div class="card">
+                <div class="card-title">AI-driven uncertainty</div>
+                <div class="card-body">The trained model's predictive distribution shows where it is least certain about melt, so a sensor there is expected to teach it the most, without needing a real measurement first.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 20h5v-5h5v-5h5V5h3" />
+              </svg>
+              <div class="card">
+                <div class="card-title">One sensor at a time</div>
+                <div class="card-body">The best-scoring location is added as a new station, the scores are recomputed, and the search repeats, so each new sensor takes account of the ones placed before it.</div>
+              </div>
+            </div>
+          </div>
+          <p>
+            This greedy search follows
+            <strong>Andersson <em>et al.</em> (2023)</strong><sup class="ref-mark"><a href="#ref-1" id="cite-1">1</a></sup>
+            and uses DeepSensor's <code>GreedyAlgorithm</code>, with the model loaded from a trained
+            Weights &amp; Biases run.
+          </p>
+          <h3>How do they compare?</h3>
           <p>
             We compare acquisition functions by running ten iterations of greedy placement with each
             and tracking how much every new sensor improves the model's predictions of surface melt.
@@ -31,10 +91,40 @@
               in the order they were chosen. The dashed line separates the practical acquisition
               functions (left) from the oracles (right).</li>
           </ul>
+          <h3>Sensor placement acquisition functions</h3>
+          <div class="card-grid">
+            <div class="card">
+              <div class="card-title">ContextDist</div>
+              <div class="card-body">Favors locations far from existing context observations.</div>
+            </div>
+            <div class="card">
+              <div class="card-title">Stddev</div>
+              <div class="card-body">Greedily picks the location with highest predictive uncertainty.</div>
+            </div>
+            <div class="card">
+              <div class="card-title">MeanMarginalEntropy</div>
+              <div class="card-body">Picks locations that most reduce mean marginal predictive entropy.</div>
+            </div>
+            <div class="card">
+              <div class="card-title">OracleRMSE</div>
+              <div class="card-body">Uses ground truth to pick the location that most reduces RMSE — an upper-bound reference, not a deployable strategy.</div>
+            </div>
+          </div>
+          <footer class="references">
+            <p id="ref-1">
+              <sup><a href="#cite-1" aria-label="Back to text">1</a></sup>
+              Andersson, T. R., Bruinsma, W. P., Markou, S., Requeima, J., Coca-Castro, A., Vaughan,
+              A., Ellis, A.-L., Lazzara, M. A., Jones, D., Hosking, S., and Turner, R. E.:
+              Environmental sensor placement with convolutional Gaussian neural processes,
+              <em>Environmental Data Science</em>, 2, e32, 2023.
+              <a href="https://doi.org/10.1017/eds.2023.22">https://doi.org/10.1017/eds.2023.22</a>
+            </p>
+          </footer>
         </div>
       </div>
     </section>
   </site-shell>
   <script src="nav.js"></script>
+  <script src="input-steps.js"></script>
 </body>
 </html>
