@@ -1,28 +1,3 @@
-// Steps through the #challenge-cards cards: #challenge-next reveals the next
-// one and #challenge-prev hides the last one shown.
-(() => {
-  const controls = document.getElementById("challenge-controls");
-  const prev = document.getElementById("challenge-prev");
-  const next = document.getElementById("challenge-next");
-  const cards = [...document.querySelectorAll("#challenge-cards .card")];
-  let shown = 0;
-  const update = () => {
-    cards.forEach((card, n) => card.classList.toggle("shown", n < shown));
-    prev.disabled = shown === 0;
-    next.disabled = shown === cards.length;
-  };
-  prev.addEventListener("click", () => {
-    shown -= 1;
-    update();
-  });
-  next.addEventListener("click", () => {
-    shown += 1;
-    update();
-  });
-  update();
-  controls.hidden = false;
-})();
-
 // Reveals the #overview-figure images one after another once #overview-start
 // is clicked: each GIF plays once and stops on its last frame before the next
 // image appears, and #overview-pause pauses the sequence (Start then resumes
