@@ -32,8 +32,9 @@ import cftime
 import colorcet as cc
 import numpy as np
 import zarr
-from matplotlib.colors import Colormap, ListedColormap
+from matplotlib.colors import Colormap, ListedColormap, LogNorm, Normalize
 from matplotlib.figure import Figure
+from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
 from numpy.typing import NDArray
 
 from giant_sp.demo.source import DataSource, Snapshot
@@ -67,6 +68,15 @@ MAP_CMAPS: dict[str, str | Colormap] = {
 # Percentiles (over every date and point) bounding each variable's map colour
 # scale, so all its dates share one scale.
 MAP_PERCENTILES = (1, 99)
+
+# Heavily skewed variables (mostly zero/near-zero with rare large events), keyed
+# on lowercased ``long_name``, mapped on a log colour scale instead: it tops out
+# at the ``MAP_LOG_UPPER_PERCENTILE`` of the positive values and spans
+# ``MAP_LOG_DECADES`` decades below that; anything smaller (including zeros)
+# gets the lowest colour.
+LOG_SCALE_VARIABLES = frozenset({"acc snow melt", "precipitation", "snowfall flux"})
+MAP_LOG_UPPER_PERCENTILE = 99.9
+MAP_LOG_DECADES = 3
 
 
 def _array(group: zarr.Group, name: str) -> zarr.Array:
@@ -334,13 +344,46 @@ def nearest_time_index(group: zarr.Group, time_name: str, date: str) -> int:
     return int(np.nanargmin(np.abs(raw - target)))
 
 
+def is_log_scale(arr: zarr.Array) -> bool:
+    """Return whether ``arr`` is mapped on a log colour scale.
+
+    Parameters
+    ----------
+    arr : zarr.Array
+        Variable array; matched on its ``long_name`` attribute.
+
+    Returns
+    -------
+    bool
+        ``True`` if its lowercased ``long_name`` is in ``LOG_SCALE_VARIABLES``.
+    """
+    return str(arr.attrs.get("long_name", "")).strip().lower() in LOG_SCALE_VARIABLES
+
+
+def _color_range(values: NDArray[Any], log: bool) -> tuple[float, float] | None:
+    finite = values[np.isfinite(values)]
+    if log:
+        positive = finite[finite > 0]
+        if positive.size:
+            vmax = float(np.percentile(positive, MAP_LOG_UPPER_PERCENTILE))
+            return vmax / 10**MAP_LOG_DECADES, vmax
+        # Nothing positive to put on a log scale: fall back to a linear one.
+    if not finite.size:
+        return None
+    vmin, vmax = np.percentile(finite, MAP_PERCENTILES)
+    return float(vmin), float(vmax)
+
+
 def map_color_range(
     base: zarr.Group, experiment: str, variable: str
 ) -> tuple[float, float] | None:
     """Return the colour range shared by every date's map of ``variable``.
 
     The 1st to 99th percentile over all dates and points, so a few extreme
-    values don't squash most maps into one end of the scale.
+    values don't squash most maps into one end of the scale. Variables in
+    ``LOG_SCALE_VARIABLES`` (see ``is_log_scale``) instead span
+    ``MAP_LOG_DECADES`` decades up to the ``MAP_LOG_UPPER_PERCENTILE`` of their
+    positive values.
 
     Parameters
     ----------
@@ -362,12 +405,7 @@ def map_color_range(
         If ``experiment`` or ``variable`` doesn't exist.
     """
     _, arr = _experiment_variable(base, experiment, variable)
-    raw = np.asarray(arr[:], dtype=float)
-    finite = raw[np.isfinite(raw)]
-    if not finite.size:
-        return None
-    vmin, vmax = np.percentile(finite, MAP_PERCENTILES)
-    return float(vmin), float(vmax)
+    return _color_range(np.asarray(arr[:], dtype=float), is_log_scale(arr))
 
 
 def render_map_png(
@@ -394,7 +432,8 @@ def render_map_png(
         Date to map; see ``nearest_time_index``.
     color_range : tuple[float, float] | None, optional
         Fixed ``(vmin, vmax)`` for the colour scale (see ``map_color_range``);
-        by default it is fitted to this date's values.
+        by default it is fitted to this date's values. Variables in
+        ``LOG_SCALE_VARIABLES`` use a log colour scale.
 
     Returns
     -------
@@ -433,7 +472,16 @@ def render_map_png(
     # skewed, mostly-empty frame).
     xy = MAP_PROJECTION.transform_points(ccrs.PlateCarree(), lon, lat)
     x, y = xy[:, 0], xy[:, 1]
-    vmin, vmax = color_range if color_range else (None, None)
+    norm: Normalize
+    log_range = (
+        (color_range or _color_range(values, log=True)) if is_log_scale(arr) else None
+    )
+    if log_range and log_range[0] > 0:
+        # LogNorm masks values <= 0, so lift them to the bottom of the scale.
+        values = np.maximum(values, log_range[0])
+        norm = LogNorm(*log_range)
+    else:
+        norm = Normalize(*(color_range or (None, None)))
     sc = ax.scatter(
         x,
         y,
@@ -441,8 +489,7 @@ def render_map_png(
         cmap=MAP_CMAPS.get(
             str(arr.attrs.get("long_name", "")).strip().lower(), DEFAULT_MAP_CMAP
         ),
-        vmin=vmin,
-        vmax=vmax,
+        norm=norm,
         s=2,
         linewidths=0,
         transform=MAP_PROJECTION,
@@ -478,6 +525,11 @@ def render_map_png(
         extend="both" if color_range else "neither",
     )
     cbar.ax.tick_params(labelsize=9)
+    if isinstance(norm, LogNorm):
+        # Plain-number labels (0.1, 0.3, 1, 3, ...) on the log-spaced bar.
+        cbar.ax.xaxis.set_major_locator(LogLocator(subs=(1.0, 3.0)))
+        cbar.ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+        cbar.ax.xaxis.set_minor_formatter(NullFormatter())
     cbar.set_label(str(arr.attrs.get("units", "")), fontsize=9)
     fig.tight_layout()
     buf = io.BytesIO()
