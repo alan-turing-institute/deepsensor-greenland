@@ -131,7 +131,9 @@ Data the dashboard should hide is excluded server-side, in `dashboard.py`'s
 are also chosen server-side, in `dashboard.py`'s `MAP_CMAPS` (keyed on lowercased `long_name`;
 surface melt uses the Results figure's reversed colorcet `linear_kryw_5_100_c67`, everything else
 `DEFAULT_MAP_CMAP`, viridis). Every date of a variable's map shares one colour scale: the
-`MAP_PERCENTILES` (1st to 99th) over all dates and points, cached per snapshot. Display-side
+`MAP_PERCENTILES` (1st to 99th) over all dates and points, cached per snapshot; skewed variables
+in `LOG_SCALE_VARIABLES` use a log scale instead. The sidebar's "Full colour range" toggle
+(`full_range=true` on `/map`) swaps the percentiles for the data's min to max. Display-side
 choices live at the top of `demo/dashboard/app.js`: `DEFAULT_VARIABLE_NAMES` (shown on first load)
 and `OUTPUT_VARIABLES` (long_name → display title for the sidebar's "Output variable" section;
 everything else is an input variable). Variables are matched on `long_name`, not key. There's no
@@ -140,7 +142,8 @@ experiment picker — every experiment the server exposes is shown.
 `snapshot.py` (`python -m giant_sp.demo.snapshot`, run by hand before a demo, while online) saves an
 offline copy of the API to `demo/dashboard/static-api/` (git-ignored): `repo.json`, `catalog.json`,
 every series, map PNGs for `--map-variables` (default: every 2-D variable in the catalog) at `--map-freq` (default `MS`,
-the 1st of each month) listed in `maps/index.json`, and a copy of Plotly (keep `PLOTLY_URL` in sync
+the 1st of each month), each in both colour ranges (`<date>.png` and `<date>-full.png`), listed in
+`maps/index.json`, and a copy of Plotly (keep `PLOTLY_URL` in sync
 with the `<script>` in `dashboard/index.html`). If the live catalog fails or times out — or the
 footer's "Use saved copy" button (shown only when a saved copy exists) is clicked — `app.js`
 switches every request to that copy (noting its save date in the footer; there's deliberately no

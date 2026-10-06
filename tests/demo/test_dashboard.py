@@ -165,6 +165,62 @@ def test_map_color_range_log_scale_spans_decades_below_upper_percentile(root):
     assert vmin == pytest.approx(vmax / 10**MAP_LOG_DECADES)
 
 
+def test_map_color_range_full_spans_min_to_max(root):
+    root["baseline"]["melt"].attrs["long_name"] = "2-m Temperature"
+    root["baseline"]["melt"][0, 0] = np.nan
+    assert map_color_range(root, "baseline", "melt", full=True) == (1.0, 11.0)
+
+
+def test_map_color_range_full_log_scale_tops_out_at_max(root):
+    vmin, vmax = map_color_range(root, "baseline", "melt", full=True)
+    assert vmax == 11.0
+    assert vmin == pytest.approx(11.0 / 10**MAP_LOG_DECADES)
+
+
+@pytest.mark.parametrize(
+    ("long_name", "full_range", "extend"),
+    [
+        ("2-m Temperature", False, "both"),
+        ("2-m Temperature", True, "neither"),
+        ("Acc snow melt", False, "both"),
+        ("Acc snow melt", True, "min"),
+    ],
+)
+def test_render_map_png_colorbar_arrows(
+    root, monkeypatch, long_name, full_range, extend
+):
+    root["baseline"]["melt"].attrs["long_name"] = long_name
+    seen = []
+    original = Figure.colorbar
+
+    def spy(self, *args, **kwargs):
+        seen.append(kwargs["extend"])
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Figure, "colorbar", spy)
+    render_map_png(root, "baseline", "melt", "2000-01-01", (0.5, 50.0), full_range)
+    assert seen == [extend]
+
+
+def test_dashboard_full_range_maps_use_full_color_range(fake_source, monkeypatch):
+    seen = []
+    original = GeoAxes.scatter
+
+    def spy(self, *args, **kwargs):
+        seen.append((kwargs["norm"].vmin, kwargs["norm"].vmax))
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(GeoAxes, "scatter", spy)
+    dashboard = Dashboard(fake_source)
+    dashboard.map_png("baseline", "melt", "2000-01-01")
+    dashboard.map_png("baseline", "melt", "2000-01-01", full_range=True)
+    group = fake_source.group
+    assert seen == [
+        map_color_range(group, "baseline", "melt"),
+        map_color_range(group, "baseline", "melt", full=True),
+    ]
+
+
 def test_map_color_range_log_scale_falls_back_to_linear_without_positives(root):
     root["baseline"]["melt"][:] = 0.0
     assert map_color_range(root, "baseline", "melt") == (0.0, 0.0)

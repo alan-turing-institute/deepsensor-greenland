@@ -57,9 +57,11 @@ def _api_router(dashboard: Dashboard) -> APIRouter:
             raise HTTPException(status_code=404, detail=str(e)) from e
 
     @router.get("/map")
-    def map_png(experiment: str, variable: str, date: str) -> Response:
+    def map_png(
+        experiment: str, variable: str, date: str, full_range: bool = False
+    ) -> Response:
         try:
-            png = dashboard.map_png(experiment, variable, date)
+            png = dashboard.map_png(experiment, variable, date, full_range)
         except KeyError as e:
             raise HTTPException(status_code=404, detail=str(e)) from e
         except ValueError as e:

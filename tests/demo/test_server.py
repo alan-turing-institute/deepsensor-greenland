@@ -23,12 +23,12 @@ def client(site_dir, fake_source, monkeypatch):
         yield c
 
 
-def _fake_map_png(experiment, variable, date):
+def _fake_map_png(experiment, variable, date, full_range):
     if experiment != "baseline":
         raise KeyError(experiment)
     if variable == "total":
         raise ValueError("no time dimension")
-    return b"\x89PNG"
+    return b"\x89PNG" + (b" full" if full_range else b"")
 
 
 def test_serves_static_site_with_no_cache(client):
@@ -79,3 +79,15 @@ def test_map_status_codes(client, experiment, variable, status):
     assert r.status_code == status
     if status == 200:
         assert r.headers["content-type"] == "image/png"
+
+
+@pytest.mark.parametrize(
+    ("params", "body"), [({}, b"\x89PNG"), ({"full_range": "true"}, b"\x89PNG full")]
+)
+def test_map_full_range(client, params, body):
+    r = client.get(
+        "/dashboard/api/map",
+        params={"experiment": "baseline", "variable": "melt", "date": "2000-01-01"}
+        | params,
+    )
+    assert r.content == body

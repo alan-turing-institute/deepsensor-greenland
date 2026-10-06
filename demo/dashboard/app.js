@@ -20,10 +20,11 @@ const api = {
     getJson(offline
       ? `${SAVED_API}/series/${savedPath(experiment)}/${q(variable)}.json`
       : `${LIVE_API}/series?experiment=${q(experiment)}&variable=${q(variable)}`),
-  mapUrl: (experiment, variable, date) =>
+  mapUrl: (experiment, variable, date, fullRange) =>
     offline
-      ? `${SAVED_API}/maps/${savedPath(experiment)}/${q(variable)}/${date}.png`
-      : `${LIVE_API}/map?experiment=${q(experiment)}&variable=${q(variable)}&date=${q(date)}`,
+      ? `${SAVED_API}/maps/${savedPath(experiment)}/${q(variable)}/${date}${fullRange ? "-full" : ""}.png`
+      : `${LIVE_API}/map?experiment=${q(experiment)}&variable=${q(variable)}&date=${q(date)}` +
+        (fullRange ? "&full_range=true" : ""),
 };
 
 function getJson(url, opts) {
@@ -66,6 +67,10 @@ let seriesCache = new Map(); // `${experiment}::${variable}` -> series payload
 // Every series is shown as a running mean over this many points.
 const SMOOTH_WINDOW = 11;
 let mapState = new Map(); // group title -> { experiment, date }
+// Colour maps by each variable's full data range rather than its percentiles
+// (the sidebar's "Full colour range" toggle); applies to every map.
+let mapFullRange = false;
+let mapRefreshers = []; // each rendered map's updateMapImg, for that toggle
 
 const $ = (sel) => document.querySelector(sel);
 const errorBox = $("#error");
@@ -230,6 +235,7 @@ function nearestIndexForDate(times, isoDate) {
 
 function renderPlots() {
   plotsDiv.innerHTML = "";
+  mapRefreshers = [];
   const groups = variableGroups()
     .map((g) => ({ ...g, activeKeys: [...g.keys].filter((k) => selectedVariables.has(k)) }))
     .filter((g) => g.activeKeys.length);
@@ -492,9 +498,10 @@ function buildMapRow(g) {
     }
     img.classList.add("loading");
     spinner.classList.add("visible");
-    img.src = api.mapUrl(ms.experiment, currentVar(), ms.date);
+    img.src = api.mapUrl(ms.experiment, currentVar(), ms.date, mapFullRange);
   }
   updateMapImg();
+  mapRefreshers.push(updateMapImg);
 
   // Lets other UI (e.g. clicking a point on the time-series chart) drive the
   // map to a specific experiment/date without reaching into this closure.
@@ -614,6 +621,11 @@ async function refresh() {
 }
 
 refreshBtn.addEventListener("click", refresh);
+
+$("#full-range-toggle").addEventListener("change", (e) => {
+  mapFullRange = e.target.checked;
+  for (const update of mapRefreshers) update();
+});
 
 // Switch between live data and the saved copy. From an automatic fallback
 // (offline but not chosen), this retries live data.

@@ -25,7 +25,7 @@ import warnings
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import cartopy.crs as ccrs
 import cftime
@@ -360,22 +360,30 @@ def is_log_scale(arr: zarr.Array) -> bool:
     return str(arr.attrs.get("long_name", "")).strip().lower() in LOG_SCALE_VARIABLES
 
 
-def _color_range(values: NDArray[Any], log: bool) -> tuple[float, float] | None:
+def _color_range(
+    values: NDArray[Any], log: bool, full: bool = False
+) -> tuple[float, float] | None:
     finite = values[np.isfinite(values)]
     if log:
         positive = finite[finite > 0]
         if positive.size:
-            vmax = float(np.percentile(positive, MAP_LOG_UPPER_PERCENTILE))
+            vmax = float(
+                positive.max()
+                if full
+                else np.percentile(positive, MAP_LOG_UPPER_PERCENTILE)
+            )
             return vmax / 10**MAP_LOG_DECADES, vmax
         # Nothing positive to put on a log scale: fall back to a linear one.
     if not finite.size:
         return None
+    if full:
+        return float(finite.min()), float(finite.max())
     vmin, vmax = np.percentile(finite, MAP_PERCENTILES)
     return float(vmin), float(vmax)
 
 
 def map_color_range(
-    base: zarr.Group, experiment: str, variable: str
+    base: zarr.Group, experiment: str, variable: str, full: bool = False
 ) -> tuple[float, float] | None:
     """Return the colour range shared by every date's map of ``variable``.
 
@@ -383,7 +391,8 @@ def map_color_range(
     values don't squash most maps into one end of the scale. Variables in
     ``LOG_SCALE_VARIABLES`` (see ``is_log_scale``) instead span
     ``MAP_LOG_DECADES`` decades up to the ``MAP_LOG_UPPER_PERCENTILE`` of their
-    positive values.
+    positive values. With ``full``, the range is the data's minimum to maximum
+    instead (for a log scale, ``MAP_LOG_DECADES`` decades up to the maximum).
 
     Parameters
     ----------
@@ -405,7 +414,19 @@ def map_color_range(
         If ``experiment`` or ``variable`` doesn't exist.
     """
     _, arr = _experiment_variable(base, experiment, variable)
-    return _color_range(np.asarray(arr[:], dtype=float), is_log_scale(arr))
+    return _color_range(np.asarray(arr[:], dtype=float), is_log_scale(arr), full)
+
+
+def _colorbar_extend(
+    color_range: tuple[float, float] | None, full_range: bool, log: bool
+) -> Literal["neither", "both", "min", "max"]:
+    # Arrows mark values beyond a fixed range: clipped by the percentiles, or
+    # (on a full range) only those under a log scale's floor, e.g. zeros.
+    if not color_range:
+        return "neither"
+    if full_range:
+        return "min" if log else "neither"
+    return "both"
 
 
 def render_map_png(
@@ -414,6 +435,7 @@ def render_map_png(
     variable: str,
     date: str,
     color_range: tuple[float, float] | None = None,
+    full_range: bool = False,
 ) -> bytes:
     """Render a map of ``variable`` at the time step nearest ``date``.
 
@@ -434,6 +456,10 @@ def render_map_png(
         Fixed ``(vmin, vmax)`` for the colour scale (see ``map_color_range``);
         by default it is fitted to this date's values. Variables in
         ``LOG_SCALE_VARIABLES`` use a log colour scale.
+    full_range : bool, optional
+        Whether ``color_range`` spans all of the variable's data (see
+        ``map_color_range``'s ``full``), so the colour bar has no arrows for
+        values beyond it, except below a log scale's floor.
 
     Returns
     -------
@@ -521,8 +547,7 @@ def render_map_png(
         shrink=0.8,
         orientation="horizontal",
         pad=0.06,
-        # Arrows mark values beyond a fixed range (clipped by the percentiles).
-        extend="both" if color_range else "neither",
+        extend=_colorbar_extend(color_range, full_range, isinstance(norm, LogNorm)),
     )
     cbar.ax.tick_params(labelsize=9)
     if isinstance(norm, LogNorm):
@@ -543,7 +568,7 @@ class _SnapshotState:
     group: zarr.Group
     catalog: dict[str, Any] | None = None
     series: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
-    map_ranges: dict[tuple[str, str], tuple[float, float] | None] = field(
+    map_ranges: dict[tuple[str, str, bool], tuple[float, float] | None] = field(
         default_factory=dict
     )
 
@@ -637,7 +662,9 @@ class Dashboard:
             state.series[key] = build_series(state.group, experiment, variable)
         return state.series[key]
 
-    def map_png(self, experiment: str, variable: str, date: str) -> bytes:
+    def map_png(
+        self, experiment: str, variable: str, date: str, full_range: bool = False
+    ) -> bytes:
         """Render ``render_map_png`` against the current snapshot.
 
         Every date of one experiment/variable shares the same (cached)
@@ -651,6 +678,9 @@ class Dashboard:
             Variable name.
         date : str
             Date to map.
+        full_range : bool, optional
+            Colour by the data's full range rather than its percentiles; see
+            ``map_color_range``'s ``full``.
 
         Returns
         -------
@@ -658,9 +688,11 @@ class Dashboard:
             PNG image.
         """
         state = self._ensure_state()
-        key = (experiment, variable)
+        key = (experiment, variable, full_range)
         if key not in state.map_ranges:
-            state.map_ranges[key] = map_color_range(state.group, experiment, variable)
+            state.map_ranges[key] = map_color_range(
+                state.group, experiment, variable, full_range
+            )
         return render_map_png(
-            state.group, experiment, variable, date, state.map_ranges[key]
+            state.group, experiment, variable, date, state.map_ranges[key], full_range
         )

@@ -4,7 +4,8 @@
 ``demo/dashboard/static-api/``, the same payloads the live ``/dashboard/api``
 serves: ``repo.json``, ``catalog.json``, ``series/<experiment>/<variable>.json``
 for every variable, and map PNGs for every (or chosen) variable at a regular date
-interval (``maps/<experiment>/<variable>/<YYYY-MM-DD>.png``, listed in
+interval (``maps/<experiment>/<variable>/<YYYY-MM-DD>.png``, plus
+``<YYYY-MM-DD>-full.png`` coloured by the full data range, listed in
 ``maps/index.json``). It also saves a copy of Plotly, so the dashboard works
 without internet access. When the live API is unreachable, the dashboard
 falls back to these files, and ``demo/`` can then be served by any static
@@ -126,11 +127,12 @@ def write_snapshot(
             dates = map_dates(series["time"], map_freq)
             for date in dates:
                 logger.info("map %s/%s %s", name, var, date)
-                png = dashboard.map_png(name, var, date)
-                path = out_dir / "maps" / name / var / f"{date}.png"
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(png)
-            n_files += len(dates)
+                for full_range, suffix in [(False, ""), (True, "-full")]:
+                    png = dashboard.map_png(name, var, date, full_range)
+                    path = out_dir / "maps" / name / var / f"{date}{suffix}.png"
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(png)
+            n_files += 2 * len(dates)
             if dates:
                 maps_index.setdefault(name, {})[var] = dates
     _write_json(out_dir / "maps" / "index.json", maps_index)

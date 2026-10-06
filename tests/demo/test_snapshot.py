@@ -10,7 +10,9 @@ from giant_sp.demo.snapshot import map_dates, write_snapshot
 def dashboard(fake_source, monkeypatch):
     """Build a Dashboard over the in-memory dataset, with map rendering stubbed."""
     dashboard = Dashboard(fake_source)
-    monkeypatch.setattr(dashboard, "map_png", lambda e, v, d: f"{e}|{v}|{d}".encode())
+    monkeypatch.setattr(
+        dashboard, "map_png", lambda e, v, d, full: f"{e}|{v}|{d}|{full}".encode()
+    )
     return dashboard
 
 
@@ -46,13 +48,16 @@ def test_write_snapshot(dashboard, tmp_path):
     dates = ["2000-01-01", "2000-01-03"]
     index = json.loads((out / "maps" / "index.json").read_text())
     assert index == {"baseline": {"melt": dates}, "project/run1": {"melt": dates}}
-    png = out / "maps" / "baseline" / "melt" / "2000-01-03.png"
-    assert png.read_bytes() == b"baseline|melt|2000-01-03"
+    maps = out / "maps" / "baseline" / "melt"
+    assert (maps / "2000-01-03.png").read_bytes() == b"baseline|melt|2000-01-03|False"
+    assert (
+        maps / "2000-01-03-full.png"
+    ).read_bytes() == b"baseline|melt|2000-01-03|True"
     # "total" is 1-D, so it gets no maps even when asked for.
     assert not (out / "maps" / "baseline" / "total").exists()
 
-    # repo + catalog + 2 experiments x 2 series + 2 x 2 maps + map index
-    assert n_files == 2 + 4 + 4 + 1
+    # repo + catalog + 2 experiments x 2 series + 2 x 2 x 2 maps + map index
+    assert n_files == 2 + 4 + 8 + 1
     assert sum(1 for p in out.rglob("*") if p.is_file()) == n_files
 
 
