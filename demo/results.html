@@ -14,17 +14,6 @@
       </div>
       <div class="content">
         <div class="inner">
-          <!-- <p>
-            The most informative place for a new sensor is not always the most practical one to reach.
-            We treat placement as a trade-off between two objectives: the <strong>informativeness</strong>
-            of a candidate location, scored by the ConvCNP acquisition function, and its
-            <strong>cost</strong>, measured here as remoteness.
-          </p> -->
-          <p>
-            The left plot shows every location as a point, with cost on the x-axis and
-            informativeness on the y-axis. The blue points are the Pareto-optimal locations. The map
-            on the right shows where those locations are in Greenland.
-          </p>
           <!-- Filled from images/pareto/manifest.json by results.js; regenerate with
                `uv run python demo/results/placement_pareto_demo.py`. -->
           <div id="pareto-controls" class="pareto-controls" hidden>
@@ -33,6 +22,11 @@
           </div>
           <p id="pareto-missing" class="pareto-missing" hidden>No result for this combination.</p>
           <img id="pareto-figure" class="detail-figure" alt="Scatter plot of informativeness against remoteness cost for candidate sensor locations with Pareto-optimal points highlighted, alongside a map of Greenland shaded by surface melt with existing stations marked" />
+          <p>
+            The left plot shows every location as a point, with cost on the x-axis and
+            informativeness on the y-axis. The blue points are the Pareto-optimal locations. The map
+            on the right shows where those locations are in Greenland.
+          </p>
           <h3>What is multi-objective (Pareto) optimisation?</h3>
           <p>
             The most useful place for a sensor is not always easy to reach.
