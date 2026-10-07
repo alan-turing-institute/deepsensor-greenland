@@ -75,6 +75,7 @@ COST_LABELS = {
     "distance2stations": "Distance to stations",
     "distance2border": "Distance to border",
     "elevation": "Elevation",
+    "albedo": "Albedo",
 }
 
 
