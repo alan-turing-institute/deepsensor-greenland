@@ -74,6 +74,7 @@ PARETO_COLOR = "#4da3ff"
 COST_LABELS = {
     "distance2stations": "Distance to stations",
     "distance2border": "Distance to border",
+    "elevation": "Elevation",
 }
 
 

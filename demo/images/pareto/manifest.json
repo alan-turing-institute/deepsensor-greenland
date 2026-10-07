@@ -16,6 +16,14 @@
     "cost_label": "Distance to stations"
   },
   {
+    "file": "images/pareto/vloyijco_ExpectedOccurrenceEntropyReduction_elevation.png",
+    "run": "vloyijco",
+    "acq_fn": "ExpectedOccurrenceEntropyReduction",
+    "acq_fn_label": "Expected occurrence entropy reduction",
+    "cost": "elevation",
+    "cost_label": "Elevation"
+  },
+  {
     "file": "images/pareto/vloyijco_MeanVariance_distance2border.png",
     "run": "vloyijco",
     "acq_fn": "MeanVariance",
@@ -30,5 +38,13 @@
     "acq_fn_label": "Mean variance",
     "cost": "distance2stations",
     "cost_label": "Distance to stations"
+  },
+  {
+    "file": "images/pareto/vloyijco_MeanVariance_elevation.png",
+    "run": "vloyijco",
+    "acq_fn": "MeanVariance",
+    "acq_fn_label": "Mean variance",
+    "cost": "elevation",
+    "cost_label": "Elevation"
   }
 ]
