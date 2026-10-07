@@ -35,10 +35,16 @@
         <p class="muted">loading…</p>
       </div>
 
-      <h2>Maps</h2>
-      <div class="experiment-list">
-        <label class="experiment-row" title="Colour bars span every value, rather than clipping the most extreme ones">
-          <input type="checkbox" id="full-range-toggle" /> <span>Full colour range</span>
+      <h2>Map colour scale</h2>
+      <div id="map-scale" class="experiment-list">
+        <label class="experiment-row" title="Every date shares one colour bar, clipping the most extreme values">
+          <input type="radio" name="map-scale" value="shared" checked /> <span>Shared</span>
+        </label>
+        <label class="experiment-row" title="Every date shares one colour bar spanning every value">
+          <input type="radio" name="map-scale" value="full" /> <span>Shared, full range</span>
+        </label>
+        <label class="experiment-row" title="Each date gets its own colour bar, clipping its most extreme values">
+          <input type="radio" name="map-scale" value="date" /> <span>Per date</span>
         </label>
       </div>
     </aside>

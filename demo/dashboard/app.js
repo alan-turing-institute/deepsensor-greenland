@@ -20,12 +20,16 @@ const api = {
     getJson(offline
       ? `${SAVED_API}/series/${savedPath(experiment)}/${q(variable)}.json`
       : `${LIVE_API}/series?experiment=${q(experiment)}&variable=${q(variable)}`),
-  mapUrl: (experiment, variable, date, fullRange) =>
+  mapUrl: (experiment, variable, date, scale) =>
     offline
-      ? `${SAVED_API}/maps/${savedPath(experiment)}/${q(variable)}/${date}${fullRange ? "-full" : ""}.png`
+      ? `${SAVED_API}/maps/${savedPath(experiment)}/${q(variable)}/${date}${SAVED_MAP_SUFFIXES[scale]}.png`
       : `${LIVE_API}/map?experiment=${q(experiment)}&variable=${q(variable)}&date=${q(date)}` +
-        (fullRange ? "&full_range=true" : ""),
+        `&scale=${q(scale)}`,
 };
+
+// Saved map file name suffix per colour scale; must match MAP_SCALE_SUFFIXES
+// in src/giant_sp/demo/snapshot.py.
+const SAVED_MAP_SUFFIXES = { shared: "", full: "-full", date: "-date" };
 
 function getJson(url, opts) {
   return fetch(url, opts).then(assertOk);
@@ -67,10 +71,11 @@ let seriesCache = new Map(); // `${experiment}::${variable}` -> series payload
 // Every series is shown as a running mean over this many points.
 const SMOOTH_WINDOW = 11;
 let mapState = new Map(); // group title -> { experiment, date }
-// Colour maps by each variable's full data range rather than its percentiles
-// (the sidebar's "Full colour range" toggle); applies to every map.
-let mapFullRange = false;
-let mapRefreshers = []; // each rendered map's updateMapImg, for that toggle
+// How maps' colour bars are chosen (the sidebar's "Map colour scale"):
+// "shared" across dates by percentiles, "full" across dates by min to max,
+// or "date" for each date's own; applies to every map.
+let mapScale = "shared";
+let mapRefreshers = []; // each rendered map's updateMapImg, for that choice
 
 const $ = (sel) => document.querySelector(sel);
 const errorBox = $("#error");
@@ -498,7 +503,7 @@ function buildMapRow(g) {
     }
     img.classList.add("loading");
     spinner.classList.add("visible");
-    img.src = api.mapUrl(ms.experiment, currentVar(), ms.date, mapFullRange);
+    img.src = api.mapUrl(ms.experiment, currentVar(), ms.date, mapScale);
   }
   updateMapImg();
   mapRefreshers.push(updateMapImg);
@@ -622,8 +627,8 @@ async function refresh() {
 
 refreshBtn.addEventListener("click", refresh);
 
-$("#full-range-toggle").addEventListener("change", (e) => {
-  mapFullRange = e.target.checked;
+$("#map-scale").addEventListener("change", (e) => {
+  mapScale = e.target.value;
   for (const update of mapRefreshers) update();
 });
 

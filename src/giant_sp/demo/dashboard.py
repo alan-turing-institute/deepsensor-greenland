@@ -69,6 +69,13 @@ MAP_CMAPS: dict[str, str | Colormap] = {
 # scale, so all its dates share one scale.
 MAP_PERCENTILES = (1, 99)
 
+# How a map's colour scale is chosen (the dashboard sidebar's "Colour scale"):
+# ``"shared"`` by ``MAP_PERCENTILES`` over every date, ``"full"`` by the
+# data's minimum to maximum over every date, or ``"date"`` by the mapped date's
+# own minimum to maximum, so each date gets its own (always linear, even for
+# ``LOG_SCALE_VARIABLES``).
+MapScale = Literal["shared", "full", "date"]
+
 # Heavily skewed variables (mostly zero/near-zero with rare large events), keyed
 # on lowercased ``long_name``, mapped on a log colour scale instead: it tops out
 # at the ``MAP_LOG_UPPER_PERCENTILE`` of the positive values and spans
@@ -453,9 +460,10 @@ def render_map_png(
     date : str
         Date to map; see ``nearest_time_index``.
     color_range : tuple[float, float] | None, optional
-        Fixed ``(vmin, vmax)`` for the colour scale (see ``map_color_range``);
-        by default it is fitted to this date's values. Variables in
-        ``LOG_SCALE_VARIABLES`` use a log colour scale.
+        Fixed ``(vmin, vmax)`` for the colour scale (see ``map_color_range``),
+        on which variables in ``LOG_SCALE_VARIABLES`` use a log colour scale.
+        By default the scale is instead fitted to this date's minimum to
+        maximum, on a linear scale for every variable.
     full_range : bool, optional
         Whether ``color_range`` spans all of the variable's data (see
         ``map_color_range``'s ``full``), so the colour bar has no arrows for
@@ -499,9 +507,13 @@ def render_map_png(
     xy = MAP_PROJECTION.transform_points(ccrs.PlateCarree(), lon, lat)
     x, y = xy[:, 0], xy[:, 1]
     norm: Normalize
-    log_range = (
-        (color_range or _color_range(values, log=True)) if is_log_scale(arr) else None
-    )
+    log = is_log_scale(arr)
+    if color_range is None:
+        # Fitted to this date alone: its min to max, on a linear scale.
+        color_range = _color_range(values, log=False, full=True)
+        full_range = True
+        log = False
+    log_range = color_range if log else None
     if log_range and log_range[0] > 0:
         # LogNorm masks values <= 0, so lift them to the bottom of the scale.
         values = np.maximum(values, log_range[0])
@@ -568,7 +580,7 @@ class _SnapshotState:
     group: zarr.Group
     catalog: dict[str, Any] | None = None
     series: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
-    map_ranges: dict[tuple[str, str, bool], tuple[float, float] | None] = field(
+    map_ranges: dict[tuple[str, str, MapScale], tuple[float, float] | None] = field(
         default_factory=dict
     )
 
@@ -663,12 +675,12 @@ class Dashboard:
         return state.series[key]
 
     def map_png(
-        self, experiment: str, variable: str, date: str, full_range: bool = False
+        self, experiment: str, variable: str, date: str, scale: MapScale = "shared"
     ) -> bytes:
         """Render ``render_map_png`` against the current snapshot.
 
-        Every date of one experiment/variable shares the same (cached)
-        ``map_color_range`` colour scale.
+        With a shared ``scale``, every date of one experiment/variable shares
+        the same (cached) ``map_color_range`` colour scale.
 
         Parameters
         ----------
@@ -678,9 +690,8 @@ class Dashboard:
             Variable name.
         date : str
             Date to map.
-        full_range : bool, optional
-            Colour by the data's full range rather than its percentiles; see
-            ``map_color_range``'s ``full``.
+        scale : MapScale, optional
+            How the colour scale is chosen; see ``MapScale``.
 
         Returns
         -------
@@ -688,7 +699,10 @@ class Dashboard:
             PNG image.
         """
         state = self._ensure_state()
-        key = (experiment, variable, full_range)
+        if scale == "date":
+            return render_map_png(state.group, experiment, variable, date)
+        full_range = scale == "full"
+        key = (experiment, variable, scale)
         if key not in state.map_ranges:
             state.map_ranges[key] = map_color_range(
                 state.group, experiment, variable, full_range
