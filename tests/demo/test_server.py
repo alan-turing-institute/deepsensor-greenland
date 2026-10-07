@@ -23,12 +23,12 @@ def client(site_dir, fake_source, monkeypatch):
         yield c
 
 
-def _fake_map_png(experiment, variable, date, full_range):
+def _fake_map_png(experiment, variable, date, scale):
     if experiment != "baseline":
         raise KeyError(experiment)
     if variable == "total":
         raise ValueError("no time dimension")
-    return b"\x89PNG" + (b" full" if full_range else b"")
+    return b"\x89PNG " + scale.encode()
 
 
 def test_serves_static_site_with_no_cache(client):
@@ -82,12 +82,30 @@ def test_map_status_codes(client, experiment, variable, status):
 
 
 @pytest.mark.parametrize(
-    ("params", "body"), [({}, b"\x89PNG"), ({"full_range": "true"}, b"\x89PNG full")]
+    ("params", "body"),
+    [
+        ({}, b"\x89PNG shared"),
+        ({"scale": "full"}, b"\x89PNG full"),
+        ({"scale": "date"}, b"\x89PNG date"),
+    ],
 )
-def test_map_full_range(client, params, body):
+def test_map_scale(client, params, body):
     r = client.get(
         "/dashboard/api/map",
         params={"experiment": "baseline", "variable": "melt", "date": "2000-01-01"}
         | params,
     )
     assert r.content == body
+
+
+def test_map_unknown_scale_is_422(client):
+    r = client.get(
+        "/dashboard/api/map",
+        params={
+            "experiment": "baseline",
+            "variable": "melt",
+            "date": "2000-01-01",
+            "scale": "nope",
+        },
+    )
+    assert r.status_code == 422

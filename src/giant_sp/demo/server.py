@@ -12,7 +12,7 @@ from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
-from giant_sp.demo.dashboard import Dashboard
+from giant_sp.demo.dashboard import Dashboard, MapScale
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +58,10 @@ def _api_router(dashboard: Dashboard) -> APIRouter:
 
     @router.get("/map")
     def map_png(
-        experiment: str, variable: str, date: str, full_range: bool = False
+        experiment: str, variable: str, date: str, scale: MapScale = "shared"
     ) -> Response:
         try:
-            png = dashboard.map_png(experiment, variable, date, full_range)
+            png = dashboard.map_png(experiment, variable, date, scale)
         except KeyError as e:
             raise HTTPException(status_code=404, detail=str(e)) from e
         except ValueError as e:

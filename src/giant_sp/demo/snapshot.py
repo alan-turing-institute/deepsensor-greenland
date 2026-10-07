@@ -5,7 +5,8 @@
 serves: ``repo.json``, ``catalog.json``, ``series/<experiment>/<variable>.json``
 for every variable, and map PNGs for every (or chosen) variable at a regular date
 interval (``maps/<experiment>/<variable>/<YYYY-MM-DD>.png``, plus
-``<YYYY-MM-DD>-full.png`` coloured by the full data range, listed in
+``<YYYY-MM-DD>-full.png`` coloured by the full data range and
+``<YYYY-MM-DD>-date.png`` coloured by that date's own range, listed in
 ``maps/index.json``). It also saves a copy of Plotly, so the dashboard works
 without internet access. When the live API is unreachable, the dashboard
 falls back to these files, and ``demo/`` can then be served by any static
@@ -26,13 +27,21 @@ from typing import Any
 
 import pandas as pd
 
-from giant_sp.demo.dashboard import Dashboard
+from giant_sp.demo.dashboard import Dashboard, MapScale
 from giant_sp.demo.server import DEFAULT_SITE_DIR
 from giant_sp.demo.source import ArraylakeSource
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_OUT_DIR = DEFAULT_SITE_DIR / "dashboard" / "static-api"
+
+# Each map's file name suffix per colour scale; must match `api.mapUrl` in
+# demo/dashboard/app.js.
+MAP_SCALE_SUFFIXES: dict[MapScale, str] = {
+    "shared": "",
+    "full": "-full",
+    "date": "-date",
+}
 
 # Must match the Plotly <script> in demo/dashboard/index.html.
 PLOTLY_URL = "https://cdn.plot.ly/plotly-2.35.2.min.js"
@@ -127,12 +136,12 @@ def write_snapshot(
             dates = map_dates(series["time"], map_freq)
             for date in dates:
                 logger.info("map %s/%s %s", name, var, date)
-                for full_range, suffix in [(False, ""), (True, "-full")]:
-                    png = dashboard.map_png(name, var, date, full_range)
+                for scale, suffix in MAP_SCALE_SUFFIXES.items():
+                    png = dashboard.map_png(name, var, date, scale)
                     path = out_dir / "maps" / name / var / f"{date}{suffix}.png"
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(png)
-            n_files += 2 * len(dates)
+            n_files += len(MAP_SCALE_SUFFIXES) * len(dates)
             if dates:
                 maps_index.setdefault(name, {})[var] = dates
     _write_json(out_dir / "maps" / "index.json", maps_index)

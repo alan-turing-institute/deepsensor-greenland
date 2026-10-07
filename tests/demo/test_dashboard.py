@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import zarr
 from cartopy.mpl.geoaxes import GeoAxes
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, Normalize
 from matplotlib.figure import Figure
 
 from giant_sp.demo.dashboard import (
@@ -202,7 +202,7 @@ def test_render_map_png_colorbar_arrows(
     assert seen == [extend]
 
 
-def test_dashboard_full_range_maps_use_full_color_range(fake_source, monkeypatch):
+def test_dashboard_full_scale_maps_use_full_color_range(fake_source, monkeypatch):
     seen = []
     original = GeoAxes.scatter
 
@@ -213,12 +213,39 @@ def test_dashboard_full_range_maps_use_full_color_range(fake_source, monkeypatch
     monkeypatch.setattr(GeoAxes, "scatter", spy)
     dashboard = Dashboard(fake_source)
     dashboard.map_png("baseline", "melt", "2000-01-01")
-    dashboard.map_png("baseline", "melt", "2000-01-01", full_range=True)
+    dashboard.map_png("baseline", "melt", "2000-01-01", scale="full")
     group = fake_source.group
     assert seen == [
         map_color_range(group, "baseline", "melt"),
         map_color_range(group, "baseline", "melt", full=True),
     ]
+
+
+def test_dashboard_date_scale_maps_fit_each_date_linearly(fake_source, monkeypatch):
+    # "Acc snow melt" is log-scaled elsewhere, but not on per-date maps.
+    assert is_log_scale(fake_source.group["baseline"]["melt"])
+    seen = []
+    extends = []
+    original_scatter = GeoAxes.scatter
+    original_colorbar = Figure.colorbar
+
+    def scatter_spy(self, *args, **kwargs):
+        norm = kwargs["norm"]
+        seen.append((type(norm), norm.vmin, norm.vmax))
+        return original_scatter(self, *args, **kwargs)
+
+    def colorbar_spy(self, *args, **kwargs):
+        extends.append(kwargs["extend"])
+        return original_colorbar(self, *args, **kwargs)
+
+    monkeypatch.setattr(GeoAxes, "scatter", scatter_spy)
+    monkeypatch.setattr(Figure, "colorbar", colorbar_spy)
+    dashboard = Dashboard(fake_source)
+    dashboard.map_png("baseline", "melt", "2000-01-01", scale="date")
+    dashboard.map_png("baseline", "melt", "2000-01-04", scale="date")
+    # melt is 0..11 over 4 dates x 3 points, so each date is 3 consecutive values.
+    assert seen == [(Normalize, 0.0, 2.0), (Normalize, 9.0, 11.0)]
+    assert extends == ["neither", "neither"]
 
 
 def test_map_color_range_log_scale_falls_back_to_linear_without_positives(root):
