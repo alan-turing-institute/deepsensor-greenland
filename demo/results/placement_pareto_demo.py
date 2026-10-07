@@ -89,6 +89,7 @@ COST_UNITS = {
     "distance2stations": "km",
     "distance2border": "km",
     "elevation": "m",
+    "albedo": "unitless",
 }
 
 
