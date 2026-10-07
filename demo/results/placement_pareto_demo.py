@@ -33,6 +33,7 @@ from matplotlib.axes import Axes
 from matplotlib.collections import PathCollection
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
+from matplotlib.text import Text
 from matplotlib.ticker import MaxNLocator
 
 import giant_sp.utils.plots as myplt
@@ -41,6 +42,10 @@ RESULTS_DIR = Path(__file__).resolve().parent / "pareto"
 OUTPUT_DIR = Path(__file__).resolve().parents[1] / "images" / "pareto"
 
 LABEL_FONTSIZE = 20
+# The scatter plot's axis labels each have a subtitle naming the cost or
+# acquisition function shown, slightly smaller than the (bold) label.
+SUBTITLE_FONTSIZE = 17
+SUBTITLE_GAP = 3  # points between an axis label and its subtitle
 # Fixed layout, in inches, shared by every figure so they line up when switched
 # between. Rectangles are (left, bottom, width, height) from the figure's
 # bottom-left corner. The figure's width isn't fixed: it's trimmed to fit the
@@ -48,8 +53,9 @@ LABEL_FONTSIZE = 20
 FIG_HEIGHT = 8.0
 # The left margin is sized for the widest tick labels seen (MeanVariance's,
 # e.g. "-0.12026"), so that their y-label sits as far from the ticks as the
-# x-label does from its ticks; narrower tick labels leave a bigger gap.
-SCATTER_RECT = (1.8, 0.8, 6.84, 6.96)
+# x-label does from its ticks; narrower tick labels leave a bigger gap. The
+# left and bottom margins also fit each axis label's second (subtitle) line.
+SCATTER_RECT = (2.3, 1.2, 6.84, 6.56)
 # Gap between the scatter plot and the map.
 PLOT_GAP = 0.48
 # The map (and its colorbar) leaves the same gap above and below it as there
@@ -75,6 +81,13 @@ COST_LABELS = {
     "distance2stations": "Distance to stations",
     "distance2border": "Distance to border",
     "elevation": "Elevation",
+}
+# Units shown after the cost's name in the x-axis subtitle, keyed on cost file
+# stem; other costs show no units.
+COST_UNITS = {
+    "distance2stations": "km",
+    "distance2border": "km",
+    "elevation": "m",
 }
 
 
@@ -150,20 +163,50 @@ def _power_of_ten(values: np.ndarray) -> int:
     return power if power <= -3 or power >= 4 else 0
 
 
-def _xlabel_margins(fig: Figure, ax: Axes) -> tuple[float, float]:
+def _add_subtitle(ax: Axes, axis: str, text: str) -> Text:
+    """Add ``text`` as a subtitle below ``ax``'s x-label or right of its y-label.
+
+    Either way the subtitle sits on the label's tick side, so both read label
+    first. It is anchored to the label, so it follows it when it moves.
+    """
+    if axis == "x":
+        return ax.annotate(
+            text,
+            xy=(0.5, 0.0),
+            xycoords=ax.xaxis.label,
+            xytext=(0, -SUBTITLE_GAP),
+            textcoords="offset points",
+            ha="center",
+            va="top",
+            size=SUBTITLE_FONTSIZE,
+        )
+    return ax.annotate(
+        text,
+        xy=(1.0, 0.5),
+        xycoords=ax.yaxis.label,
+        xytext=(SUBTITLE_GAP, 0),
+        textcoords="offset points",
+        ha="left",
+        va="center",
+        rotation=90,
+        size=SUBTITLE_FONTSIZE,
+    )
+
+
+def _xlabel_margins(fig: Figure, ax: Axes, subtitle: Text) -> tuple[float, float]:
     """Return ``ax``'s x-label gaps, in pixels, as ``(to_edge, to_ticks)``.
 
-    ``to_edge`` is the gap from the figure's bottom edge to the x-label;
-    ``to_ticks`` is the gap from the x-label to the tick labels above it. The
-    other figure labels are placed to match. Must be called after
-    ``fig.canvas.draw()``, since it measures the drawn labels.
+    ``to_edge`` is the gap from the figure's bottom edge to the x-label's
+    ``subtitle``; ``to_ticks`` is the gap from the x-label to the tick labels
+    above it. The other figure labels are placed to match. Must be called
+    after ``fig.canvas.draw()``, since it measures the drawn labels.
     """
     renderer = fig.canvas.get_renderer()
     label = ax.xaxis.label.get_window_extent(renderer)
     ticks_y0 = min(
         t.get_window_extent(renderer).y0 for t in ax.get_xticklabels() if t.get_text()
     )
-    return label.y0, ticks_y0 - label.y1
+    return subtitle.get_window_extent(renderer).y0, ticks_y0 - label.y1
 
 
 def _match_ylabel_margin(fig: Figure, ax: Axes, to_edge: float) -> None:
@@ -245,13 +288,13 @@ def plot_result(
     )
 
     # Informativeness is the negated acquisition value, scaled so its ticks are
-    # readable; the scale goes in the axis label.
+    # readable; the scale goes in the axis label's subtitle.
     informativeness = alpha_df["alpha_1"].to_numpy() * -1
     y_power = _power_of_ten(informativeness)
     y_scale = 10.0**-y_power
-    y_label = "Informativeness"
+    y_subtitle = result.acq_fn_label
     if y_power:
-        y_label += rf" ($\times10^{{{y_power}}}$)"
+        y_subtitle += rf" ($\times10^{{{y_power}}}$)"
 
     # Fixed axes positions (not tight_layout) so every figure lines up the
     # same, whatever the width of its tick labels.
@@ -276,16 +319,19 @@ def plot_result(
         marker="o",
         color=PARETO_COLOR,
         edgecolors="white",
-        s=8**2,
+        s=10**2,
         linewidths=0.8,
         label="Pareto optimal",
         zorder=3,
     )
     ax0.legend(loc="lower right", prop={"size": 15})
-    # Generic labels: which cost/acquisition function is shown is picked on the
-    # Results tab.
-    ax0.set_xlabel("Cost", size=LABEL_FONTSIZE)
-    ax0.set_ylabel(y_label, size=LABEL_FONTSIZE)
+    ax0.set_xlabel("Cost", size=LABEL_FONTSIZE, weight="bold")
+    ax0.set_ylabel("Informativeness", size=LABEL_FONTSIZE, weight="bold")
+    x_subtitle = result.cost_label
+    if result.cost in COST_UNITS:
+        x_subtitle += f" ({COST_UNITS[result.cost]})"
+    x_subtitle_text = _add_subtitle(ax0, "x", x_subtitle)
+    _add_subtitle(ax0, "y", y_subtitle)
     # Pin the axis labels rather than letting them sit next to the tick
     # labels, whose width varies between figures. The y-label is moved again
     # by _match_label_margins once the figure is drawn.
@@ -352,7 +398,7 @@ def plot_result(
     ax1.spines["geo"].set_color("gray")
 
     fig.canvas.draw()
-    to_edge, to_ticks = _xlabel_margins(fig, ax0)
+    to_edge, to_ticks = _xlabel_margins(fig, ax0, x_subtitle_text)
     _match_ylabel_margin(fig, ax0, to_edge)
     # The colorbar sits just right of the map as drawn (narrower than
     # MAP_RECT, since the map keeps its aspect ratio), and matches its height.
