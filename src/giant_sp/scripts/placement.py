@@ -9,6 +9,7 @@ import deepsensor.active_learning.acquisition_fns as acq
 import deepsensor.torch as deepsensor  # noqa: F401
 import geopandas as gpd
 import hydra
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -612,7 +613,7 @@ def main(config: DictConfig) -> None:
                     f"newplacements_{run_suffix}.jpg",
                 )
             )
-        plt.close(fig)
+        plt.close("all")
 
 
 if __name__ == "__main__":
