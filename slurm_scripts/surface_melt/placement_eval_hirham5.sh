@@ -19,4 +19,4 @@
 export PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
 
 # submit the code
-srun uv run src/giant_sp/scripts/placement_eval.py --config-name placement_eval.local
+srun uv run src/giant_sp/scripts/placement_eval.py --config-name placement_eval

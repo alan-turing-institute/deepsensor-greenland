@@ -9,6 +9,7 @@ import os
 import deepsensor.torch as deepsensor  # noqa: F401
 import geopandas as gpd
 import hydra
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -19,6 +20,7 @@ from deepsensor.data.processor import DataProcessor
 from deepsensor.model.convnp import ConvNP
 from deepsensor.train.train import set_gpu_default_device
 from omegaconf import DictConfig, OmegaConf
+from tqdm import tqdm
 
 import giant_sp.utils.data as du
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
@@ -26,9 +28,6 @@ from giant_sp.data.dataloader import BaseDataLoader
 from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
 from giant_sp.utils.data import context_sampling_with_delta, sample_dates_by_year_chunks
 from giant_sp.utils.model import get_available_device
-
-from tqdm import tqdm
-import matplotlib.pyplot as plt
 
 
 def setup_logging(config: DictConfig) -> None:
@@ -53,6 +52,7 @@ def setup_logging(config: DictConfig) -> None:
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[logging.StreamHandler()],
     )
+
 
 def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
     """Download a single file logged to a Weights & Biases run.
@@ -205,7 +205,7 @@ def main(config: DictConfig) -> None:
     dates_end = placement_config.search_end_date
     output_dir = placement_config.output_dir
 
-    weights_fn = newplace_file.split('/')[-1].split('_')[-1].replace('.csv', '.pt')
+    weights_fn = newplace_file.split("/")[-1].split("_")[-1].replace(".csv", ".pt")
     run_id = run_ref.split("/")[-1]
 
     # Path and files
@@ -227,7 +227,7 @@ def main(config: DictConfig) -> None:
 
     logger.info("Active devices after updating default: %s", torch.get_default_device())
     logger.info("Configuration:\n%s", OmegaConf.to_yaml(config))
-    
+
     # Initialize data loader
     data_loader: BaseDataLoader
     if source == "carra2":
@@ -396,7 +396,7 @@ def main(config: DictConfig) -> None:
     X_stn = data_processor.map_coord_array(raw_stn_locs.to_numpy().transpose())
 
     # Get new placements df
-    newplace_df = pd.read_csv(newplace_file, index_col='iteration')
+    newplace_df = pd.read_csv(newplace_file, index_col="iteration")
     raw_newplace = newplace_df.to_numpy().transpose()
     X_new = data_processor.map_coord_array(raw_newplace)
     n_iter = newplace_df.shape[0]
@@ -408,21 +408,21 @@ def main(config: DictConfig) -> None:
         delta_factor_context = [len(group) for group in context_delta_t]
 
     truth_da = raw_ds[target_var].sel(time=dates)
-    
+
     pred_means = []
     pred_stds = []
     nlls = []
-    for iter in tqdm(range(n_iter+1), desc='Predict'):
-        X_added = np.concatenate((X_stn, X_new[:,:iter]), axis=1)
+    for iter in tqdm(range(n_iter + 1), desc="Predict"):
+        X_added = np.concatenate((X_stn, X_new[:, :iter]), axis=1)
         tasks = task_loader(
-                    dates,
-                    context_sampling=context_sampling_with_delta(X_added, delta_factor_context),
-                    target_sampling="all",
-                )
+            dates,
+            context_sampling=context_sampling_with_delta(X_added, delta_factor_context),
+            target_sampling="all",
+        )
 
         pred = model.predict(tasks, X_t=raw_ds)
-        mean_da = pred[target_var]['mean']
-        std_da  = pred[target_var]['std']
+        mean_da = pred[target_var]["mean"]
+        std_da = pred[target_var]["std"]
 
         pred_means.append(mean_da)
         pred_stds.append(std_da)
@@ -430,33 +430,45 @@ def main(config: DictConfig) -> None:
         # Marginal NLL, averaged over tasks (one per date), matching Trainer's
         # val-loss computation (model.loss_fn(task, normalise=True) per task).
         task_nlls = [
-            model.loss_fn(task.remove_target_nans(), normalise=True).detach().cpu().numpy()
+            model.loss_fn(task.remove_target_nans(), normalise=True)
+            .detach()
+            .cpu()
+            .numpy()
             for task in tasks
         ]
         nlls.append(float(np.mean(task_nlls)))
 
     # Create output directory for metrics
-    metric_dir = os.path.join(output_path, "placement", "metrics", f"{temporal_sampling_method}_e{temporal_sampling_every}")
+    metric_dir = os.path.join(
+        output_path,
+        "placement",
+        "metrics",
+        f"{temporal_sampling_method}_e{temporal_sampling_every}",
+    )
     if not os.path.exists(metric_dir):
         os.makedirs(metric_dir)
 
     # Save predictions
-    pred_mean_all = xr.concat(pred_means, dim='iteration')
-    pred_std_all  = xr.concat(pred_stds,  dim='iteration')
-    pred_all_out = xr.Dataset({'mean': pred_mean_all, 'std': pred_std_all})
-    pred_all_out.to_netcdf(os.path.join(metric_dir, newplace_file.split('/')[-1].replace('.csv', '_metrics.nc')))
+    pred_mean_all = xr.concat(pred_means, dim="iteration")
+    pred_std_all = xr.concat(pred_stds, dim="iteration")
+    pred_all_out = xr.Dataset({"mean": pred_mean_all, "std": pred_std_all})
+    pred_all_out.to_netcdf(
+        os.path.join(
+            metric_dir, newplace_file.split("/")[-1].replace(".csv", "_metrics.nc")
+        )
+    )
 
     # Metrics
     rmses = []
     avgstds = []
     maes = []
-    for iter in tqdm(range(n_iter+1), desc='Compute metrics'):
-        mean_da = pred_all_out['mean'].sel(iteration=iter)
-        std_da  = pred_all_out['std'].sel(iteration=iter)
-        err_da  = mean_da - truth_da
+    for iter in tqdm(range(n_iter + 1), desc="Compute metrics"):
+        mean_da = pred_all_out["mean"].sel(iteration=iter)
+        std_da = pred_all_out["std"].sel(iteration=iter)
+        err_da = mean_da - truth_da
 
-        rmse = np.sqrt(np.power(err_da, 2).mean(dim='time')).mean().values.item()
-        avgstd = (std_da.mean().values.item())
+        rmse = np.sqrt(np.power(err_da, 2).mean(dim="time")).mean().values.item()
+        avgstd = std_da.mean().values.item()
         mae = np.abs(err_da).mean().values.item()
 
         rmses.append(rmse)
@@ -464,16 +476,26 @@ def main(config: DictConfig) -> None:
         maes.append(mae)
 
     curves_arr = np.array([rmses, maes, avgstds, nlls]).T
-    out_df = pd.DataFrame(curves_arr, columns=['rmse', 'mae', 'avgstd', 'nll'])
-    out_df.to_csv(os.path.join(metric_dir, newplace_file.split('/')[-1].replace('.csv', '_metrics.csv')))
+    out_df = pd.DataFrame(curves_arr, columns=["rmse", "mae", "avgstd", "nll"])
+    out_df.to_csv(
+        os.path.join(
+            metric_dir, newplace_file.split("/")[-1].replace(".csv", "_metrics.csv")
+        )
+    )
 
-    fig, axs = plt.subplots(1,4,figsize=(20,5))
-    axs[0].plot(rmses, label='RMSE')
-    axs[1].plot(maes, label='MAE')
-    axs[2].plot(avgstds, label='Avg. std')
-    axs[3].plot(nlls, label='NLL')
-    for ax in axs: ax.legend()
-    fig.savefig(os.path.join(metric_dir, newplace_file.split('/')[-1].replace('.csv', '_metrics.png')), dpi=300)
+    fig, axs = plt.subplots(1, 4, figsize=(20, 5))
+    axs[0].plot(rmses, label="RMSE")
+    axs[1].plot(maes, label="MAE")
+    axs[2].plot(avgstds, label="Avg. std")
+    axs[3].plot(nlls, label="NLL")
+    for ax in axs:
+        ax.legend()
+    fig.savefig(
+        os.path.join(
+            metric_dir, newplace_file.split("/")[-1].replace(".csv", "_metrics.png")
+        ),
+        dpi=300,
+    )
 
 
 if __name__ == "__main__":
