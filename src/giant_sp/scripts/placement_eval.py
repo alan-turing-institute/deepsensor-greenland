@@ -118,6 +118,7 @@ def load_wandb_model(
         "unet_channels": config["unet_channels"],
         "unet_kernels": config["unet_kernels"],
         "likelihood": config["likelihood"],
+        "num_basis_functions": config["num_basis_functions"],
     }
 
     if config["likelihood"] == "mdn-zigamma":
