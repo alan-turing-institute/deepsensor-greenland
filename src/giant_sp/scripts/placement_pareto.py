@@ -4,12 +4,14 @@ import glob
 import json
 import os
 
-# src
-import paretoset
 import deepsensor.torch as deepsensor  # noqa: F401
 import hydra
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+# src
+import paretoset
 import torch
 import wandb
 import xarray as xr
@@ -17,9 +19,12 @@ from deepsensor.data.loader import TaskLoader
 from deepsensor.data.processor import DataProcessor
 from deepsensor.model.convnp import ConvNP
 from deepsensor.train.train import set_gpu_default_device
+from matplotlib.collections import PathCollection
+from matplotlib.lines import Line2D
 from omegaconf import DictConfig
 from scipy import ndimage
 
+import giant_sp.utils.plots as myplt
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
 from giant_sp.data.dataloader import BaseDataLoader
 from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
@@ -29,11 +34,6 @@ from giant_sp.scripts.placement_overview_placements_map import (
 )
 from giant_sp.utils.data import sample_dates_by_year_chunks
 from giant_sp.utils.model import get_available_device
-import giant_sp.utils.plots as myplt
-
-import matplotlib.pyplot as plt
-from matplotlib.collections import PathCollection
-from matplotlib.lines import Line2D
 
 set_gpu_default_device() if torch.cuda.is_available() else torch.device("cpu")
 
@@ -41,14 +41,20 @@ DATA_PATH = "/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed/HIRH
 COORDS_FILE = os.path.sep.join([DATA_PATH, "coords_only.zarr"])
 STATION_FILE = "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations.csv"
 
+
 def load_existing_stations(coords_ref: xr.Dataset) -> pd.DataFrame:
     """Station file's own lat/lon, filtered to the grid's geographic bounding box."""
     stn_df = pd.read_csv(STATION_FILE)[["latitude_last_valid", "longitude_last_valid"]]
-    stn_df = stn_df.rename(columns={"latitude_last_valid": "lat", "longitude_last_valid": "lon"})
+    stn_df = stn_df.rename(
+        columns={"latitude_last_valid": "lat", "longitude_last_valid": "lon"}
+    )
     lon_min, lon_max = float(coords_ref["lon"].min()), float(coords_ref["lon"].max())
     lat_min, lat_max = float(coords_ref["lat"].min()), float(coords_ref["lat"].max())
-    in_domain = stn_df["lon"].between(lon_min, lon_max) & stn_df["lat"].between(lat_min, lat_max)
+    in_domain = stn_df["lon"].between(lon_min, lon_max) & stn_df["lat"].between(
+        lat_min, lat_max
+    )
     return stn_df[in_domain].reset_index(drop=True)
+
 
 def load_coords_ref() -> xr.Dataset:
     """Full-resolution lon/lat reference grid, indexed by integer x/y (as in placement.py L320-327)."""
@@ -56,6 +62,7 @@ def load_coords_ref() -> xr.Dataset:
     return coords_ref.assign_coords(
         x=np.arange(coords_ref.sizes["x"]), y=np.arange(coords_ref.sizes["y"])
     )
+
 
 def reproject_field(field: xr.DataArray, coords_ref: xr.Dataset) -> xr.DataArray:
     """Attach true 2D lon/lat coords to a field indexed by native-grid lat/lon *indices*."""
@@ -65,6 +72,7 @@ def reproject_field(field: xr.DataArray, coords_ref: xr.Dataset) -> xr.DataArray
         lon=(("y", "x"), lookup["lon"].data), lat=(("y", "x"), lookup["lat"].data)
     )
 
+
 def reproject_points(df: pd.DataFrame, coords_ref: xr.Dataset) -> pd.DataFrame:
     """Look up true lon/lat for new-placement rows (whose lat/lon columns are grid indices)."""
     lookup = coords_ref.sel(
@@ -73,6 +81,7 @@ def reproject_points(df: pd.DataFrame, coords_ref: xr.Dataset) -> pd.DataFrame:
         method="nearest",
     )
     return pd.DataFrame({"lat": lookup["lat"].values, "lon": lookup["lon"].values})
+
 
 def coarsen_to_field(
     da: xr.DataArray, field: xr.DataArray, coords_ref: xr.Dataset
@@ -108,9 +117,11 @@ def coarsen_to_field(
     }
     smoothed = da.rolling(spacing, center=True, min_periods=1).mean()
     out = smoothed.sel(y=field["lat"].values, x=field["lon"].values, method="nearest")
-    return out.rename({"y": "lat", "x": "lon"}).assign_coords(
-        lat=field["lat"].values, lon=field["lon"].values
-    ).transpose(*field.dims)
+    return (
+        out.rename({"y": "lat", "x": "lon"})
+        .assign_coords(lat=field["lat"].values, lon=field["lon"].values)
+        .transpose(*field.dims)
+    )
 
 
 def distance_to_border(field: xr.DataArray) -> xr.DataArray:
@@ -225,7 +236,7 @@ def load_wandb_model(
     return model
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="placement_analysis")
+@hydra.main(version_base=None, config_path="../configs", config_name="placement_pareto")
 def main(config: DictConfig) -> None:
     """Find Pareto-optimal placements trading off informativeness against a cost.
 
@@ -306,7 +317,7 @@ def main(config: DictConfig) -> None:
         not ``"seasonal"`` or ``"regular"``; or if ``cost`` is not one of
         the values listed above.
     """
-    placement_config = config.placement_analysis
+    placement_config = config.placement_pareto
     run_ref = placement_config.run_ref
     acq_file = placement_config.acq_file
     cost = placement_config.cost
@@ -314,9 +325,9 @@ def main(config: DictConfig) -> None:
     dates_end = placement_config.search_end_date
     output_dir = placement_config.output_dir
 
-    weights_fn = acq_file.split('/')[-1].split('_')[-1].replace('.nc', '.pt')
+    weights_fn = acq_file.split("/")[-1].split("_")[-1].replace(".nc", ".pt")
     run_id = run_ref.split("/")[-1]
-    acqfn_name = acq_file.split('/')[-1].split('_')[1]
+    acqfn_name = acq_file.split("/")[-1].split("_")[1]
 
     # Path and files
     output_path = f"{output_dir}/{run_id}"
@@ -396,28 +407,30 @@ def main(config: DictConfig) -> None:
     _, data_processor, _ = data_loader.get_dataproc_taskload(
         dates=dates, data_processor=data_processor
     )
-    
+
     acqfn = xr.open_dataarray(acq_file)
-    acqfn0 = acqfn.sel(iteration=0).mean(dim='time').drop('iteration')
-    np.save(f'{paretodir}/acq_{run_id}_{acqfn_name}.npy', acqfn0.data)
+    acqfn0 = acqfn.sel(iteration=0).mean(dim="time").drop("iteration")
+    np.save(f"{paretodir}/acq_{run_id}_{acqfn_name}.npy", acqfn0.data)
 
     coords_ref = load_coords_ref()
 
-    if cost == 'distance2stations':
-        acqfn = xr.open_dataarray('outputs/vloyijco/placement/ContextDist/AcqFn_ContextDist_10-iter_sseasonal_e50_sr9_weights-ep95.nc')
-        acqfn1 = acqfn.sel(iteration=0).mean(dim='time').drop('iteration')
+    if cost == "distance2stations":
+        acqfn = xr.open_dataarray(
+            "outputs/vloyijco/placement/ContextDist/AcqFn_ContextDist_10-iter_sseasonal_e50_sr9_weights-ep95.nc"
+        )
+        acqfn1 = acqfn.sel(iteration=0).mean(dim="time").drop("iteration")
         # ContextDist is in normalised-coordinate units; convert to km.
         acqfn1 = acqfn1 * context_dist_km_factor(coords_ref)
-    elif cost == 'distance2border':
+    elif cost == "distance2border":
         # Grid-cell distance; convert to km.
         acqfn1 = distance_to_border(acqfn0) * km_per_grid_cell(coords_ref)
-    elif cost == 'elevation':
+    elif cost == "elevation":
         # Elevation is already in the correct units.
-        elev = xr.open_dataarray('data/hirham5/h5_elevation_GRL.nc')
+        elev = xr.open_dataarray("data/hirham5/h5_elevation_GRL.nc")
         acqfn1 = coarsen_to_field(elev, acqfn0, coords_ref)
-    elif cost == 'albedo':
-        ds = xr.open_zarr(os.path.join(DATA_PATH, 'base_dataset.zarr'), chunks="auto")
-        albedo = ds['albedom'].sel(time=slice(dates_start, dates_end)).mean(dim='time')
+    elif cost == "albedo":
+        ds = xr.open_zarr(os.path.join(DATA_PATH, "base_dataset.zarr"), chunks="auto")
+        albedo = ds["albedom"].sel(time=slice(dates_start, dates_end)).mean(dim="time")
         # base_dataset only holds valid cells, stacked along ``z``; unstack to
         # (y, x) and pad back to the full native grid.
         albedo = albedo.set_index(z=["y", "x"]).unstack("z")
@@ -426,19 +439,19 @@ def main(config: DictConfig) -> None:
     else:
         raise ValueError(f"Unknown cost: {cost}")
 
-    np.save(f'{paretodir}/cost_{cost}.npy', acqfn1.data)
+    np.save(f"{paretodir}/cost_{cost}.npy", acqfn1.data)
 
     das = [acqfn0, acqfn1]
-    dfs = [da.to_dataframe(name=f'alpha_{i+1}') for i, da in enumerate(das)]
+    dfs = [da.to_dataframe(name=f"alpha_{i + 1}") for i, da in enumerate(das)]
     alpha_df = pd.concat(dfs, axis=1)
-    alpha_df = alpha_df.dropna(axis=0)[[f'alpha_{i+1}' for i in range(len(das))]]
+    alpha_df = alpha_df.dropna(axis=0)[[f"alpha_{i + 1}" for i in range(len(das))]]
 
     data = alpha_df.values
-    senses = ['min', 'min'] # Both objectives are to be minimised
-    mask = paretoset.paretoset(data, sense=senses[:len(das)], distinct=False)
-    rank = paretoset.paretorank(data, sense=senses[:len(das)], distinct=False)
-    np.save(f'{paretodir}/mask_{run_id}_{acqfn_name}_{cost}.npy', mask)
-    np.save(f'{paretodir}/rank_{run_id}_{acqfn_name}_{cost}.npy', rank)
+    senses = ["min", "min"]  # Both objectives are to be minimised
+    mask = paretoset.paretoset(data, sense=senses[: len(das)], distinct=False)
+    rank = paretoset.paretorank(data, sense=senses[: len(das)], distinct=False)
+    np.save(f"{paretodir}/mask_{run_id}_{acqfn_name}_{cost}.npy", mask)
+    np.save(f"{paretodir}/rank_{run_id}_{acqfn_name}_{cost}.npy", rank)
 
     print(f"Found {mask.sum()} pareto optimal solutions with {rank.max()} ranks")
 
@@ -446,7 +459,7 @@ def main(config: DictConfig) -> None:
     existing_df = load_existing_stations(coords_ref)
     display_crs = myplt.ccrs.NorthPolarStereo(central_longitude=-40)
 
-    X_pareto = alpha_df.reset_index()[['lat', 'lon']][mask]
+    X_pareto = alpha_df.reset_index()[["lat", "lon"]][mask]
 
     rank_da = acqfn0.copy()
     rank_da.data[~np.isnan(rank_da.data)] = rank
@@ -454,29 +467,58 @@ def main(config: DictConfig) -> None:
     field = reproject_field(rank_da, coords_ref)
     background = field  # iteration-0 field only
     newplace_df = reproject_points(X_pareto, coords_ref)  # all 10 placements
-    newplace_df.to_csv(f'{paretodir}/placements_{run_id}_{acqfn_name}_{cost}.csv')
+    newplace_df.to_csv(f"{paretodir}/placements_{run_id}_{acqfn_name}_{cost}.csv")
 
     fig = plt.figure(figsize=(16, 8), frameon=False)
     gs = fig.add_gridspec(1, 2)
 
     ax0 = fig.add_subplot(gs[0, 0])
-    ax0.scatter(acqfn1.data.flatten(), acqfn0.data.flatten() * -1, marker='o', color='k',s=6**2, linewidths=0.35, label='All solutions', facecolor='none', alpha=0.3)
-    y_pareto = alpha_df.reset_index()[['alpha_1', 'alpha_2']].values[mask]
-    ax0.scatter(y_pareto[:, 1], y_pareto[:, 0] * -1, marker='o', color='r', s=6**2,linewidths=0.35, label='Pareto optimal')
-    ax0.legend(loc="lower right", prop={'size': 15})
+    ax0.scatter(
+        acqfn1.data.flatten(),
+        acqfn0.data.flatten() * -1,
+        marker="o",
+        color="k",
+        s=6**2,
+        linewidths=0.35,
+        label="All solutions",
+        facecolor="none",
+        alpha=0.3,
+    )
+    y_pareto = alpha_df.reset_index()[["alpha_1", "alpha_2"]].values[mask]
+    ax0.scatter(
+        y_pareto[:, 1],
+        y_pareto[:, 0] * -1,
+        marker="o",
+        color="r",
+        s=6**2,
+        linewidths=0.35,
+        label="Pareto optimal",
+    )
+    ax0.legend(loc="lower right", prop={"size": 15})
     label_fontsize = 20
-    cost_label = {'distance2stations': 'Distance to existing stations [km]', 'distance2border': 'Distance to border [km]', 'elevation': 'Elevation [m]', 'albedo': 'Albedo [unitless]'}[cost]
-    ax0.set_xlabel(f'Cost ({cost_label})', size=label_fontsize)
-    ax0.set_ylabel(f'Informativeness\n(ConvCNP Adquisition Function)', size=label_fontsize)
-    ax0.set_title('')
-    ax0.tick_params(axis='both', which='major', labelsize=18)
+    cost_label = {
+        "distance2stations": "Distance to existing stations [km]",
+        "distance2border": "Distance to border [km]",
+        "elevation": "Elevation [m]",
+        "albedo": "Albedo [unitless]",
+    }[cost]
+    ax0.set_xlabel(f"Cost ({cost_label})", size=label_fontsize)
+    ax0.set_ylabel(
+        "Informativeness\n(ConvCNP Adquisition Function)", size=label_fontsize
+    )
+    ax0.set_title("")
+    ax0.tick_params(axis="both", which="major", labelsize=18)
     for spine in ax0.spines.values():
-        spine.set_color('gray')
+        spine.set_color("gray")
 
     ax1 = fig.add_subplot(gs[0, 1], projection=display_crs)
     ax1, pcm = myplt.plot_greenland_only(
-            background, newplace_df, existing_df, ax=ax1, pcolormesh_kwargs={"cmap": "Greys"}
-        )
+        background,
+        newplace_df,
+        existing_df,
+        ax=ax1,
+        pcolormesh_kwargs={"cmap": "Greys"},
+    )
 
     # Enlarge the new/existing placement markers and drop the row-index
     # annotations, without touching plot_greenland_only's own defaults.
@@ -487,10 +529,18 @@ def main(config: DictConfig) -> None:
         txt.remove()
 
     existing_handle = Line2D(
-        [], [], marker="x", color="k", linestyle="None", markersize=8, label="Existing stations"
+        [],
+        [],
+        marker="x",
+        color="k",
+        linestyle="None",
+        markersize=8,
+        label="Existing stations",
     )
-    ax1.legend(handles=[existing_handle], loc="lower right", frameon=True, prop={'size': 15})
-    ax1.spines['geo'].set_color('gray')
+    ax1.legend(
+        handles=[existing_handle], loc="lower right", frameon=True, prop={"size": 15}
+    )
+    ax1.spines["geo"].set_color("gray")
 
     fig.tight_layout(rect=(0.0, 0.0, 0.9, 1.0))
 
@@ -504,9 +554,17 @@ def main(config: DictConfig) -> None:
     cb = plt.colorbar(pcm, cax=cbar_ax, **cbar_kwargs)
     cb.ax.minorticks_off()
     cb.ax.tick_params(labelsize=16)
-    cb.set_label('Pareto rank', size=label_fontsize)
+    cb.set_label("Pareto rank", size=label_fontsize)
 
-    fig.savefig(os.path.join(figdir, acq_file.split('/')[-1].replace('.nc', f'_{cost}_pareto_combined.png')), dpi=200, bbox_inches="tight")
+    fig.savefig(
+        os.path.join(
+            figdir,
+            acq_file.split("/")[-1].replace(".nc", f"_{cost}_pareto_combined.png"),
+        ),
+        dpi=200,
+        bbox_inches="tight",
+    )
+
 
 if __name__ == "__main__":
     main()
