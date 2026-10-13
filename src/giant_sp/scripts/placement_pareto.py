@@ -112,7 +112,7 @@ def coarsen_to_field(
         x=coords_ref["x"].values, y=coords_ref["y"].values
     )
     spacing = {
-        d: int(round(float(np.abs(np.median(np.diff(field[c].values))))))
+        d: round(float(np.abs(np.median(np.diff(field[c].values)))))
         for d, c in (("y", "lat"), ("x", "lon"))
     }
     smoothed = da.rolling(spacing, center=True, min_periods=1).mean()
@@ -550,7 +550,11 @@ def main(config: DictConfig) -> None:
     fig.canvas.draw()
     pos1 = ax1.get_position()
     cbar_ax = fig.add_axes((pos1.x1 + 0.01, pos1.y0, 0.03, pos1.height))
-    cbar_kwargs = dict(fraction=0.0, pad=0.00, ticks=np.arange(0, rank.max() + 1, 5))
+    cbar_kwargs = {
+        "fraction": 0.0,
+        "pad": 0.00,
+        "ticks": np.arange(0, rank.max() + 1, 5),
+    }
     cb = plt.colorbar(pcm, cax=cbar_ax, **cbar_kwargs)
     cb.ax.minorticks_off()
     cb.ax.tick_params(labelsize=16)
