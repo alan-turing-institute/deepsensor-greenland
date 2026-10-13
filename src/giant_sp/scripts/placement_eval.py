@@ -468,7 +468,7 @@ def main(config: DictConfig) -> None:
         err_da = mean_da - truth_da
 
         rmse = np.sqrt(np.power(err_da, 2).mean(dim="time")).mean().values.item()
-        avgstd = std_da.mean().values.item()
+        avgstd = std_da.where(truth_da.notnull()).mean().values.item()
         mae = np.abs(err_da).mean().values.item()
 
         rmses.append(rmse)
