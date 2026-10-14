@@ -42,8 +42,6 @@ from giant_sp.utils.acquisition import (
 from giant_sp.utils.data import context_sampling_with_delta, sample_dates_by_year_chunks
 from giant_sp.utils.model import get_available_device
 
-set_gpu_default_device() if torch.cuda.is_available() else torch.device("cpu")
-
 
 def setup_logging(config: DictConfig) -> None:
     """Configure the root logger from a run configuration.
