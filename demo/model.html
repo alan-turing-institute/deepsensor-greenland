@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <site-shell active="model">
+    <section class="panel" id="panel-model">
+      <div class="panel-header">
+        <span class="title">How does the AI model emulate surface melt?</span>
+        <a href="model-detail.html">More on architecture &amp; training →</a>
+      </div>
+      <div class="content">
+        <div class="inner">
+          <h3>Approach</h3>
+          <div class="input-grid">
+            <div class="overview-controls" hidden>
+              <button type="button" class="step-prev" aria-label="Previous step">&lsaquo;</button>
+              <button type="button" class="step-next" aria-label="Next step">&rsaquo;</button>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="dot" cx="5" cy="6" r="1.6" />
+                <circle class="dot" cx="17" cy="4.5" r="1.6" />
+                <circle class="dot" cx="11" cy="12" r="1.6" />
+                <circle class="dot" cx="4" cy="18" r="1.6" />
+                <circle class="dot" cx="19" cy="15" r="1.6" />
+                <circle class="dot" cx="13" cy="20" r="1.6" />
+              </svg>
+              <div class="card">
+                <div class="card-title">1. Learn from sparse points</div>
+                <div class="card-body">AI models learn to predict surface melt from a sparse set of context points, using the HIRHAM5 regional climate model as a training dataset.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2 20h20" />
+                <path d="M3 20c4 0 5-14 9-14s5 14 9 14" />
+                <path d="M12 6V2M10 4l2-2 2 2" />
+              </svg>
+              <div class="card">
+                <div class="card-title">2. Maximise likelihood</div>
+                <div class="card-body">Training maximises the likelihood of the true surface melt values at target locations, given the context points and other input variables.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M9 3v18M15 3v18M3 9h18M3 15h18" />
+              </svg>
+              <div class="card">
+                <div class="card-title">3. Predict everywhere</div>
+                <div class="card-body">Once trained, the model predicts surface melt across the entire grid from a sparse set of context points and other input variables.</div>
+              </div>
+            </div>
+          </div>
+          <div class="diagram-row">
+            <div class="diagram-col">
+              <p class="diagram-label">HIRHAM5 surface melt <em>context</em> points</p>
+              <img class="diagram-figure" src="images/4_model_context.gif" alt="Animated map of HIRHAM5 surface melt context points sampled across Greenland" />
+            </div>
+            <div class="diagram-col diagram-middle">
+              <div class="diagram-arrows">→</div>
+              <div class="diagram-model-box">AI model</div>
+              <p class="diagram-caption">Train ~1 million parameters to maximise target probability</p>
+            </div>
+            <div class="diagram-col">
+              <p class="diagram-label">HIRHAM5 surface melt <em>target</em> points</p>
+              <img class="diagram-figure" src="images/4_model_target.gif" alt="Animated map of HIRHAM5 surface melt target points sampled across Greenland" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </site-shell>
+  <script src="nav.js"></script>
+  <script src="steps.js"></script>
+</body>
+</html>
