@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <site-shell active="model">
+    <section class="panel" id="panel-model-detail">
+      <div class="panel-header">
+        <span class="title">Model details</span>
+        <a href="model.html">← Back to Model</a>
+      </div>
+      <div class="content">
+        <div class="inner">
+          <h3>What is a Convolutional Neural Process?</h3>
+          <p>
+            Our model is a convolutional neural process (ConvNP;
+            <strong>Gordon <em>et al.</em>, 2020</strong><sup class="ref-mark"><a href="#ref-1" id="cite-1">1</a></sup>),
+            a type of neural network designed for scattered environmental observations:
+          </p>
+          <div class="input-grid">
+            <div class="overview-controls" hidden>
+              <button type="button" class="step-prev" aria-label="Previous property">&lsaquo;</button>
+              <button type="button" class="step-next" aria-label="Next property">&rsaquo;</button>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="dot" cx="5" cy="6" r="1.6" />
+                <circle class="dot" cx="17" cy="4.5" r="1.6" />
+                <circle class="dot" cx="11" cy="12" r="1.6" />
+                <circle class="dot" cx="4" cy="18" r="1.6" />
+                <circle class="dot" cx="19" cy="15" r="1.6" />
+                <circle class="dot" cx="13" cy="20" r="1.6" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Any observations, anywhere</div>
+                <div class="card-body">The model can use any number of observations, taken at any locations. We call these the <em>context set</em>. Here, they are surface melt values at scattered points. The model also uses gridded input maps.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2 20h20" />
+                <path d="M3 20c4 0 5-14 9-14s5 14 9 14" />
+                <path d="M12 6v14" stroke-dasharray="2 2" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Predictions with uncertainty</div>
+                <div class="card-body">A <em>target</em> is a location where we want a prediction. At each target, the model gives a range of likely values, not just one number. This shows the expected surface melt and how uncertain the model is.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 7l7 5-7 5M19 7l-7 5 7 5" />
+                <circle cx="5" cy="7" r="2" />
+                <circle cx="5" cy="17" r="2" />
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="19" cy="7" r="2" />
+                <circle cx="19" cy="17" r="2" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Learned from data</div>
+                <div class="card-body">A Gaussian process needs a person to define how observations relate to each other. Our model learns this relationship from the data instead. It makes all its predictions in one step.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="2" y="8" width="7" height="7" rx="1" />
+                <rect x="15" y="8" width="7" height="7" rx="1" />
+                <path d="M10.5 11.5h3M12.5 10l1.5 1.5-1.5 1.5" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Same pattern, same prediction</div>
+                <div class="card-body">The model uses convolutions. So the same pattern gives the same prediction, wherever it appears on the map (this is called <em>translation equivariance</em>).  </div>
+              </div>
+            </div>
+          </div>
+          <p>
+            <strong>Andersson <em>et al.</em> (2023)</strong><sup class="ref-mark"><a href="#ref-2" id="cite-2">2</a></sup>
+            trained these models on climate model data to guide where to place new sensors in
+            Antarctica. We follow the same approach for Greenland surface melt, using their
+            open-source DeepSensor package.
+          </p>
+          <h3>How does the model encode the inputs?</h3>
+          <img class="detail-figure" src="images/3_data-details_inputs.png" alt="Maps of all the input data channels" />
+          <h3>Architecture</h3>
+          <p>
+            Our convolutional neural process (ConvNP) has three parts. An encoder
+            places the sparse surface melt context points and the gridded inputs onto a common
+            internal grid, a U-Net processes that grid, and a decoder outputs a predictive
+            distribution of surface melt at every target location. The model has about one million
+            trainable parameters.
+          </p>
+          <ul>
+            <li><strong>U-Net:</strong> four layers of 64 channels each, with 5&nbsp;&times;&nbsp;5
+              convolution kernels.</li>
+            <li><strong>Decoder:</strong> 64 basis functions.</li>
+            <li><strong>Likelihood:</strong> a zero-inflated Bernoulli-Gamma distribution. It gives
+              the probability that any melt occurs and, when it does, a gamma distribution over how
+              much, so the model can predict exactly zero melt as well as a spread of positive values
+              with their uncertainty.</li>
+          </ul>
+          <h3>Training regime</h3>
+          <p>The HIRHAM5 record is split by year, so the model is always evaluated on years it has not seen:</p>
+          <ul>
+            <li><strong>Training:</strong> 1990–2013.</li>
+            <li><strong>Validation:</strong> 2014, used to choose the best model and decide when to stop training.</li>
+            <li><strong>Test:</strong> 2016, held out for evaluation and the sensor placement search.</li>
+          </ul>
+          <p>
+            Most days outside summer have little or no melt, so we do not train on every day.
+            Following <strong>Schlager <em>et al.</em> (2026)</strong><sup class="ref-mark"><a href="#ref-3" id="cite-3">3</a></sup>, each year contributes 150 days, sampled with
+            a weighting that peaks on 24 July, the height of the melt season, and falls off over
+            about two months either side. These days stay fixed across epochs.
+          </p>
+          <p>
+            Each training example is one day. Its context set holds between 100 and 400 surface melt
+            points: 10% are at PROMICE station locations and the rest are spread at random across the
+            Greenland ice mask. The model is asked to predict melt at every grid cell. Context points
+            are drawn afresh each epoch, so the model learns to cope with many different observing
+            networks rather than memorising one.
+          </p>
+          <p>The validation days are scored in two ways:</p>
+          <ul>
+            <li><strong>Random context:</strong> 100–400 points across the ice mask, fixed between
+              epochs so scores are comparable.</li>
+            <li><strong>Station context:</strong> only the current PROMICE station locations, matching
+              how the model is used for sensor placement. The weights that score best here are the
+              ones used in the placement experiments.</li>
+          </ul>
+          <h3>Training settings</h3>
+          <ul>
+            <li><strong>Optimiser:</strong> Adam with a constant learning rate of
+              3&nbsp;&times;&nbsp;10<sup>&minus;4</sup> and weight decay of 10<sup>&minus;4</sup>.</li>
+            <li><strong>Loss:</strong> negative log-likelihood of the true melt values under the
+              predicted Bernoulli-Gamma distribution.</li>
+            <li><strong>Batch size:</strong> one day per optimisation step.</li>
+            <li><strong>Epochs:</strong> up to 100, stopping early if the validation loss has not
+              improved for 20 epochs.</li>
+            <li><strong>Checkpointing:</strong> the best weights by validation loss and by
+              station-context validation loss are kept separately.</li>
+          </ul>
+          <p>
+            Runs are tracked in Weights &amp; Biases, which records losses, error metrics (RMSE, MAE,
+            NLL), prediction maps and calibration (PIT) histograms during training.
+          </p>
+          <footer class="references">
+            <p id="ref-1">
+              <sup><a href="#cite-1" aria-label="Back to text">1</a></sup>
+              Gordon, J., Bruinsma, W. P., Foong, A. Y. K., Requeima, J., Dubois, Y., and Turner,
+              R. E.: Convolutional conditional neural processes, <em>International Conference on
+              Learning Representations (ICLR)</em>, 2020.
+              <a href="https://arxiv.org/abs/1910.13556">https://arxiv.org/abs/1910.13556</a>
+            </p>
+            <p id="ref-2">
+              <sup><a href="#cite-2" aria-label="Back to text">2</a></sup>
+              Andersson, T. R., Bruinsma, W. P., Markou, S., Requeima, J., Coca-Castro, A., Vaughan,
+              A., Ellis, A.-L., Lazzara, M. A., Jones, D., Hosking, S., and Turner, R. E.:
+              Environmental sensor placement with convolutional Gaussian neural processes,
+              <em>Environmental Data Science</em>, 2, e32, 2023.
+              <a href="https://doi.org/10.1017/eds.2023.22">https://doi.org/10.1017/eds.2023.22</a>
+            </p>
+            <p id="ref-3">
+              <sup><a href="#cite-3" aria-label="Back to text">3</a></sup>
+              Schlager, E., Scher, S., Mottram, R. H., and Langen, P. L.: Learning to melt:
+              Emulating Greenland surface melt from a polar RCM with machine learning,
+              <em>The Cryosphere</em>, 20, 3313–3343, 2026.
+              <a href="https://doi.org/10.5194/tc-20-3313-2026">https://doi.org/10.5194/tc-20-3313-2026</a>
+            </p>
+          </footer>
+        </div>
+      </div>
+    </section>
+  </site-shell>
+  <script src="nav.js"></script>
+  <script src="steps.js"></script>
+</body>
+</html>

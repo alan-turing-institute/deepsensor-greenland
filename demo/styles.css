@@ -1,0 +1,545 @@
+:root {
+  --bg: #0f1720;
+  --panel-bg: #161f2b;
+  --border: #2a3644;
+  --text: #e6edf3;
+  --muted: #93a4b8;
+  --accent: #4da3ff;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+site-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+header {
+  flex: 0 0 auto;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.header-title {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+header h1 {
+  font-size: 1.6rem;
+  margin: 0;
+}
+header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+.header-logo {
+  align-self: center;
+  height: 44px;
+  width: auto;
+}
+.partner-logos {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+.next-btn {
+  margin-left: auto;
+  align-self: center;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.next-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+nav.sidebar {
+  flex: 0 0 260px;
+  background: var(--panel-bg);
+  border-right: 1px solid var(--border);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+nav.sidebar a.nav-item {
+  all: unset;
+  cursor: pointer;
+  padding: 0.75rem 0.9rem;
+  border-radius: 6px;
+  font-size: 1.05rem;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+nav.sidebar a.nav-item .label {
+  font-weight: 600;
+}
+nav.sidebar a.nav-item .sub {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+nav.sidebar a.nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+nav.sidebar a.nav-item.active {
+  background: var(--accent);
+}
+nav.sidebar a.nav-item.active .label,
+nav.sidebar a.nav-item.active .sub {
+  color: var(--bg);
+}
+main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.panel-header {
+  padding: 0.6rem 1rem;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+.panel-header .title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.panel-header a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.panel-header a:hover {
+  text-decoration: underline;
+}
+.frame-wrap {
+  flex: 1;
+  position: relative;
+}
+iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem;
+}
+.content .inner {
+  max-width: 860px;
+}
+.content h3 {
+  font-size: 1rem;
+  margin: 1.75rem 0 0.5rem;
+  color: var(--text);
+}
+/* Whatever a page opens with (heading, text, figure), .content's padding is
+   the only gap below the panel header. */
+.content .inner > :first-child {
+  margin-top: 0;
+}
+.content p {
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0 0 0.9rem;
+}
+.content p.lead {
+  color: var(--text);
+  font-weight: 700;
+}
+.content p.lead-box {
+  text-align: center;
+  color: var(--bg);
+  background: #cfe6ff;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+}
+.content ul {
+  margin: 0 0 0.9rem;
+  padding-left: 1.25rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.content li {
+  margin-bottom: 0.35rem;
+}
+.content li strong {
+  color: var(--text);
+}
+.content code {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.85em;
+  color: var(--text);
+}
+.content a {
+  color: var(--accent);
+}
+.overview-figure,
+.detail-figure {
+  display: block;
+  max-width: 100%;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 0 0 1.25rem;
+}
+.detail-figure {
+  width: 100%;
+}
+.detail-figure[hidden] {
+  display: none;
+}
+.pareto-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin: 0 0 1rem;
+}
+.pareto-controls[hidden],
+.pareto-controls label[hidden] {
+  display: none;
+}
+.pareto-controls label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.pareto-controls select {
+  padding: 0.3rem 0.5rem;
+  font: inherit;
+  font-weight: 400;
+  color: var(--text);
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.pareto-missing {
+  color: var(--muted);
+}
+#overview-figure {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: end;
+  gap: 1rem;
+}
+/* Buttons for overview.js's step-by-step reveals (Start/Pause, ‹/›). */
+.overview-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+#overview-figure .overview-controls,
+.card-grid .overview-controls,
+.input-grid .overview-controls {
+  grid-column: 1 / -1;
+  justify-self: end;
+}
+.overview-controls[hidden] {
+  display: none;
+}
+.overview-controls button {
+  padding: 0.35rem 0.9rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.overview-controls button:hover:not(:disabled),
+.overview-controls button:focus-visible {
+  filter: brightness(1.1);
+}
+.overview-controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+#overview-figure figure,
+#overview-figure .overview-operator {
+  margin: 0;
+  transition: opacity 0.6s ease;
+}
+/* Hidden until overview.js reveals it (only when the images use data-src). */
+#overview-figure figure:has(img[data-src]):not(.shown),
+#overview-figure:has(img[data-src]) .overview-operator:not(.shown) {
+  opacity: 0;
+}
+#overview-figure figcaption {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  color: #1f2328;
+}
+#overview-figure img,
+#overview-figure canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+#overview-figure img[hidden] {
+  display: none;
+}
+#overview-figure .overview-operator {
+  align-self: center;
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  color: #1f2328;
+}
+@media (max-width: 700px) {
+  #overview-figure {
+    grid-template-columns: 1fr;
+  }
+}
+.credits-figure {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0 0 1.25rem;
+}
+.credits-logos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2.5rem;
+  margin: 2rem 0 0;
+}
+.credits-logos img {
+  height: 60px;
+  width: auto;
+}
+.diagram-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: 0 0 1.5rem;
+}
+.diagram-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 280px;
+}
+.diagram-col .diagram-label {
+  margin: 0;
+  font-size: 0.85rem;
+  text-align: center;
+  color: var(--text);
+  font-weight: 700;
+}
+.diagram-figure {
+  display: block;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+.diagram-middle {
+  width: 200px;
+  gap: 0.65rem;
+}
+.diagram-arrows {
+  font-size: 1.6rem;
+  color: var(--accent);
+  line-height: 1;
+}
+.diagram-model-box {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--panel-bg);
+}
+.diagram-flow {
+  flex-wrap: nowrap;
+  gap: 1rem;
+}
+.diagram-flow .diagram-col {
+  width: auto;
+}
+.diagram-flow .diagram-label {
+  font-size: 1.5rem;
+}
+.diagram-connector {
+  font-size: 1.6rem;
+  color: var(--accent);
+  line-height: 1;
+}
+.diagram-caption {
+  margin: 0;
+  font-size: 0.78rem;
+  text-align: center;
+  color: var(--muted);
+}
+/* .card-grid and .input-grid lay out their --cols items all on one row while
+   each gets at least --card-min-width, and one per row (full width) otherwise,
+   never in between (no 2+1 rows). The clamp() picks the column minimum: a
+   1/--cols share when the row fits (its middle term goes negative), else 100%. */
+:root {
+  --card-min-width: 180px;
+  --card-gap: 0.75rem;
+}
+.card-grid,
+.input-grid {
+  --cols: 3;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(clamp(
+    (100% - (var(--cols) - 1) * var(--card-gap)) / var(--cols) - 0.1px,
+    (var(--cols) * var(--card-min-width) + (var(--cols) - 1) * var(--card-gap) - 100%) * 999,
+    100%
+  ), 1fr));
+  gap: var(--card-gap);
+  margin: 0 0 1.25rem;
+}
+.card-grid:has(> :nth-child(4 of .card)),
+.input-grid:has(> :nth-child(4 of .input-item)) {
+  --cols: 4;
+}
+.card {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+}
+.card .card-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+}
+/* Cards with ‹/› buttons are hidden until steps.js reveals them (only once it
+   has shown the buttons, so they stay visible without JS). */
+.card-grid:has(> .overview-controls) .card {
+  transition: opacity 0.6s ease;
+}
+.card-grid:has(> .overview-controls:not([hidden])) .card:not(.shown) {
+  opacity: 0;
+}
+.card .card-body {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+/* Cards with an icon above each one (data details inputs, model approach),
+   laid out by the .input-grid rules above. */
+.input-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+.input-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.input-icon .dot {
+  fill: var(--accent);
+}
+.input-item .card {
+  flex: 1;
+  width: 100%;
+}
+/* Inputs with ‹/› buttons are hidden until steps.js reveals them (only once
+   it has shown the buttons, so they stay visible without JS). */
+.input-grid:has(> .overview-controls) .input-item {
+  transition: opacity 0.6s ease;
+}
+.input-grid:has(> .overview-controls:not([hidden])) .input-item:not(.shown) {
+  opacity: 0;
+}
+.content .references {
+  margin-top: 2rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border);
+}
+.content .references p {
+  font-size: 0.78rem;
+  margin: 0;
+}
+.content .references p + p {
+  margin-top: 0.5rem;
+}
+.content .references a {
+  color: var(--accent);
+  word-break: break-all;
+}
+.content sup a {
+  color: var(--accent);
+  text-decoration: none;
+  padding: 0 0.1em;
+}
+.content sup a:hover {
+  text-decoration: underline;
+}
+.content :target {
+  scroll-margin-top: 1rem;
+}
+@media (max-width: 700px) {
+  .layout { flex-direction: column; }
+  nav.sidebar {
+    flex: 0 0 auto;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+}
