@@ -474,7 +474,9 @@ def main(config: DictConfig) -> None:
 
     field = reproject_field(rank_da, coords_ref)
     background = field  # iteration-0 field only
-    newplace_df = reproject_points(X_pareto, coords_ref)  # all pareto-optimal placements
+    newplace_df = reproject_points(
+        X_pareto, coords_ref
+    )  # all pareto-optimal placements
     newplace_df.to_csv(f"{paretodir}/placements_{run_id}_{acqfn_name}_{cost}.csv")
 
     fig = plt.figure(figsize=(16, 8), frameon=False)
