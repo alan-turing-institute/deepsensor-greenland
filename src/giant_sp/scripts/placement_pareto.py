@@ -272,7 +272,7 @@ def main(config: DictConfig) -> None:
     ----------
     config : DictConfig
         Hydra-composed run configuration (see ``src/giant_sp/configs/``).
-        ``config.placement_analysis`` holds the run-specific parameters:
+        ``config.placement_pareto`` holds the run-specific parameters:
 
         run_ref : str
             Weights & Biases run reference (``"entity/project/run_id"``)
@@ -474,7 +474,7 @@ def main(config: DictConfig) -> None:
 
     field = reproject_field(rank_da, coords_ref)
     background = field  # iteration-0 field only
-    newplace_df = reproject_points(X_pareto, coords_ref)  # all 10 placements
+    newplace_df = reproject_points(X_pareto, coords_ref)  # all pareto-optimal placements
     newplace_df.to_csv(f"{paretodir}/placements_{run_id}_{acqfn_name}_{cost}.csv")
 
     fig = plt.figure(figsize=(16, 8), frameon=False)
@@ -515,7 +515,7 @@ def main(config: DictConfig) -> None:
     }[cost]
     ax0.set_xlabel(f"Cost ({cost_label})", size=label_fontsize)
     ax0.set_ylabel(
-        "Informativeness\n(ConvCNP Adquisition Function)", size=label_fontsize
+        "Informativeness\n(ConvCNP Acquisition Function)", size=label_fontsize
     )
     ax0.set_title("")
     ax0.tick_params(axis="both", which="major", labelsize=18)
