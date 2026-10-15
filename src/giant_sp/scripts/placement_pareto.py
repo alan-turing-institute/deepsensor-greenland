@@ -1,4 +1,4 @@
-"""Main script for pareto multi-objective experiments using adquisition function and cost function."""
+"""Main script for Pareto multi-objective experiments using acquisition and cost functions."""
 
 import glob
 import json
