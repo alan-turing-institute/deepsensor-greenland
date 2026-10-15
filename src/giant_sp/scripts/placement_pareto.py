@@ -409,7 +409,7 @@ def main(config: DictConfig) -> None:
     )
 
     acqfn = xr.open_dataarray(acq_file)
-    acqfn0 = acqfn.sel(iteration=0).mean(dim="time").drop("iteration")
+    acqfn0 = acqfn.sel(iteration=0).mean(dim="time").drop_vars(("iteration"))
     np.save(f"{paretodir}/acq_{run_id}_{acqfn_name}.npy", acqfn0.data)
 
     coords_ref = load_coords_ref()
@@ -418,7 +418,7 @@ def main(config: DictConfig) -> None:
         acqfn = xr.open_dataarray(
             "outputs/vloyijco/placement/ContextDist/AcqFn_ContextDist_10-iter_sseasonal_e50_sr9_weights-ep95.nc"
         )
-        acqfn1 = acqfn.sel(iteration=0).mean(dim="time").drop("iteration")
+        acqfn1 = acqfn.sel(iteration=0).mean(dim="time").drop_vars(("iteration"))
         # ContextDist is in normalised-coordinate units; convert to km.
         acqfn1 = acqfn1 * context_dist_km_factor(coords_ref)
     elif cost == "distance2border":
