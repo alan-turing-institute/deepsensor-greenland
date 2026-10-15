@@ -4,6 +4,7 @@ import glob
 import json
 import os
 
+import deepsensor.active_learning.acquisition_fns as ds_acq
 import deepsensor.torch as deepsensor  # noqa: F401
 import hydra
 import matplotlib.pyplot as plt
@@ -24,6 +25,7 @@ from matplotlib.lines import Line2D
 from omegaconf import DictConfig
 from scipy import ndimage
 
+import giant_sp.utils.acquisition as gs_acq
 import giant_sp.utils.plots as myplt
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
 from giant_sp.data.dataloader import BaseDataLoader
@@ -329,6 +331,12 @@ def main(config: DictConfig) -> None:
     run_id = run_ref.split("/")[-1]
     acqfn_name = acq_file.split("/")[-1].split("_")[1]
 
+    # Determine whether lower ("min") or higher ("max") acquisition values are better
+    acq_cls = getattr(gs_acq, acqfn_name, None) or getattr(ds_acq, acqfn_name, None)
+    if acq_cls is None:
+        raise ValueError(f"Unknown acquisition function in acq_file name: {acqfn_name}")
+    acq_sense = acq_cls.min_or_max
+
     # Path and files
     output_path = f"{output_dir}/{run_id}"
     figdir = os.path.join(output_path, "placement", "figures")
@@ -409,7 +417,7 @@ def main(config: DictConfig) -> None:
     )
 
     acqfn = xr.open_dataarray(acq_file)
-    acqfn0 = acqfn.sel(iteration=0).mean(dim="time").drop_vars(("iteration"))
+    acqfn0 = acqfn.sel(iteration=0).mean(dim="time").drop_vars("iteration")
     np.save(f"{paretodir}/acq_{run_id}_{acqfn_name}.npy", acqfn0.data)
 
     coords_ref = load_coords_ref()
@@ -418,7 +426,7 @@ def main(config: DictConfig) -> None:
         acqfn = xr.open_dataarray(
             "outputs/vloyijco/placement/ContextDist/AcqFn_ContextDist_10-iter_sseasonal_e50_sr9_weights-ep95.nc"
         )
-        acqfn1 = acqfn.sel(iteration=0).mean(dim="time").drop_vars(("iteration"))
+        acqfn1 = acqfn.sel(iteration=0).mean(dim="time").drop_vars("iteration")
         # ContextDist is in normalised-coordinate units; convert to km.
         acqfn1 = acqfn1 * context_dist_km_factor(coords_ref)
     elif cost == "distance2border":
@@ -447,7 +455,7 @@ def main(config: DictConfig) -> None:
     alpha_df = alpha_df.dropna(axis=0)[[f"alpha_{i + 1}" for i in range(len(das))]]
 
     data = alpha_df.values
-    senses = ["min", "min"]  # Both objectives are to be minimised
+    senses = [acq_sense, "min"]  # Acquisition in its own direction; cost minimised
     mask = paretoset.paretoset(data, sense=senses[: len(das)], distinct=False)
     rank = paretoset.paretorank(data, sense=senses[: len(das)], distinct=False)
     np.save(f"{paretodir}/mask_{run_id}_{acqfn_name}_{cost}.npy", mask)
@@ -472,10 +480,13 @@ def main(config: DictConfig) -> None:
     fig = plt.figure(figsize=(16, 8), frameon=False)
     gs = fig.add_gridspec(1, 2)
 
+    # Plot "up = more informative": flip min-is-better scores, leave max-is-better ones.
+    informativeness_sign = -1 if acq_sense == "min" else 1
+
     ax0 = fig.add_subplot(gs[0, 0])
     ax0.scatter(
         acqfn1.data.flatten(),
-        acqfn0.data.flatten() * -1,
+        acqfn0.data.flatten() * informativeness_sign,
         marker="o",
         color="k",
         s=6**2,
@@ -487,7 +498,7 @@ def main(config: DictConfig) -> None:
     y_pareto = alpha_df.reset_index()[["alpha_1", "alpha_2"]].values[mask]
     ax0.scatter(
         y_pareto[:, 1],
-        y_pareto[:, 0] * -1,
+        y_pareto[:, 0] * informativeness_sign,
         marker="o",
         color="r",
         s=6**2,
