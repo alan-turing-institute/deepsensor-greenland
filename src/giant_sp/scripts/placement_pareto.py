@@ -142,59 +142,76 @@ def distance_to_border(field: xr.DataArray) -> xr.DataArray:
 def main(config: DictConfig) -> None:
     """Find Pareto-optimal placements trading off informativeness against a cost.
 
-    Treats each grid cell as a candidate placement scored on two objectives,
-    both minimised:
+    Treats each grid cell as a candidate placement scored on two objectives:
 
     1. the acquisition function from ``acq_file`` at iteration 0 (i.e. with
-       only the existing station network as context), averaged over time;
-    2. a cost map on the same grid, selected by ``cost``:
+       only the existing station network as context), averaged over time,
+       optimised in its own direction (the acquisition class's
+       ``min_or_max``, looked up in `giant_sp.utils.acquisition` and then
+       `deepsensor.active_learning.acquisition_fns`);
+    2. a cost map on the same grid, minimised, selected by ``cost``:
 
        - ``"distance2stations"``: distance to existing stations [km], taken
-         from a precomputed ``ContextDist`` acquisition-function file;
+         from the precomputed ``ContextDist`` acquisition-function file
+         ``distance2stations_file``;
        - ``"distance2border"``: distance to the edge of the valid
          (non-NaN) domain [km];
-       - ``"elevation"``: HIRHAM5 surface elevation [m], block-averaged
-         onto the acquisition grid;
-       - ``"albedo"``: mean ``albedom`` between ``search_start_date`` and
-         ``search_end_date``, block-averaged onto the acquisition grid.
+       - ``"elevation"``: HIRHAM5 surface elevation [m]
+         (``data/hirham5/h5_elevation_GRL.nc``), block-averaged onto the
+         acquisition grid;
+       - ``"albedo"``: mean ``albedom`` from ``<data_path>/base_dataset.zarr``
+         between ``search_start_date`` and ``search_end_date``,
+         block-averaged onto the acquisition grid.
 
     The Pareto front and Pareto rank of every cell are computed with
     `paretoset`. A two-panel figure is then produced: on the left, cost
-    against informativeness (the negated acquisition value) with the
-    Pareto-optimal cells highlighted; on the right, a Greenland map of
-    Pareto rank showing the Pareto-optimal and existing stations.
+    against informativeness (the acquisition value, negated if lower is
+    better) with the Pareto-optimal cells highlighted; on the right, a
+    Greenland map of Pareto rank showing the Pareto-optimal and existing
+    stations.
 
-    The run's data processor is fetched from Weights & Biases (or a local
-    ``wandb/`` cache) so that the data loader is built consistently with
-    the trained model; the model itself is not loaded.
+    No model or data processor is loaded: everything is read from
+    precomputed files and the data directory.
 
     Parameters
     ----------
     config : DictConfig
         Hydra-composed run configuration (see ``src/giant_sp/configs/``).
+        From ``config.data``, ``data_path`` (holding ``coords_only.zarr``
+        and, for ``cost="albedo"``, ``base_dataset.zarr``) and
+        ``station_locations_file`` (existing stations to plot) are used.
         ``config.placement_pareto`` holds the run-specific parameters:
 
         run_ref : str
-            Weights & Biases run reference (``"entity/project/run_id"``)
-            whose data processor config is loaded.
+            Weights & Biases run reference (``"entity/project/run_id"``);
+            only its ``run_id`` is used, to name outputs.
         acq_file : str
             Path to a NetCDF of acquisition-function values with
             ``iteration`` and ``time`` dims (as written by ``placement.py``).
             The acquisition-function name is the second ``_``-separated
-            token of its file name; the weights file name is derived from the
-            last token, with ``.nc`` replaced by ``.pt``.
+            token of its file name.
         cost : str
             Cost objective; one of ``"distance2stations"``,
             ``"distance2border"``, ``"elevation"``, ``"albedo"``.
+        distance2stations_file : str
+            Path to a ``ContextDist`` acquisition-function NetCDF (same
+            layout as ``acq_file``); only read for
+            ``cost="distance2stations"``.
         search_start_date : str
             Start (inclusive) of the date range over which albedo is
-            averaged for ``cost="albedo"``; unused otherwise.
+            averaged; only read for ``cost="albedo"``.
         search_end_date : str
             End (inclusive) of the date range over which albedo is
-            averaged for ``cost="albedo"``; unused otherwise.
+            averaged; only read for ``cost="albedo"``.
         output_dir : str
             Root directory for outputs; results go under
             ``<output_dir>/<run_id>/``.
+
+    Raises
+    ------
+    ValueError
+        If the acquisition-function name parsed from ``acq_file`` or
+        ``cost`` is not recognised.
 
     Returns
     -------
@@ -203,8 +220,9 @@ def main(config: DictConfig) -> None:
 
         - ``pareto/``: the two objective maps
           (``acq_<run_id>_<acq_fn>.npy``, ``cost_<cost>.npy``), the Pareto
-          mask and rank (``mask_*.npy``, ``rank_*.npy``), and the
-          Pareto-optimal placements in lon/lat (``placements_*.csv``);
+          mask and rank (``mask_<run_id>_<acq_fn>_<cost>.npy``,
+          ``rank_<run_id>_<acq_fn>_<cost>.npy``), and the Pareto-optimal
+          placements in lon/lat (``placements_<run_id>_<acq_fn>_<cost>.csv``);
         - ``figures/``: the combined plot,
           ``<acq_file stem>_<cost>_pareto_combined.png``.
     """
@@ -215,8 +233,6 @@ def main(config: DictConfig) -> None:
     run_ref = placement_config.run_ref
     acq_file = placement_config.acq_file
     cost = placement_config.cost
-    dates_start = placement_config.search_start_date
-    dates_end = placement_config.search_end_date
     output_dir = placement_config.output_dir
 
     run_id = run_ref.split("/")[-1]
@@ -244,9 +260,8 @@ def main(config: DictConfig) -> None:
     coords_ref = load_coords_ref(coords_ref_file)
 
     if cost == "distance2stations":
-        acqfn = xr.open_dataarray(
-            "outputs/vloyijco/placement/ContextDist/AcqFn_ContextDist_10-iter_sseasonal_e50_sr9_weights-ep95.nc"
-        )
+        distance2stations_file = placement_config.distance2stations_file
+        acqfn = xr.open_dataarray(distance2stations_file)
         acqfn1 = acqfn.sel(iteration=0).mean(dim="time").drop_vars("iteration")
         # ContextDist is in normalised-coordinate units; convert to km.
         acqfn1 = acqfn1 * context_dist_km_factor(coords_ref)
@@ -258,6 +273,8 @@ def main(config: DictConfig) -> None:
         elev = xr.open_dataarray("data/hirham5/h5_elevation_GRL.nc")
         acqfn1 = coarsen_to_field(elev, acqfn0, coords_ref)
     elif cost == "albedo":
+        dates_start = placement_config.search_start_date
+        dates_end = placement_config.search_end_date
         ds = xr.open_zarr(os.path.join(data_path, "base_dataset.zarr"), chunks="auto")
         albedo = ds["albedom"].sel(time=slice(dates_start, dates_end)).mean(dim="time")
         # base_dataset only holds valid cells, stacked along ``z``; unstack to
