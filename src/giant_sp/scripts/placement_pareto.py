@@ -25,9 +25,10 @@ from giant_sp.scripts.placement_overview_placements_map import (
 )
 
 
-def load_existing_stations(STATION_FILE, coords_ref: xr.Dataset) -> pd.DataFrame:
+
+def load_existing_stations(station_file: str, coords_ref: xr.Dataset) -> pd.DataFrame:
     """Station file's own lat/lon, filtered to the grid's geographic bounding box."""
-    stn_df = pd.read_csv(STATION_FILE)[["latitude_last_valid", "longitude_last_valid"]]
+    stn_df = pd.read_csv(station_file)[["latitude_last_valid", "longitude_last_valid"]]
     stn_df = stn_df.rename(
         columns={"latitude_last_valid": "lat", "longitude_last_valid": "lon"}
     )
@@ -39,9 +40,10 @@ def load_existing_stations(STATION_FILE, coords_ref: xr.Dataset) -> pd.DataFrame
     return stn_df[in_domain].reset_index(drop=True)
 
 
-def load_coords_ref(COORDS_FILE) -> xr.Dataset:
+
+def load_coords_ref(coords_file: str) -> xr.Dataset:
     """Full-resolution lon/lat reference grid, indexed by integer x/y (as in placement.py L320-327)."""
-    coords_ref = xr.open_zarr(COORDS_FILE, chunks="auto")
+    coords_ref = xr.open_zarr(coords_file, chunks="auto")
     return coords_ref.assign_coords(
         x=np.arange(coords_ref.sizes["x"]), y=np.arange(coords_ref.sizes["y"])
     )
