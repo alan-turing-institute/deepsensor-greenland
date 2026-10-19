@@ -25,12 +25,12 @@ from giant_sp.scripts.placement_overview_placements_map import (
 )
 
 
-DATA_PATH = "/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed/HIRHAM5-ERAInterim/v_02"
-COORDS_FILE = os.path.sep.join([DATA_PATH, "coords_only.zarr"])
-STATION_FILE = "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations.csv"
+# DATA_PATH = "/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed/HIRHAM5-ERAInterim/v_02"
+# COORDS_FILE = os.path.sep.join([DATA_PATH, "coords_only.zarr"])
+# STATION_FILE = "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations.csv"
 
 
-def load_existing_stations(coords_ref: xr.Dataset) -> pd.DataFrame:
+def load_existing_stations(STATION_FILE, coords_ref: xr.Dataset) -> pd.DataFrame:
     """Station file's own lat/lon, filtered to the grid's geographic bounding box."""
     stn_df = pd.read_csv(STATION_FILE)[["latitude_last_valid", "longitude_last_valid"]]
     stn_df = stn_df.rename(
@@ -44,7 +44,7 @@ def load_existing_stations(coords_ref: xr.Dataset) -> pd.DataFrame:
     return stn_df[in_domain].reset_index(drop=True)
 
 
-def load_coords_ref() -> xr.Dataset:
+def load_coords_ref(COORDS_FILE) -> xr.Dataset:
     """Full-resolution lon/lat reference grid, indexed by integer x/y (as in placement.py L320-327)."""
     coords_ref = xr.open_zarr(COORDS_FILE, chunks="auto")
     return coords_ref.assign_coords(
@@ -213,6 +213,9 @@ def main(config: DictConfig) -> None:
         - ``figures/``: the combined plot,
           ``<acq_file stem>_<cost>_pareto_combined.png``.
     """
+    data_config= config.data
+    data_path = data_config.data_path
+    station_file = data_config.station_locations_file
     placement_config = config.placement_pareto
     run_ref = placement_config.run_ref
     acq_file = placement_config.acq_file
@@ -242,7 +245,8 @@ def main(config: DictConfig) -> None:
     acqfn0 = acqfn.sel(iteration=0).mean(dim="time").drop_vars("iteration")
     np.save(f"{paretodir}/acq_{run_id}_{acqfn_name}.npy", acqfn0.data)
 
-    coords_ref = load_coords_ref()
+    coords_ref_file = os.path.join(data_path, "coords_only.zarr")
+    coords_ref = load_coords_ref(coords_ref_file)
 
     if cost == "distance2stations":
         acqfn = xr.open_dataarray(
@@ -259,7 +263,7 @@ def main(config: DictConfig) -> None:
         elev = xr.open_dataarray("data/hirham5/h5_elevation_GRL.nc")
         acqfn1 = coarsen_to_field(elev, acqfn0, coords_ref)
     elif cost == "albedo":
-        ds = xr.open_zarr(os.path.join(DATA_PATH, "base_dataset.zarr"), chunks="auto")
+        ds = xr.open_zarr(os.path.join(data_path, "base_dataset.zarr"), chunks="auto")
         albedo = ds["albedom"].sel(time=slice(dates_start, dates_end)).mean(dim="time")
         # base_dataset only holds valid cells, stacked along ``z``; unstack to
         # (y, x) and pad back to the full native grid.
@@ -286,7 +290,7 @@ def main(config: DictConfig) -> None:
     print(f"Found {mask.sum()} pareto optimal solutions with {rank.max()} ranks")
 
     # Combined scatter + spatial plot of the Pareto front
-    existing_df = load_existing_stations(coords_ref)
+    existing_df = load_existing_stations(station_file,coords_ref)
     display_crs = myplt.ccrs.NorthPolarStereo(central_longitude=-40)
 
     X_pareto = alpha_df.reset_index()[["lat", "lon"]][mask]
