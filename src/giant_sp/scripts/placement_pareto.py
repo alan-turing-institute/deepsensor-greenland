@@ -37,8 +37,6 @@ from giant_sp.scripts.placement_overview_placements_map import (
 from giant_sp.utils.data import sample_dates_by_year_chunks
 from giant_sp.utils.model import get_available_device
 
-set_gpu_default_device() if torch.cuda.is_available() else torch.device("cpu")
-
 DATA_PATH = "/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed/HIRHAM5-ERAInterim/v_02"
 COORDS_FILE = os.path.sep.join([DATA_PATH, "coords_only.zarr"])
 STATION_FILE = "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations.csv"
