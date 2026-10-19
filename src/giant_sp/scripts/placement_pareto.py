@@ -226,7 +226,7 @@ def main(config: DictConfig) -> None:
         - ``figures/``: the combined plot,
           ``<acq_file stem>_<cost>_pareto_combined.png``.
     """
-    data_config= config.data
+    data_config = config.data
     data_path = data_config.data_path
     station_file = data_config.station_locations_file
     placement_config = config.placement_pareto
@@ -302,7 +302,7 @@ def main(config: DictConfig) -> None:
     print(f"Found {mask.sum()} pareto optimal solutions with {rank.max()} ranks")
 
     # Combined scatter + spatial plot of the Pareto front
-    existing_df = load_existing_stations(station_file,coords_ref)
+    existing_df = load_existing_stations(station_file, coords_ref)
     display_crs = myplt.ccrs.NorthPolarStereo(central_longitude=-40)
 
     X_pareto = alpha_df.reset_index()[["lat", "lon"]][mask]
