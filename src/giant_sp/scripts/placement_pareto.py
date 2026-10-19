@@ -160,8 +160,8 @@ def main(config: DictConfig) -> None:
          (non-NaN) domain [km];
        - ``"elevation"``: HIRHAM5 surface elevation [m], block-averaged
          onto the acquisition grid;
-       - ``"albedo"``: mean ``albedom`` over the search date range,
-         block-averaged onto the acquisition grid.
+       - ``"albedo"``: mean ``albedom`` between ``search_start_date`` and
+         ``search_end_date``, block-averaged onto the acquisition grid.
 
     The Pareto front and Pareto rank of every cell are computed with
     `paretoset`. A two-panel figure is then produced: on the left, cost
@@ -191,15 +191,12 @@ def main(config: DictConfig) -> None:
         cost : str
             Cost objective; one of ``"distance2stations"``,
             ``"distance2border"``, ``"elevation"``, ``"albedo"``.
-        search_start_date, search_end_date : str
-            Date range (inclusive) over which dates are sampled, and over
-            which albedo is averaged for ``cost="albedo"``.
-        temporal_subsampling_method : str
-            Either ``"seasonal"`` (Gaussian-weighted by day of year) or
-            ``"regular"`` (fixed-stride date range).
-        temporal_subsampling_every : int
-            Number of dates sampled per year (seasonal) or stride between
-            dates (regular).
+        search_start_date : str
+            Start (inclusive) of the date range over which albedo is
+            averaged for ``cost="albedo"``; unused otherwise.
+        search_end_date : str
+            End (inclusive) of the date range over which albedo is
+            averaged for ``cost="albedo"``; unused otherwise.
         output_dir : str
             Root directory for outputs; results go under
             ``<output_dir>/<run_id>/``.
@@ -215,14 +212,6 @@ def main(config: DictConfig) -> None:
           Pareto-optimal placements in lon/lat (``placements_*.csv``);
         - ``figures/``: the combined plot,
           ``<acq_file stem>_<cost>_pareto_combined.png``.
-
-    Raises
-    ------
-    ValueError
-        If ``config["data"]["source"]`` is not one of ``"carra2"``,
-        ``"hirham5"``, ``"hirham5zarr"``; if the temporal sampling method is
-        not ``"seasonal"`` or ``"regular"``; or if ``cost`` is not one of
-        the values listed above.
     """
     placement_config = config.placement_pareto
     run_ref = placement_config.run_ref
@@ -232,7 +221,6 @@ def main(config: DictConfig) -> None:
     dates_end = placement_config.search_end_date
     output_dir = placement_config.output_dir
 
-    weights_fn = acq_file.split("/")[-1].split("_")[-1].replace(".nc", ".pt")
     run_id = run_ref.split("/")[-1]
     acqfn_name = acq_file.split("/")[-1].split("_")[1]
 
