@@ -25,11 +25,6 @@ from giant_sp.scripts.placement_overview_placements_map import (
 )
 
 
-# DATA_PATH = "/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed/HIRHAM5-ERAInterim/v_02"
-# COORDS_FILE = os.path.sep.join([DATA_PATH, "coords_only.zarr"])
-# STATION_FILE = "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations.csv"
-
-
 def load_existing_stations(STATION_FILE, coords_ref: xr.Dataset) -> pd.DataFrame:
     """Station file's own lat/lon, filtered to the grid's geographic bounding box."""
     stn_df = pd.read_csv(STATION_FILE)[["latitude_last_valid", "longitude_last_valid"]]
