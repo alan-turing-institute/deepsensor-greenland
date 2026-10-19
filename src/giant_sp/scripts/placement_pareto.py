@@ -1,7 +1,5 @@
 """Main script for Pareto multi-objective experiments using acquisition and cost functions."""
 
-import glob
-import json
 import os
 
 import deepsensor.active_learning.acquisition_fns as ds_acq
@@ -13,13 +11,7 @@ import pandas as pd
 
 # src
 import paretoset
-import torch
-import wandb
 import xarray as xr
-from deepsensor.data.loader import TaskLoader
-from deepsensor.data.processor import DataProcessor
-from deepsensor.model.convnp import ConvNP
-from deepsensor.train.train import set_gpu_default_device
 from matplotlib.collections import PathCollection
 from matplotlib.lines import Line2D
 from omegaconf import DictConfig
@@ -27,15 +19,11 @@ from scipy import ndimage
 
 import giant_sp.utils.acquisition as gs_acq
 import giant_sp.utils.plots as myplt
-from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
-from giant_sp.data.dataloader import BaseDataLoader
-from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
 from giant_sp.scripts.placement_overview_placements_map import (
     context_dist_km_factor,
     km_per_grid_cell,
 )
-from giant_sp.utils.data import sample_dates_by_year_chunks
-from giant_sp.utils.model import get_available_device
+
 
 DATA_PATH = "/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed/HIRHAM5-ERAInterim/v_02"
 COORDS_FILE = os.path.sep.join([DATA_PATH, "coords_only.zarr"])
@@ -155,87 +143,6 @@ def distance_to_border(field: xr.DataArray) -> xr.DataArray:
     return out
 
 
-def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
-    """Download a single file logged to a Weights & Biases run.
-
-    Parameters
-    ----------
-    run_ref : str
-        Weights & Biases run reference, e.g. ``"entity/project/run_id"``.
-    files_path : str
-        Local directory to download the file into (passed as ``root`` to
-        the W&B download call).
-    file : str
-        Name of the file to download, relative to the run's ``files/``
-        directory.
-
-    Returns
-    -------
-    None
-        The file is downloaded to disk as a side effect; nothing is
-        returned.
-
-    """
-    api = wandb.Api()
-    therun = api.run(run_ref)
-
-    therun.file(os.path.join("files", file)).download(root=files_path, exist_ok=True)
-
-
-def load_wandb_model(
-    data_processor: DataProcessor,
-    task_loader: TaskLoader,
-    config_path: str,
-    weights_path: str,
-) -> ConvNP:
-    """Reconstruct a trained ConvNP model from a Weights & Biases run.
-
-    Builds a `ConvNP` model using the architecture recorded in the run's
-    model config, then loads its trained weights onto the CUDA device if
-    one is available, otherwise the CPU.
-
-    Parameters
-    ----------
-    data_processor : DataProcessor
-        Fitted DeepSensor data processor used to construct the model.
-    task_loader : TaskLoader
-        Task loader describing the model's context/target sets.
-    config_path : str
-        Path to the run's ``model_config.json`` file.
-    weights_path : str
-        Path to the ``.pt`` file containing the trained model weights.
-
-    Returns
-    -------
-    ConvNP
-        The reconstructed model with weights loaded from `weights_path`.
-
-    """
-    with open(config_path) as f:
-        config = json.load(f)
-
-    # Build model from config
-    model_args = {
-        "unet_channels": config["unet_channels"],
-        "unet_kernels": config["unet_kernels"],
-        "likelihood": config["likelihood"],
-    }
-
-    if config["likelihood"] == "mdn-zigamma":
-        model_args["mixture_components"] = config["mixture_components"]
-        install_mdn_zigamma_likelihood(config["mixture_components"])
-        model = MDNZIGammaConvNP(data_processor, task_loader, **model_args)
-    else:
-        model = ConvNP(data_processor, task_loader, **model_args)
-
-    # Load model weights
-    model.model.load_state_dict(
-        torch.load(weights_path, map_location=get_available_device())
-    )
-
-    return model
-
-
 @hydra.main(version_base=None, config_path="../configs", config_name="placement_pareto")
 def main(config: DictConfig) -> None:
     """Find Pareto-optimal placements trading off informativeness against a cost.
@@ -342,78 +249,7 @@ def main(config: DictConfig) -> None:
     os.makedirs(figdir, exist_ok=True)
     os.makedirs(paretodir, exist_ok=True)
 
-    # coords_path = config["data"]["data_path"]
-    source = config["data"]["source"]
-
-    # Initialize data loader
-    data_loader: BaseDataLoader
-    if source == "carra2":
-        data_loader = CARRA2DataLoader(config)
-        td = np.timedelta64(0, "ms")
-    elif source == "hirham5":
-        data_loader = HIRHAM5DataLoader(config)
-        td = np.timedelta64(12, "h")  # offset 12hours
-    elif source == "hirham5zarr":
-        data_loader = HIRHAM5ZarrDataLoader(config)
-        td = np.timedelta64(12, "h")
-    else:
-        raise ValueError(f"Unknown source: {source}")
-
-    frequency = config["dataloader"]["frequency"]
-    temporal_sampling_method = placement_config.temporal_subsampling_method
-    temporal_sampling_every = placement_config.temporal_subsampling_every
-
-    if temporal_sampling_method == "seasonal":
-        # source: https://github.com/eschlager/MeltEmulation/tree/main
-        # temporal sub-sampling of training data
-        doy = np.arange(1, 367)  # days 1 to 366
-        mu = 205  # 24th of July ~ peak of melt season
-        sigma = 60
-        # min_weight_doy = 0.0
-        gauss_weights = np.exp(-0.5 * ((doy - mu) / sigma) ** 2)
-        # weights = min_weight_doy + (1 - min_weight_doy) * gauss_weights
-        weights_doy = gauss_weights / gauss_weights.sum()
-
-        n_samples_per_year = temporal_sampling_every
-
-        np.random.seed(42)
-        dates = sample_dates_by_year_chunks(
-            weights_doy, dates_start, dates_end, n_samples_per_year
-        )
-
-        # numpy resolves list[np.datetime64] + np.timedelta64 via timedelta64's
-        # __radd__ at runtime (broadcasting the list to an array), which
-        # mypy's operator overload resolution does not model.
-        dates = list(np.sort(dates + td).astype("datetime64[ns]"))  # type: ignore[operator]
-    elif temporal_sampling_method == "regular":
-        dates = pd.date_range(start=dates_start, end=dates_end, freq=frequency)[
-            ::temporal_sampling_every
-        ]
-        dates = list(np.sort(dates + td).astype("datetime64[ns]"))
-    else:
-        raise ValueError(
-            f"Unknown temporal sampling method: {temporal_sampling_method}"
-        )
-
-    # Locate data
-    target_files = ["model_config.json", "data_processor_config.json", weights_fn]
-    try:
-        files_path = sorted(glob.glob(f"wandb/run*{run_id}/files"), reverse=True)[0]
-        if not all(os.path.exists(os.path.join(files_path, f)) for f in target_files):
-            raise IndexError
-    except IndexError:
-        root_path = os.path.join("wandb", f"run-{run_id}")
-        os.makedirs(root_path, exist_ok=True)
-        for f in target_files:
-            download_wandb_file(run_ref, root_path, f)
-        files_path = os.path.join(root_path, "files")
-    print("Loading run data from: ", files_path)
-
-    data_processor = DataProcessor(files_path)
-    _, data_processor, _ = data_loader.get_dataproc_taskload(
-        dates=dates, data_processor=data_processor
-    )
-
+    # Load acquisition function and compute its mean over time at iteration 0
     acqfn = xr.open_dataarray(acq_file)
     acqfn0 = acqfn.sel(iteration=0).mean(dim="time").drop_vars("iteration")
     np.save(f"{paretodir}/acq_{run_id}_{acqfn_name}.npy", acqfn0.data)
