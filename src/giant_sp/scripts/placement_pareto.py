@@ -25,7 +25,6 @@ from giant_sp.scripts.placement_overview_placements_map import (
 )
 
 
-
 def load_existing_stations(station_file: str, coords_ref: xr.Dataset) -> pd.DataFrame:
     """Station file's own lat/lon, filtered to the grid's geographic bounding box."""
     stn_df = pd.read_csv(station_file)[["latitude_last_valid", "longitude_last_valid"]]
@@ -38,7 +37,6 @@ def load_existing_stations(station_file: str, coords_ref: xr.Dataset) -> pd.Data
         lat_min, lat_max
     )
     return stn_df[in_domain].reset_index(drop=True)
-
 
 
 def load_coords_ref(coords_file: str) -> xr.Dataset:
