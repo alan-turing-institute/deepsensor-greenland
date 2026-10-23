@@ -507,6 +507,7 @@ def plot_greenland_only(
     ocean_color: str | None = "white",
     gridlines: bool = False,
     pcolormesh_kwargs: dict[str, Any] | None = None,
+    newplace_kwargs: dict[str, Any] | None = None,
 ) -> tuple[GeoAxes, QuadMesh]:
     """Plot a 2D field over Greenland only, on a north-polar stereographic map.
 
@@ -523,8 +524,8 @@ def plot_greenland_only(
         2D field (e.g. ``lat``/``lon`` or ``y``/``x``) to plot.
     newplace_df : pandas.DataFrame
         New placement locations, indexed as ``(lat, lon)`` pairs (row order
-        matches ``.values``), plotted as red ``"+"`` markers and annotated
-        with ``index + 1``.
+        matches ``.values``), plotted as red ``"+"`` markers (unless
+        restyled via `newplace_kwargs`) and annotated with ``index + 1``.
     existing_df : pandas.DataFrame
         Existing placement locations, indexed as ``(lat, lon)`` pairs,
         plotted as black ``"x"`` markers.
@@ -544,6 +545,10 @@ def plot_greenland_only(
         ``cmap``, ``vmin``, ``vmax``). Must be provided (unpacked with
         ``**``), so a plain call without this argument will raise a
         ``TypeError``.
+    newplace_kwargs : dict[str, Any] or None, default None
+        Extra keyword arguments forwarded to the new-placements
+        ``ax.scatter`` call (e.g. ``marker``, ``c``, ``s``, ``edgecolors``),
+        overriding the default red ``"+"`` style. None keeps the default.
 
     Returns
     -------
@@ -630,11 +635,14 @@ def plot_greenland_only(
     ax.scatter(
         *newplace_df.values.T[::-1],
         transform=data_crs,
-        marker="+",
-        s=3**2,
-        c="r",
-        zorder=5,
-        label="New placements",
+        **{
+            "marker": "+",
+            "s": 3**2,
+            "c": "r",
+            "zorder": 5,
+            "label": "New placements",
+            **(newplace_kwargs or {}),
+        },
     )
     ax.scatter(
         *existing_df.values.T[::-1],

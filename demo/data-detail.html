@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <site-shell active="data">
+    <section class="panel" id="panel-data-detail">
+      <div class="panel-header">
+        <span class="title">Data sources</span>
+        <a href="data.html">← Back to Data</a>
+      </div>
+      <div class="content">
+        <div class="inner">
+          <h3>HIRHAM5 regional climate model</h3>
+          <p>
+            HIRHAM5 is a regional climate model developed at the Danish Meteorological Institute
+            (DMI), combining the dynamics of the HIRLAM weather forecast model with the physics of
+            the ECHAM5 global climate model. Over Greenland it runs on a 5.5&nbsp;km grid, driven at
+            its boundaries by the ERA-Interim reanalysis, and is coupled to a snow and firn scheme
+            that simulates surface melt, refreezing and runoff
+            (<strong>Langen <em>et al.</em>, 2017</strong><sup class="ref-mark"><a href="#ref-1" id="cite-1">1</a></sup>).
+          </p>
+          <p>
+            The model is used to generate predictions of surface melt across the entire grid, based on a set of input variables.
+          </p>
+          <p>
+            Following <strong>Schlager <em>et al.</em> (2026)</strong><sup class="ref-mark"><a href="#ref-2" id="cite-2">2</a></sup>, our AI model predicts surface melt across the whole grid from the following inputs:
+          </p>
+          <div class="input-grid">
+            <div class="overview-controls" hidden>
+              <button type="button" class="step-prev" aria-label="Previous input">&lsaquo;</button>
+              <button type="button" class="step-next" aria-label="Next input">&rsaquo;</button>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 10V4a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v6h-3v3a1.5 1.5 0 0 1-3 0v-3h-4v1.5a1.5 1.5 0 0 1-3 0V10z" />
+                <path d="M15.5 16l1.7 2.4a2.1 2.1 0 1 1-3.4 0z" />
+                <path d="M8.5 15.5l1 1.4a1.25 1.25 0 1 1-2 0z" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Surface melt</div>
+                <div class="card-body">Melt on the prediction day, sampled at a sparse set of context points.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="5" />
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Atmospheric drivers</div>
+                <div class="card-body">Latent and sensible heat flux, longwave and shortwave radiation, rainfall, snowfall and air temperature, over the prediction day and the 9 days before it.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <path d="M16 2v4M8 2v4M3 10h18" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Climatology</div>
+                <div class="card-body">Rolling 10-year averages of rainfall, snowfall and air temperature.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Static and time features</div>
+                <div class="card-body">Greenland ice mask, grid x/y coordinates and day of year (as sine/cosine).</div>
+              </div>
+            </div>
+          </div>
+          <p>
+            HIRHAM5 ERA-Interim dataset, provided by the Danish Meteorological Institute, spans the period 1979–2018.
+          </p>
+          <h3>PROMICE weather station network</h3>
+          <p>
+            The Programme for Monitoring of the Greenland Ice Sheet (PROMICE), run by the
+            Geological Survey of Denmark and Greenland (GEUS), operates automatic weather stations
+            that record near-surface meteorology and surface energy and mass balance on the ice
+            sheet. Together with the GC-NET network, it spans 52 active and historical stations
+            across the ice sheet, peripheral glaciers and land areas
+            (<strong>Fausto <em>et al.</em>, 2026</strong><sup class="ref-mark"><a href="#ref-3" id="cite-3">3</a></sup>).
+          </p>
+          <p>
+            We subset 42 PROMICE stations overlapping the HIRHAM5 Greeland ice mask.  We use their locations for model training and sensor placement.
+          </p>
+          <footer class="references">
+            <p id="ref-1">
+              <sup><a href="#cite-1" aria-label="Back to text">1</a></sup>
+              Langen, P. L., Fausto, R. S., Vandecrux, B., Mottram, R. H., and Box, J. E.: Liquid
+              water flow and retention on the Greenland ice sheet in the regional climate model
+              HIRHAM5: Local and large-scale impacts, <em>Frontiers in Earth Science</em>, 4, 110, 2017.
+              <a href="https://doi.org/10.3389/feart.2016.00110">https://doi.org/10.3389/feart.2016.00110</a>
+            </p>
+            <p id="ref-2">
+              <sup><a href="#cite-2" aria-label="Back to text">2</a></sup>
+              Schlager, E., Scher, S., Mottram, R. H., and Langen, P. L.: Learning to melt:
+              Emulating Greenland surface melt from a polar RCM with machine learning,
+              <em>The Cryosphere</em>, 20, 3313–3343, 2026.
+              <a href="https://doi.org/10.5194/tc-20-3313-2026">https://doi.org/10.5194/tc-20-3313-2026</a>
+            </p>
+            <p id="ref-3">
+              <sup><a href="#cite-3" aria-label="Back to text">3</a></sup>
+              Fausto, R. S., How, P., Vandecrux, B., et al.: PROMICE | GC-NET automatic weather
+              station data, <em>Earth System Science Data</em>, 18, 2829–2873, 2026.
+              <a href="https://doi.org/10.5194/essd-18-2829-2026">https://doi.org/10.5194/essd-18-2829-2026</a>
+            </p>
+          </footer>
+        </div>
+      </div>
+    </section>
+  </site-shell>
+  <script src="nav.js"></script>
+  <script src="steps.js"></script>
+</body>
+</html>

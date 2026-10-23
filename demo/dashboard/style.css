@@ -1,0 +1,103 @@
+:root {
+  --bg: #0f1720;
+  --panel-bg: #161f2b;
+  --fg: #e6edf3;
+  --fg-muted: #93a4b8;
+  --border: #2a3644;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; }
+.muted { color: var(--fg-muted); }
+.hidden { display: none; }
+
+.main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+.intro {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 24px; flex-wrap: wrap; margin: 0 0 24px;
+}
+.lede { color: var(--fg-muted); max-width: 720px; line-height: 1.6; margin: 0; }
+.intro-logos { display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
+.intro-logo { height: 33px; width: auto; }
+/* The DMI mark is roughly square, so it needs more height to read at the same weight. */
+.intro-logo-square { height: 64px; }
+
+.error {
+  border: 1px solid rgba(239,68,68,0.4);
+  background: rgba(239,68,68,0.06);
+  color: #fca5a5;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.layout { display: flex; gap: 32px; flex-wrap: wrap; }
+.sidebar { width: 260px; flex-shrink: 0; }
+.sidebar h2 {
+  font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--fg-muted); margin: 24px 0 8px;
+}
+.sidebar h2:first-child { margin-top: 0; }
+.experiment-list { display: flex; flex-direction: column; gap: 6px; }
+.experiment-row { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; cursor: pointer; }
+
+select {
+  background: var(--panel-bg); color: var(--fg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; width: 100%;
+}
+
+.plots { flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 24px; }
+.plot-card { border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+.plot-card h3 { margin: 0 0 8px; font-size: 1rem; font-weight: 500; }
+.plot-body { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.plot { flex: 1 1 0; min-width: 280px; max-width: 100%; height: 360px; overflow: hidden; }
+
+.map-row {
+  width: 180px; flex-shrink: 0; padding-left: 16px; border-left: 1px solid var(--border);
+}
+.map-controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.map-controls select, .map-controls input[type="date"], .map-controls input[type="range"] {
+  background: var(--panel-bg); color: var(--fg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; width: 100%;
+}
+.map-img-wrap { position: relative; }
+.map-img {
+  display: block; width: 100%; border-radius: 8px; background: #fff; cursor: zoom-in;
+  transition: opacity 0.15s ease;
+}
+.map-img.loading { opacity: 0.4; }
+.map-spinner {
+  display: none;
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.25); border-top-color: #fff;
+  animation: map-spin 0.8s linear infinite;
+}
+.map-spinner.visible { display: block; }
+@keyframes map-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+.lightbox {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.8); padding: 40px; cursor: zoom-out;
+}
+.lightbox.hidden { display: none; }
+.lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 8px; background: #fff; }
+
+.footer {
+  border-top: 1px solid var(--border); padding: 16px 24px;
+  display: flex; justify-content: space-between; align-items: center;
+  max-width: 1200px; margin: 0 auto; font-size: 0.8rem;
+}
+.footer-actions { display: flex; gap: 8px; flex-shrink: 0; }
+button {
+  background: transparent; border: 1px solid var(--border); color: var(--fg-muted);
+  padding: 6px 12px; border-radius: 8px; cursor: pointer;
+}
+button:hover { color: var(--fg); border-color: rgba(255,255,255,0.4); }
+button:disabled { opacity: 0.5; cursor: default; }

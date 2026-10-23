@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GIANT data dashboard</title>
+<link rel="stylesheet" href="./style.css" />
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<!-- No internet: use the copy saved by `python -m giant_sp.demo.snapshot`. -->
+<script>window.Plotly || document.write('<script src="./static-api/plotly.min.js"><\/script>');</script>
+</head>
+<body>
+<main class="main">
+  <div class="intro">
+    <p class="lede">
+      HIRHAM5 daily data <span id="live-label"> (live from Earthmover)</span> provided by the Danish Meteorological Institute (DMI)
+    </p>
+    <div class="intro-logos">
+      <img class="intro-logo" src="../images/earthmover-logo-white.svg" alt="Earthmover" />
+      <img class="intro-logo intro-logo-square" src="../logos/dmi_open_data.png" alt="DMI Open Data" />
+    </div>
+  </div>
+
+  <div id="error" class="error hidden"></div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Output variable</h2>
+      <div id="output-variable-list" class="experiment-list">
+        <p class="muted">loading…</p>
+      </div>
+
+      <h2>Input variables</h2>
+      <div id="input-variable-list" class="experiment-list">
+        <p class="muted">loading…</p>
+      </div>
+
+      <h2>Map colour scale</h2>
+      <div id="map-scale" class="experiment-list">
+        <label class="experiment-row" title="Every date shares one colour bar, clipping the most extreme values">
+          <input type="radio" name="map-scale" value="shared" checked /> <span>Shared</span>
+        </label>
+        <label class="experiment-row" title="Every date shares one colour bar spanning every value">
+          <input type="radio" name="map-scale" value="full" /> <span>Shared, full range</span>
+        </label>
+        <label class="experiment-row" title="Each date gets its own colour bar, clipping its most extreme values">
+          <input type="radio" name="map-scale" value="date" /> <span>Per date</span>
+        </label>
+      </div>
+    </aside>
+
+    <div id="plots" class="plots"></div>
+  </div>
+</main>
+
+<footer class="footer">
+  <span id="footer-info" class="muted">loading…</span>
+  <div class="footer-actions">
+    <button id="saved-btn" hidden>Use saved copy</button>
+    <button id="refresh-btn">Refresh data</button>
+  </div>
+</footer>
+
+<div id="lightbox" class="lightbox hidden">
+  <img id="lightbox-img" alt="" />
+</div>
+
+<script src="./app.js"></script>
+</body>
+</html>
