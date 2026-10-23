@@ -53,6 +53,8 @@ test = [
 lint = [
   "mypy>=1.15",
   "ruff>=0.15",
+  "scipy-stubs>=1.17.1.5",
+  "types-tqdm>=4.70.0.20260906",
 ]
 
 [project.urls]
@@ -100,13 +102,25 @@ mypy_path = ["src"]
 warn_unused_ignores = true
 warn_redundant_casts = true
 warn_unused_configs = true
-ignore_missing_imports = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
 module = "deepsensor.*"
 follow_imports = "skip"
+
+# Third-party packages with no type information.
+[[tool.mypy.overrides]]
+module = [
+  "neuralprocesses.*",
+  "lab.*",
+  "cartopy.*",
+  "paretoset.*",
+  "pandas.*",
+  "geopandas.*",
+  "shapely.*",
+]
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "tests.*"
