@@ -307,8 +307,13 @@ def main(config: DictConfig) -> None:
 
     X_pareto = alpha_df.reset_index()[["lat", "lon"]][mask]
 
-    rank_da = acqfn0.copy()
-    rank_da.data[~np.isnan(rank_da.data)] = rank
+    # Map ranks back by (lat, lon), not by position: alpha_df only holds cells
+    # where both objectives are non-NaN, which can be fewer than acqfn0's.
+    rank_da = (
+        pd.Series(rank, index=alpha_df.index, name="rank")
+        .to_xarray()
+        .reindex_like(acqfn0)
+    )
 
     field = reproject_field(rank_da, coords_ref)
     background = field  # iteration-0 field only

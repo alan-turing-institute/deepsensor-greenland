@@ -137,6 +137,10 @@ module = [
   "pandas.*",
   "geopandas.*",
   "shapely.*",
+  # demo-group packages
+  "arraylake.*",
+  "icechunk.*",
+  "cftime.*",
 ]
 ignore_missing_imports = true
 
