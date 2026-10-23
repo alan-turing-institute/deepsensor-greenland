@@ -285,6 +285,16 @@ def main(config: DictConfig) -> None:
     else:
         raise ValueError(f"Unknown cost: {cost}")
 
+    # Both objectives must share a grid, else the (lat, lon) join below silently
+    # drops the non-overlapping cells.
+    try:
+        xr.align(acqfn0, acqfn1, join="exact")
+    except ValueError as e:
+        raise ValueError(
+            f"Acquisition and '{cost}' cost fields are on different grids; "
+            "check they share the same search_resolution."
+        ) from e
+
     np.save(f"{paretodir}/cost_{cost}.npy", acqfn1.data)
 
     das = [acqfn0, acqfn1]
@@ -330,8 +340,8 @@ def main(config: DictConfig) -> None:
 
     ax0 = fig.add_subplot(gs[0, 0])
     ax0.scatter(
-        acqfn1.data.flatten(),
-        acqfn0.data.flatten() * informativeness_sign,
+        alpha_df["alpha_2"],
+        alpha_df["alpha_1"] * informativeness_sign,
         marker="o",
         color="k",
         s=6**2,
