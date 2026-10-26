@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <site-shell active="overview">
+    <section class="panel" id="panel-overview">
+      <div class="panel-header">
+        <span class="title">GIANT-sp is a tool to aid optimal sensor placement for monitoring climate tipping points</span>
+        <a href="overview-detail.html">More on how it works →</a>
+      </div>
+      <div class="content">
+        <div class="inner">
+          <h3>From human-driven to AI-driven multi-objective sensor placement</h3>
+          <div id="overview-figure" class="detail-figure">
+            <div id="overview-controls" class="overview-controls" hidden>
+              <button type="button" id="overview-start">&#9654; Start</button>
+              <button type="button" id="overview-pause">&#10074;&#10074; Pause</button>
+            </div>
+            <figure>
+              <figcaption>Distance to current stations<br />(Human-driven)</figcaption>
+              <img data-src="images/2_overview_distance.gif" width="998" height="1807" alt="Animation of sensor placements proposed by distance from existing stations" />
+            </figure>
+            <div class="overview-operator" data-show="after-next" aria-hidden="true">&times;</div>
+            <figure>
+              <figcaption>Melt occurrence entropy<br />(AI-driven)</figcaption>
+              <img data-src="images/2_overview_ocurrence.gif" width="998" height="1807" alt="Animation of sensor placements proposed by expected melt-occurrence uncertainty" />
+            </figure>
+            <div class="overview-operator" aria-hidden="true">=</div>
+            <figure>
+              <figcaption>Multi-objective<br />(Human- and AI-driven)</figcaption>
+              <img data-src="images/2_overview_combination.png" width="1253" height="1607" alt="Static combination of the pareto result combining multiple criteria" />
+            </figure>
+          </div>
+          <h3>The challenge: surface melt as a proof of concept</h3>
+          <p>
+            The Greenland Ice Sheet is one of the climate system's key tipping elements. We use <strong>surface melt prediction</strong> as a proof-of-concept challenge.
+          </p>
+          <div id="challenge-cards" class="input-grid">
+            <div class="overview-controls" hidden>
+              <button type="button" class="step-prev" aria-label="Previous card">&lsaquo;</button>
+              <button type="button" class="step-next" aria-label="Next card">&rsaquo;</button>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M13 3.06A9 9 0 1 0 20.94 11" />
+                <path d="M12 7a5 5 0 1 0 5 5" />
+                <circle class="dot" cx="12" cy="12" r="1.6" />
+                <path d="M12 12l3-3" />
+                <path d="M15 6v3h3l3-3h-3V3z" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Tipping-relevant</div>
+                <div class="card-body">Surface melt drives a large share of Greenland's mass loss and the melt–elevation feedback, so better melt monitoring feeds directly into tracking the tipping point.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="2" y="7" width="20" height="10" rx="1" />
+                <path d="M6 7v3M10 7v5M14 7v3M18 7v5" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Testable</div>
+                <div class="card-body">Outputs of regional climate models (RCMs) are treated as "truth" to score against, alongside locations of stations. This lets us measure how much each proposed sensor actually helps.</div>
+              </div>
+            </div>
+            <div class="input-item">
+              <svg class="input-icon" width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 12l10-6M7 12h10M7 12l10 6" />
+                <circle class="dot" cx="5" cy="12" r="2" />
+                <circle cx="19" cy="5" r="2" />
+                <circle cx="19" cy="12" r="2" />
+                <circle cx="19" cy="19" r="2" />
+              </svg>
+              <div class="card">
+                <div class="card-title">Transferable</div>
+                <div class="card-body">Nothing in the method is specific to surface melt. The same model and search can be retargeted to other variables and tipping elements once the approach is proven here.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </site-shell>
+  <script src="nav.js"></script>
+  <script src="steps.js"></script>
+  <script src="overview.js"></script>
+</body>
+</html>

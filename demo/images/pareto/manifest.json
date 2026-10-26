@@ -1,0 +1,66 @@
+[
+  {
+    "file": "images/pareto/vloyijco_ExpectedOccurrenceEntropyReduction_albedo.png",
+    "run": "vloyijco",
+    "acq_fn": "ExpectedOccurrenceEntropyReduction",
+    "acq_fn_label": "Expected occurrence entropy reduction",
+    "cost": "albedo",
+    "cost_label": "Albedo"
+  },
+  {
+    "file": "images/pareto/vloyijco_ExpectedOccurrenceEntropyReduction_distance2border.png",
+    "run": "vloyijco",
+    "acq_fn": "ExpectedOccurrenceEntropyReduction",
+    "acq_fn_label": "Expected occurrence entropy reduction",
+    "cost": "distance2border",
+    "cost_label": "Distance to border"
+  },
+  {
+    "file": "images/pareto/vloyijco_ExpectedOccurrenceEntropyReduction_distance2stations.png",
+    "run": "vloyijco",
+    "acq_fn": "ExpectedOccurrenceEntropyReduction",
+    "acq_fn_label": "Expected occurrence entropy reduction",
+    "cost": "distance2stations",
+    "cost_label": "Distance to stations"
+  },
+  {
+    "file": "images/pareto/vloyijco_ExpectedOccurrenceEntropyReduction_elevation.png",
+    "run": "vloyijco",
+    "acq_fn": "ExpectedOccurrenceEntropyReduction",
+    "acq_fn_label": "Expected occurrence entropy reduction",
+    "cost": "elevation",
+    "cost_label": "Elevation"
+  },
+  {
+    "file": "images/pareto/vloyijco_MeanVariance_albedo.png",
+    "run": "vloyijco",
+    "acq_fn": "MeanVariance",
+    "acq_fn_label": "Mean variance",
+    "cost": "albedo",
+    "cost_label": "Albedo"
+  },
+  {
+    "file": "images/pareto/vloyijco_MeanVariance_distance2border.png",
+    "run": "vloyijco",
+    "acq_fn": "MeanVariance",
+    "acq_fn_label": "Mean variance",
+    "cost": "distance2border",
+    "cost_label": "Distance to border"
+  },
+  {
+    "file": "images/pareto/vloyijco_MeanVariance_distance2stations.png",
+    "run": "vloyijco",
+    "acq_fn": "MeanVariance",
+    "acq_fn_label": "Mean variance",
+    "cost": "distance2stations",
+    "cost_label": "Distance to stations"
+  },
+  {
+    "file": "images/pareto/vloyijco_MeanVariance_elevation.png",
+    "run": "vloyijco",
+    "acq_fn": "MeanVariance",
+    "acq_fn_label": "Mean variance",
+    "cost": "elevation",
+    "cost_label": "Elevation"
+  }
+]

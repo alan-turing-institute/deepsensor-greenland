@@ -43,15 +43,30 @@ dependencies = [
 dev = [
   { include-group = "test" },
   { include-group = "lint" },
+  { include-group = "demo" },
   "pre-commit>=4.0",
 ]
 test = [
+  # Only the web-app layer of the demo is tested, so arraylake/uvicorn aren't needed here.
+  "fastapi>=0.141.1",
+  "httpx2>=2.13.1",
   "pytest>=8.0",
   "pytest-cov>=6.0",
 ]
 lint = [
   "mypy>=1.15",
   "ruff>=0.15",
+]
+# Local demo site + Arraylake-backed data dashboard (`uv run python -m giant_sp.demo`).
+demo = [
+  # arraylake>=1.0 (needed for this repo's Icechunk v2 format) requires Python 3.12+.
+  "arraylake>=1.3.0; python_full_version >= '3.12'",
+  # cartopy 0.25 fails drawing gridline labels on the polar-stereographic maps.
+  "cartopy>=0.26.0",
+  "cftime>=1.6.5",
+  "fastapi>=0.141.1",
+  "uvicorn[standard]>=0.54.0",
+  "zarr>=3.1.6",
 ]
 
 [project.urls]
@@ -77,6 +92,9 @@ filterwarnings = [
   # netCDF4's compiled extension does an in-place ndarray.shape assignment on
   # write, deprecated under numpy>=2.5; not actionable from giant_sp.
   "ignore:Setting the shape on a NumPy array.*:DeprecationWarning",
+  # cartopy fetches Natural Earth coastlines on first use (e.g. on a fresh CI
+  # runner with no cache) and warns that it's downloading; not a failure.
+  "ignore::cartopy.io.DownloadWarning",
 ]
 log_cli_level = "INFO"
 testpaths = [

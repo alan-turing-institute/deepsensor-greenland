@@ -10,6 +10,7 @@ import deepsensor.active_learning.acquisition_fns as acq
 import deepsensor.torch as deepsensor  # noqa: F401
 import geopandas as gpd
 import hydra
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -221,6 +222,7 @@ def main(config: DictConfig) -> None:
     dates_end = placement_config.search_end_date
     search_resolution = placement_config.search_resolution
     acq_fn = placement_config.acq_fn
+    seed = placement_config.seed
     n_new = placement_config.n_new
     pred_resolution = placement_config.pred_resolution
     search_mask_file = placement_config.search_mask_file
@@ -288,7 +290,7 @@ def main(config: DictConfig) -> None:
 
         n_samples_per_year = temporal_sampling_every
 
-        np.random.seed(42)
+        np.random.seed(seed)
         dates = sample_dates_by_year_chunks(
             weights_doy, dates_start, dates_end, n_samples_per_year
         )
@@ -469,53 +471,57 @@ def main(config: DictConfig) -> None:
 
     # Acquisition functions
     # Parallel
+    seeds = [seed]
     if acq_fn == "Random":
-        acq_fn_type = acq.Random()
+        n_random_seeds = placement_config.N_random_seeds
+        random_seeds = np.arange(seed, seed + n_random_seeds)
+        acq_fn_type = [acq.Random(seed=s) for s in random_seeds]
+        seeds = random_seeds.tolist()
         tasks = tasks[:1]
     elif acq_fn == "ContextDist":
-        acq_fn_type = acq.ContextDist(context_set_idx=0)
+        acq_fn_type = [acq.ContextDist(context_set_idx=0)]
     elif acq_fn == "Stddev":
-        acq_fn_type = acq.Stddev(model)
+        acq_fn_type = [acq.Stddev(model)]
     elif acq_fn == "MeanOccurrenceEntropy":
-        acq_fn_type = MeanOccurrenceEntropy(model)
+        acq_fn_type = [MeanOccurrenceEntropy(model)]
     elif acq_fn == "MeanMagnitudeVariance":
-        acq_fn_type = MeanMagnitudeVariance(model)
+        acq_fn_type = [MeanMagnitudeVariance(model)]
     # Sequential
     elif acq_fn == "MeanStddev":
-        acq_fn_type = acq.MeanStddev(model)
+        acq_fn_type = [acq.MeanStddev(model)]
     elif acq_fn == "MeanVariance":
-        acq_fn_type = acq.MeanVariance(model)
+        acq_fn_type = [acq.MeanVariance(model)]
     elif acq_fn == "MeanMarginalEntropy":
-        acq_fn_type = acq.MeanMarginalEntropy(model)
+        acq_fn_type = [acq.MeanMarginalEntropy(model)]
     elif acq_fn == "JointEntropy":
-        acq_fn_type = acq.JointEntropy(model)
+        acq_fn_type = [acq.JointEntropy(model)]
     elif acq_fn == "ExpectedImprovement":
-        acq_fn_type = acq.ExpectedImprovement(model)
+        acq_fn_type = [acq.ExpectedImprovement(model)]
     elif acq_fn == "ExpectedEpistemicReduction":
-        acq_fn_type = ExpectedEpistemicReduction(model)
+        acq_fn_type = [ExpectedEpistemicReduction(model)]
     elif acq_fn == "ExpectedOccurrenceEntropyReduction":
-        acq_fn_type = ExpectedOccurrenceEntropyReduction(model)
+        acq_fn_type = [ExpectedOccurrenceEntropyReduction(model)]
     elif acq_fn == "ExpectedMagnitudeVarianceReduction":
-        acq_fn_type = ExpectedMagnitudeVarianceReduction(model)
+        acq_fn_type = [ExpectedMagnitudeVarianceReduction(model)]
     # Oracle
     elif acq_fn == "OracleRMSE":
-        acq_fn_type = acq.OracleRMSE(model)
+        acq_fn_type = [acq.OracleRMSE(model)]
     elif acq_fn == "OracleMAE":
-        acq_fn_type = acq.OracleMAE(model)
+        acq_fn_type = [acq.OracleMAE(model)]
     elif acq_fn == "OracleMarginalNLL":
-        acq_fn_type = acq.OracleMarginalNLL(model)
+        acq_fn_type = [acq.OracleMarginalNLL(model)]
     elif acq_fn == "OracleJointNLL":
-        acq_fn_type = acq.OracleJointNLL(model)
+        acq_fn_type = [acq.OracleJointNLL(model)]
     elif acq_fn == "OracleEpistemicReduction":
-        acq_fn_type = OracleEpistemicReduction(model)
+        acq_fn_type = [OracleEpistemicReduction(model)]
     elif acq_fn == "OracleOccurrenceEntropyReduction":
-        acq_fn_type = OracleOccurrenceEntropyReduction(model)
+        acq_fn_type = [OracleOccurrenceEntropyReduction(model)]
     elif acq_fn == "OracleMagnitudeVarianceReduction":
-        acq_fn_type = OracleMagnitudeVarianceReduction(model)
+        acq_fn_type = [OracleMagnitudeVarianceReduction(model)]
     elif acq_fn == "OracleBrierScore":
-        acq_fn_type = OracleBrierScore(model)
+        acq_fn_type = [OracleBrierScore(model)]
     elif acq_fn == "OracleMagnitudeMAE":
-        acq_fn_type = OracleMagnitudeMAE(model)
+        acq_fn_type = [OracleMagnitudeMAE(model)]
     else:
         raise NotImplementedError(f"No deepsensor acquisition function named {acq_fn}")
 
@@ -552,117 +558,98 @@ def main(config: DictConfig) -> None:
         **greedy_gt_args,
     )
 
-    if not os.path.exists(
-        os.path.join(
-            savedir,
-            f"AcqFn_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
-        )
-    ):
-        # New placements
-        X_new_df, acq_fn_da = greedy_alg(acq_fn_type, tasks, **greedy_call_args)
+    for run_seed, acq_fn_run in zip(seeds, acq_fn_type, strict=True):
+        run_suffix = f"{acq_fn}_seed{run_seed}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}"
+        acq_fn_path = os.path.join(savedir, f"AcqFn_{run_suffix}.nc")
+        new_place_path = os.path.join(savedir, f"NewPlace_{run_suffix}.csv")
 
-        # Save
-        acq_fn_da.to_netcdf(
-            os.path.join(
-                savedir,
-                f"AcqFn_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
+        if not os.path.exists(acq_fn_path):
+            # New placements
+            X_new_df, acq_fn_da = greedy_alg(acq_fn_run, tasks, **greedy_call_args)
+
+            # Save
+            acq_fn_da.to_netcdf(acq_fn_path)
+            X_new_df.to_csv(new_place_path)
+
+        else:
+            print(
+                f"Acquisition function file already exists. Skipping computation: {acq_fn_path}"
             )
-        )
-        X_new_df.to_csv(
-            os.path.join(
-                savedir,
-                f"NewPlace_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv",
+            print("Plotting existing acquisition function file.")
+            search_grid_is_default = True
+            acq_fn_da = xr.open_dataarray(acq_fn_path)
+            X_new_df = pd.read_csv(new_place_path)[["lat", "lon"]]
+
+        if source == "hirham5zarr" and search_grid_is_default:
+            # acq_fn_da's lat/lon coords are native-grid-index averages from coarsening
+            # lsm (which is cropped to land pixels), so they don't share block
+            # boundaries with an independently-coarsened coords_ref and a label-based
+            # reindex against it returns all NaN. Look up the nearest matching lon/lat
+            # degrees directly from the full-resolution reference grid instead.
+            acq_fn_da_plot = acq_fn_da.rename(rename_map)
+            lonlat_lookup = coords_ref.sel(
+                x=acq_fn_da_plot["x"], y=acq_fn_da_plot["y"], method="nearest"
             )
-        )
-
-    else:
-        print(
-            f"Acquisition function file already exists. Skipping computation: {os.path.join(savedir, f'AcqFn_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc')}"
-        )
-        print("Plotting existing acquisition function file.")
-        search_grid_is_default = True
-        acq_fn_da = xr.open_dataarray(
-            os.path.join(
-                savedir,
-                f"AcqFn_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.nc",
+            # lonlat_lookup's x/y coords are coords_ref's matched (integer) grid indices,
+            # not acq_fn_da_plot's (coarsened, non-integer) ones, so assigning the
+            # DataArrays directly would realign by label and produce NaN again. Attach
+            # the raw values positionally instead.
+            acq_fn_da_plot = acq_fn_da_plot.assign_coords(
+                lon=(("y", "x"), lonlat_lookup["lon"].data),
+                lat=(("y", "x"), lonlat_lookup["lat"].data),
             )
-        )
-        X_new_df = pd.read_csv(
-            os.path.join(
-                savedir,
-                f"NewPlace_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.csv",
+
+            # X_new_df's lat/lon columns are the same native-grid-index values as
+            # acq_fn_da's original coords, so look up their real lon/lat the same
+            # way to match acq_fn_da_plot's geographic coords when plotting.
+            lonlat_lookup_new = coords_ref.sel(
+                x=xr.DataArray(X_new_df[greedy_alg.x2_name].values, dims="points"),
+                y=xr.DataArray(X_new_df[greedy_alg.x1_name].values, dims="points"),
+                method="nearest",
             )
-        )[["lat", "lon"]]
+            X_new_df_plot = X_new_df.copy()
+            X_new_df_plot[greedy_alg.x2_name] = lonlat_lookup_new["lon"].values
+            X_new_df_plot[greedy_alg.x1_name] = lonlat_lookup_new["lat"].values
 
-    if source == "hirham5zarr" and search_grid_is_default:
-        # acq_fn_da's lat/lon coords are native-grid-index averages from coarsening
-        # lsm (which is cropped to land pixels), so they don't share block
-        # boundaries with an independently-coarsened coords_ref and a label-based
-        # reindex against it returns all NaN. Look up the nearest matching lon/lat
-        # degrees directly from the full-resolution reference grid instead.
-        acq_fn_da_plot = acq_fn_da.rename(rename_map)
-        lonlat_lookup = coords_ref.sel(
-            x=acq_fn_da_plot["x"], y=acq_fn_da_plot["y"], method="nearest"
-        )
-        # lonlat_lookup's x/y coords are coords_ref's matched (integer) grid indices,
-        # not acq_fn_da_plot's (coarsened, non-integer) ones, so assigning the
-        # DataArrays directly would realign by label and produce NaN again. Attach
-        # the raw values positionally instead.
-        acq_fn_da_plot = acq_fn_da_plot.assign_coords(
-            lon=(("y", "x"), lonlat_lookup["lon"].data),
-            lat=(("y", "x"), lonlat_lookup["lat"].data),
-        )
-
-        # X_new_df's lat/lon columns are the same native-grid-index values as
-        # acq_fn_da's original coords, so look up their real lon/lat the same
-        # way to match acq_fn_da_plot's geographic coords when plotting.
-        lonlat_lookup_new = coords_ref.sel(
-            x=xr.DataArray(X_new_df[greedy_alg.x2_name].values, dims="points"),
-            y=xr.DataArray(X_new_df[greedy_alg.x1_name].values, dims="points"),
-            method="nearest",
-        )
-        X_new_df_plot = X_new_df.copy()
-        X_new_df_plot[greedy_alg.x2_name] = lonlat_lookup_new["lon"].values
-        X_new_df_plot[greedy_alg.x1_name] = lonlat_lookup_new["lat"].values
-
-        # raw_stn_locs's lat/lon columns are likewise the full-resolution
-        # grid-index values used to build X_stn (map_coord_array needs them
-        # in that space), so look up their real lon/lat for plotting too.
-        lonlat_lookup_stn = coords_ref.sel(
-            x=xr.DataArray(raw_stn_locs["lon"].values, dims="points"),
-            y=xr.DataArray(raw_stn_locs["lat"].values, dims="points"),
-            method="nearest",
-        )
-        raw_stn_locs_plot = raw_stn_locs.copy()
-        raw_stn_locs_plot["lon"] = lonlat_lookup_stn["lon"].values
-        raw_stn_locs_plot["lat"] = lonlat_lookup_stn["lat"].values
-
-        ax = myplt.new_placements_plot_xy_hirham5native(
-            acq_fn_da_plot,
-            X_new_df_plot,
-            raw_stn_locs_plot[["lat", "lon"]],
-            cmap="YlGnBu",
-            title=acq_fn,
-        )
-        ax.get_figure().savefig(
-            os.path.join(
-                figdir,
-                f"newplacements_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg",
-            ),
-            bbox_inches="tight",
-            dpi=300,
-        )
-
-    else:
-        fig, ax = myplt.new_placements_plot_xy(
-            acq_fn_da, X_new_df, raw_stn_locs[["lat", "lon"]], title=acq_fn
-        )
-        fig.savefig(
-            os.path.join(
-                figdir,
-                f"newplacements_{acq_fn}_{n_new}-iter_s{temporal_sampling_method}_e{temporal_sampling_every}_sr{search_resolution}_{weights_fn}.jpg",
+            # raw_stn_locs's lat/lon columns are likewise the full-resolution
+            # grid-index values used to build X_stn (map_coord_array needs them
+            # in that space), so look up their real lon/lat for plotting too.
+            lonlat_lookup_stn = coords_ref.sel(
+                x=xr.DataArray(raw_stn_locs["lon"].values, dims="points"),
+                y=xr.DataArray(raw_stn_locs["lat"].values, dims="points"),
+                method="nearest",
             )
-        )
+            raw_stn_locs_plot = raw_stn_locs.copy()
+            raw_stn_locs_plot["lon"] = lonlat_lookup_stn["lon"].values
+            raw_stn_locs_plot["lat"] = lonlat_lookup_stn["lat"].values
+
+            ax = myplt.new_placements_plot_xy_hirham5native(
+                acq_fn_da_plot,
+                X_new_df_plot,
+                raw_stn_locs_plot[["lat", "lon"]],
+                cmap="YlGnBu",
+                title=acq_fn,
+            )
+            ax.get_figure().savefig(
+                os.path.join(
+                    figdir,
+                    f"newplacements_{run_suffix}.jpg",
+                ),
+                bbox_inches="tight",
+                dpi=300,
+            )
+
+        else:
+            fig, ax = myplt.new_placements_plot_xy(
+                acq_fn_da, X_new_df, raw_stn_locs[["lat", "lon"]], title=acq_fn
+            )
+            fig.savefig(
+                os.path.join(
+                    figdir,
+                    f"newplacements_{run_suffix}.jpg",
+                )
+            )
+        plt.close("all")
 
 
 if __name__ == "__main__":
