@@ -43,29 +43,7 @@ from giant_sp.utils.acquisition import (
 from giant_sp.utils.data import context_sampling_with_delta, sample_dates_by_year_chunks
 from giant_sp.utils.model import get_available_device
 
-
-def setup_logging(config: DictConfig) -> None:
-    """Configure the root logger from a run configuration.
-
-    Parameters
-    ----------
-    config : DictConfig
-        Run configuration; ``config["logging"]["log_level"]`` must name a
-        valid `logging` level (e.g. ``"INFO"``).
-
-    Returns
-    -------
-    None
-        Configures the root logger as a side effect; nothing is returned.
-
-    """
-    log_level = getattr(logging, config["logging"]["log_level"])
-
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler()],
-    )
+logger = logging.getLogger(__name__)
 
 
 def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
@@ -243,10 +221,6 @@ def main(config: DictConfig) -> None:
     source = config["data"]["source"]
     context_delta_t = config["dataloader"]["context_delta_t"]
 
-    # Setup logging
-    setup_logging(config)
-    logger = logging.getLogger(__name__)
-
     logger.info(
         "Active devices before updating default: %s", torch.get_default_device()
     )
@@ -321,7 +295,7 @@ def main(config: DictConfig) -> None:
         for f in target_files:
             download_wandb_file(run_ref, root_path, f)
         files_path = os.path.join(root_path, "files")
-    print("Loading run data from: ", files_path)
+    logger.info("Loading run data from: %s", files_path)
 
     data_processor = DataProcessor(files_path)
     raw_ds, data_processor, task_loader = data_loader.get_dataproc_taskload(
@@ -572,10 +546,11 @@ def main(config: DictConfig) -> None:
             X_new_df.to_csv(new_place_path)
 
         else:
-            print(
-                f"Acquisition function file already exists. Skipping computation: {acq_fn_path}"
+            logger.info(
+                "Acquisition function file already exists. Skipping computation: %s",
+                acq_fn_path,
             )
-            print("Plotting existing acquisition function file.")
+            logger.info("Plotting existing acquisition function file.")
             search_grid_is_default = True
             acq_fn_da = xr.open_dataarray(acq_fn_path)
             X_new_df = pd.read_csv(new_place_path)[["lat", "lon"]]
