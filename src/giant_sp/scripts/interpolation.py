@@ -27,29 +27,7 @@ from giant_sp.utils.data import (
     sample_land_locations,
 )
 
-
-def setup_logging(config: DictConfig) -> None:
-    """Configure the root logger from a run configuration.
-
-    Parameters
-    ----------
-    config : DictConfig
-        Run configuration; ``config["logging"]["log_level"]`` must name a
-        valid `logging` level (e.g. ``"INFO"``).
-
-    Returns
-    -------
-    None
-        Configures the root logger as a side effect; nothing is returned.
-
-    """
-    log_level = getattr(logging, config["logging"]["log_level"])
-
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler()],
-    )
+logger = logging.getLogger(__name__)
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="base")
@@ -83,10 +61,6 @@ def main(config: DictConfig) -> None:
 
     """
     source = config["data"]["source"]
-
-    # Setup logging
-    setup_logging(config)
-    logger = logging.getLogger(__name__)
 
     # Initialize W&B early to track the full run (data loading, model build, training)
     wandb_run = None

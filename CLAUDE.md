@@ -191,6 +191,14 @@ rather than inherited from it — keep the two in sync by hand if debug scale ch
 paths/dates), `dataloader` (sampling strategy/frequency), `model` (ConvNP architecture), `training`
 (optimizer/scheduler/checkpointing), `logging` (W&B), `visualization`.
 
+Python logging for every entry point is configured by Hydra, not in the scripts: each top-level
+config (`base`/`inference`/`placement`/`placement_eval`) selects `override hydra/job_logging:
+giant_sp` (`configs/hydra/job_logging/giant_sp.yaml`), which logs to the console and to
+`<hydra output dir>/<script>.log` at the level in `logging.log_level`. Scripts just call
+`logging.getLogger(__name__)` — don't add `logging.basicConfig` (it's a no-op once Hydra has
+configured the root logger) or `print` for progress messages. A new top-level config needs the same
+`override hydra/job_logging: giant_sp` line in its `defaults`.
+
 To add a new experiment variant or a personal override without touching shared files, add a new
 YAML under `configs/experiment/` that lists the base experiment in its own `defaults:` and overrides
 only the changed keys (same pattern as the `_debug`/`hirham5zarr` files), or point `--config-name`

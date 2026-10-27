@@ -2,6 +2,7 @@
 
 import glob
 import json
+import logging
 import os
 
 # src
@@ -20,7 +21,7 @@ from deepsensor.data.loader import TaskLoader
 from deepsensor.data.processor import DataProcessor
 from deepsensor.model.convnp import ConvNP
 from deepsensor.train.train import set_gpu_default_device
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
@@ -42,7 +43,7 @@ from giant_sp.utils.acquisition import (
 from giant_sp.utils.data import context_sampling_with_delta, sample_dates_by_year_chunks
 from giant_sp.utils.model import get_available_device
 
-set_gpu_default_device() if torch.cuda.is_available() else torch.device("cpu")
+logger = logging.getLogger(__name__)
 
 
 def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
@@ -220,6 +221,15 @@ def main(config: DictConfig) -> None:
     source = config["data"]["source"]
     context_delta_t = config["dataloader"]["context_delta_t"]
 
+    logger.info(
+        "Active devices before updating default: %s", torch.get_default_device()
+    )
+    if torch.cuda.is_available():
+        set_gpu_default_device()
+
+    logger.info("Active devices after updating default: %s", torch.get_default_device())
+    logger.info("Configuration:\n%s", OmegaConf.to_yaml(config))
+
     # chunk_size = 100
 
     # Initialize data loader
@@ -285,7 +295,7 @@ def main(config: DictConfig) -> None:
         for f in target_files:
             download_wandb_file(run_ref, root_path, f)
         files_path = os.path.join(root_path, "files")
-    print("Loading run data from: ", files_path)
+    logger.info("Loading run data from: %s", files_path)
 
     data_processor = DataProcessor(files_path)
     raw_ds, data_processor, task_loader = data_loader.get_dataproc_taskload(
@@ -536,10 +546,11 @@ def main(config: DictConfig) -> None:
             X_new_df.to_csv(new_place_path)
 
         else:
-            print(
-                f"Acquisition function file already exists. Skipping computation: {acq_fn_path}"
+            logger.info(
+                "Acquisition function file already exists. Skipping computation: %s",
+                acq_fn_path,
             )
-            print("Plotting existing acquisition function file.")
+            logger.info("Plotting existing acquisition function file.")
             search_grid_is_default = True
             acq_fn_da = xr.open_dataarray(acq_fn_path)
             X_new_df = pd.read_csv(new_place_path)[["lat", "lon"]]

@@ -1,8 +1,8 @@
 """Main script for inference using a trained ConvNP model."""
 
-import datetime
 import glob
 import json
+import logging
 import os
 from typing import cast
 
@@ -26,6 +26,8 @@ from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLo
 from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
 from giant_sp.utils.data import context_sampling_with_delta
 from giant_sp.utils.model import get_available_device
+
+logger = logging.getLogger(__name__)
 
 
 def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
@@ -301,7 +303,7 @@ def main(config: DictConfig) -> None:
         for f in target_files:
             download_wandb_file(run_ref, root_path, f)
         files_path = os.path.join(root_path, "files")
-    print("Loading run data from: ", files_path)
+    logger.info("Loading run data from: %s", files_path)
 
     data_processor = DataProcessor(files_path)
     raw_ds, data_processor, task_loader = data_loader.get_dataproc_taskload(
@@ -349,11 +351,11 @@ def main(config: DictConfig) -> None:
         )
 
         # Predict
-        print(datetime.datetime.now(), f"Starting prediction of {len(val_tasks)} tasks")
+        logger.info("Starting prediction of %d tasks", len(val_tasks))
         val_pred = model.predict(
             val_tasks, X_t=raw_ds, X_t_mask=lsm, pred_params=pred_params
         )
-        print(datetime.datetime.now(), "Done")
+        logger.info("Done")
 
         fname = f"{target_var}_{date_split}_{val_set}_e{every}_{weights_fn}_predictions"
         export_zarr(
@@ -366,10 +368,10 @@ def main(config: DictConfig) -> None:
             chunk_size,
             config["data"]["data_path"],
         )
-        print(datetime.datetime.now(), "Saved")
+        logger.info("Saved")
 
     elif val_set == "random-land":
-        print(datetime.datetime.now(), f"Starting task generation ({len(dates)})")
+        logger.info("Starting task generation (%d)", len(dates))
         val_tasks = [
             task_loader(
                 date,
@@ -388,14 +390,14 @@ def main(config: DictConfig) -> None:
             )
             for i, date in enumerate(dates)
         ]
-        print(datetime.datetime.now(), "Finished task generation")
+        logger.info("Finished task generation")
 
         # Predict
-        print(datetime.datetime.now(), f"Starting prediction of {len(val_tasks)} tasks")
+        logger.info("Starting prediction of %d tasks", len(val_tasks))
         val_pred = model.predict(
             val_tasks, X_t=raw_ds, X_t_mask=lsm, pred_params=pred_params
         )
-        print(datetime.datetime.now(), "Done")
+        logger.info("Done")
 
         fname = f"{target_var}_{date_split}_{val_set}_seed{seed}_e{every}_{weights_fn}_predictions"
         export_zarr(
@@ -408,7 +410,7 @@ def main(config: DictConfig) -> None:
             chunk_size,
             config["data"]["data_path"],
         )
-        print(datetime.datetime.now(), "Saved")
+        logger.info("Saved")
 
     elif val_set == "station":
         # All station locations ever
@@ -501,7 +503,7 @@ def main(config: DictConfig) -> None:
         stn_locs = data_processor.map_coord_array(raw_stn_locs.to_numpy().transpose())
 
         # Create set of stnval tasks
-        print(datetime.datetime.now(), f"Starting task generation ({len(dates)})")
+        logger.info("Starting task generation (%d)", len(dates))
         val_tasks = task_loader(
             dates,
             context_sampling=context_sampling_with_delta(
@@ -509,14 +511,14 @@ def main(config: DictConfig) -> None:
             ),
             target_sampling="all",
         )
-        print(datetime.datetime.now(), "Finished task generation")
+        logger.info("Finished task generation")
 
         # Predict
-        print(datetime.datetime.now(), f"Starting prediction of {len(val_tasks)} tasks")
+        logger.info("Starting prediction of %d tasks", len(val_tasks))
         val_pred = model.predict(
             val_tasks, X_t=raw_ds, X_t_mask=lsm, pred_params=pred_params
         )
-        print(datetime.datetime.now(), "Done")
+        logger.info("Done")
 
         fname = f"{target_var}_{date_split}_{val_set}_e{every}_{weights_fn}_predictions"
         export_zarr(
@@ -529,7 +531,7 @@ def main(config: DictConfig) -> None:
             chunk_size,
             config["data"]["data_path"],
         )
-        print(datetime.datetime.now(), "Saved")
+        logger.info("Saved")
 
     else:
         raise ValueError(
