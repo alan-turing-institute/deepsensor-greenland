@@ -1,0 +1,12 @@
+# Hydra's default job logging (console + <hydra output dir>/<script>.log) with
+# our format and the root level taken from `logging.log_level`. Selected in each
+# top-level config's defaults via `override hydra/job_logging: giant_sp`.
+defaults:
+  - default
+  - _self_
+
+formatters:
+  simple:
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+root:
+  level: ${logging.log_level}
