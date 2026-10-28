@@ -1,5 +1,5 @@
 defaults:
-  - experiment: carra2_debug
+  - experiment: hirham5zarr_debug
   - override hydra/job_logging: giant_sp
   - _self_
 
