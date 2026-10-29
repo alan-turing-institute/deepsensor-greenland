@@ -427,11 +427,15 @@ class MDNZIGammaConvNP(ConvNP):
         else:
             super()._set_num_mixture_components()
 
-    def _assert_mdn_zigamma(self, method_name: str) -> None:
-        if self.config["likelihood"] != "mdn-zigamma":
+    def _assert_mdn_zigamma(
+        self, method_name: str, *, also_allow: tuple[str, ...] = ()
+    ) -> None:
+        valid = ("mdn-zigamma", *also_allow)
+        if self.config["likelihood"] not in valid:
             raise NotImplementedError(
                 f"ConvNP.{method_name} method not supported for likelihood "
-                f"{self.config['likelihood']!r}. Valid likelihoods: 'mdn-zigamma'."
+                f"{self.config['likelihood']!r}. Valid likelihoods: "
+                f"{', '.join(repr(v) for v in valid)}."
             )
 
     def _epistemic_frac_raw(self, dist: AbstractMultiOutputDistribution) -> B.Numeric:
@@ -534,8 +538,12 @@ class MDNZIGammaConvNP(ConvNP):
         """Predicted probability mass at exactly zero.
 
         Returned numpy arrays have shape ``(N_features, *N_targets)``.
+
+        Also works for ``"bernoulli-gamma"``: both likelihoods share the same
+        ``SpikesSlab`` outer mixture (spike log-probability first, slab last), so
+        ``dist.logprobs[..., 0]`` means the same thing for either.
         """
-        self._assert_mdn_zigamma("p_zero")
+        self._assert_mdn_zigamma("p_zero", also_allow=("bernoulli-gamma",))
         p0 = self._cast_numpy_and_squeeze(B.exp(dist.logprobs[..., 0]))
         return self._maybe_concat_multi_targets(p0)
 
@@ -580,7 +588,8 @@ class MDNZIGammaConvNP(ConvNP):
         undecomposed), just not a strict epistemic-only complement to
         ``epistemic_frac``.
 
-        Returned numpy arrays have shape ``(N_features, *N_targets)``.
+        Returned numpy arrays have shape ``(N_features, *N_targets)``. Also works for
+        ``"bernoulli-gamma"``, via ``p_zero``.
         """
         p0 = self.p_zero(dist)
         if isinstance(p0, (list, tuple)):
