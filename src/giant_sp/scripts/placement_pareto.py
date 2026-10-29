@@ -19,10 +19,8 @@ from scipy import ndimage
 
 import giant_sp.utils.acquisition as gs_acq
 import giant_sp.utils.plots as myplt
-from giant_sp.scripts.placement_overview_placements_map import (
-    context_dist_km_factor,
-    km_per_grid_cell,
-)
+
+EARTH_RADIUS_KM = 6371.0
 
 
 def load_existing_stations(station_file: str, coords_ref: xr.Dataset) -> pd.DataFrame:
@@ -105,6 +103,34 @@ def coarsen_to_field(
         .assign_coords(lat=field["lat"].values, lon=field["lon"].values)
         .transpose(*field.dims)
     )
+
+
+def _chord_km(lat1, lon1, lat2, lon2) -> np.ndarray:
+    """Straight-line (chord) distance in km between points on a spherical Earth."""
+    lat1, lon1, lat2, lon2 = (np.radians(np.asarray(a, dtype=float)) for a in (lat1, lon1, lat2, lon2))
+    xyz1 = np.stack([np.cos(lat1) * np.cos(lon1), np.cos(lat1) * np.sin(lon1), np.sin(lat1)])
+    xyz2 = np.stack([np.cos(lat2) * np.cos(lon2), np.cos(lat2) * np.sin(lon2), np.sin(lat2)])
+    return EARTH_RADIUS_KM * np.linalg.norm(xyz1 - xyz2, axis=0)
+
+
+def km_per_grid_cell(coords_ref: xr.Dataset) -> float:
+    """Median chord distance (km, from true lat/lon) between neighbouring full-resolution cells along x and y."""
+    lat, lon = coords_ref["lat"].values, coords_ref["lon"].values  # (y, x)
+    d_x = _chord_km(lat[:, :-1], lon[:, :-1], lat[:, 1:], lon[:, 1:])
+    d_y = _chord_km(lat[:-1, :], lon[:-1, :], lat[1:, :], lon[1:, :])
+    return float(np.median(np.concatenate([d_x.ravel(), d_y.ravel()])))
+
+
+def context_dist_km_factor(coords_ref: xr.Dataset) -> float:
+    """Factor converting ContextDist's normalised-coordinate distance to km.
+
+    DeepSensor's ContextDist is a distance in the DataProcessor's normalised
+    x1/x2 space, where the (integer grid-index) coords are mapped so that the
+    larger of the two index ranges spans [0, 1]. So one normalised unit is
+    ``max(nx, ny) - 1`` grid cells, and one grid cell is ``km_per_grid_cell``.
+    """
+    cells_per_unit = max(coords_ref.sizes["x"], coords_ref.sizes["y"]) - 1
+    return km_per_grid_cell(coords_ref) * cells_per_unit
 
 
 def distance_to_border(field: xr.DataArray) -> xr.DataArray:
