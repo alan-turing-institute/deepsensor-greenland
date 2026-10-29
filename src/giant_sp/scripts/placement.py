@@ -115,9 +115,12 @@ def load_wandb_model(
     if config["likelihood"] == "mdn-zigamma":
         model_args["mixture_components"] = config["mixture_components"]
         install_mdn_zigamma_likelihood(config["mixture_components"])
-        model = MDNZIGammaConvNP(data_processor, task_loader, **model_args)
-    else:
-        model = ConvNP(data_processor, task_loader, **model_args)
+    # MDNZIGammaConvNP is used for "bernoulli-gamma" too (not just "mdn-zigamma"): its
+    # _set_num_mixture_components falls back to the base ConvNP behaviour for any other
+    # likelihood, so this is a no-op for "bernoulli-gamma" beyond additionally exposing
+    # p_zero/occurrence_entropy (both acquisition functions need), which share the same
+    # SpikesSlab outer mixture as "mdn-zigamma".
+    model = MDNZIGammaConvNP(data_processor, task_loader, **model_args)
 
     # Load model weights
     model.model.load_state_dict(
