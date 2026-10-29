@@ -1,6 +1,7 @@
 import json
 import os
 from types import SimpleNamespace
+from typing import ClassVar
 
 import pytest
 import torch
@@ -8,6 +9,7 @@ from deepsensor.model.convnp import ConvNP
 from omegaconf import OmegaConf
 
 import giant_sp.utils.wandb_utils as wu
+from giant_sp.models.mdn import MDNZIGammaConvNP
 from giant_sp.utils.data import NumpyFloatValuesEncoder
 
 
@@ -97,7 +99,11 @@ class TestInitWandbRun:
 
 
 class TestFetchRunFiles:
-    FILES = [wu.MODEL_CONFIG_FILE, wu.DATA_PROCESSOR_CONFIG_FILE, "weights.pt"]
+    FILES: ClassVar[list[str]] = [
+        wu.MODEL_CONFIG_FILE,
+        wu.DATA_PROCESSOR_CONFIG_FILE,
+        "weights.pt",
+    ]
 
     @pytest.fixture
     def downloads(self, monkeypatch):
@@ -179,3 +185,30 @@ class TestLoadWandbModel:
         assert original_state.keys() == loaded_state.keys()
         for key, value in original_state.items():
             torch.testing.assert_close(loaded_state[key], value.to(loaded_state[key]))
+
+    def test_bernoulli_gamma_model_exposes_p_zero(
+        self, tmp_path, tiny_dp_and_task_loader
+    ):
+        # placement.py's occurrence-entropy acquisition functions call `p_zero` on
+        # bernoulli-gamma checkpoints, which only `MDNZIGammaConvNP` provides.
+        data_processor, task_loader, dates = tiny_dp_and_task_loader
+        model = ConvNP(
+            data_processor,
+            task_loader,
+            unet_channels=(4, 4),
+            likelihood="bernoulli-gamma",
+        )
+        config_path = tmp_path / wu.MODEL_CONFIG_FILE
+        weights_path = tmp_path / "weights.pt"
+        with open(config_path, "w") as f:
+            json.dump(model.config, f, cls=NumpyFloatValuesEncoder)
+        torch.save(model.model.state_dict(), weights_path)
+
+        loaded = wu.load_wandb_model(
+            data_processor, task_loader, str(config_path), str(weights_path)
+        )
+
+        assert isinstance(loaded, MDNZIGammaConvNP)
+        task = task_loader(dates[0], context_sampling="all", target_sampling="all")
+        p0 = loaded.p_zero(task)
+        assert ((p0 >= 0) & (p0 <= 1)).all()

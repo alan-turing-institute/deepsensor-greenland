@@ -51,7 +51,9 @@ def fake_wandb(monkeypatch, tmp_path):
     saved: list[str] = []
 
     monkeypatch.setattr(wu.wandb, "init", lambda **kwargs: run)
-    monkeypatch.setattr(trainer_module.wandb, "save", lambda path, **kw: saved.append(path))
+    monkeypatch.setattr(
+        trainer_module.wandb, "save", lambda path, **kw: saved.append(path)
+    )
     return run, saved
 
 
