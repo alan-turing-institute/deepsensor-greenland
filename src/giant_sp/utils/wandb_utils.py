@@ -16,6 +16,7 @@ import torch
 import wandb
 from deepsensor.data.loader import TaskLoader
 from deepsensor.data.processor import DataProcessor
+from deepsensor.model.convnp import ConvNP
 from omegaconf import DictConfig
 from wandb.sdk.wandb_run import Run
 
@@ -27,6 +28,11 @@ logger = logging.getLogger(__name__)
 
 MODEL_CONFIG_FILE = "model_config.json"
 DATA_PROCESSOR_CONFIG_FILE = "data_processor_config.json"
+
+# Likelihoods (used for surface melt) that need `MDNZIGammaConvNP`'s extra methods
+# (`p_zero`/`occurrence_entropy`/...); every other likelihood gets deepsensor's default
+# `ConvNP`.
+ZERO_INFLATED_LIKELIHOODS = ("mdn-zigamma", "bernoulli-gamma")
 
 
 def wandb_enabled(config: DictConfig) -> bool:
@@ -148,7 +154,7 @@ def load_wandb_model(
     task_loader: TaskLoader,
     config_path: str,
     weights_path: str,
-) -> MDNZIGammaConvNP:
+) -> ConvNP | MDNZIGammaConvNP:
     """Rebuild a ConvNP model from a saved config and load its trained weights.
 
     Parameters
@@ -169,13 +175,13 @@ def load_wandb_model(
 
     Returns
     -------
-    MDNZIGammaConvNP
+    ConvNP | MDNZIGammaConvNP
         A ConvNP model built from `config_path` with the weights from
         `weights_path` loaded, mapped onto CUDA if available and
-        otherwise the CPU. Always an `MDNZIGammaConvNP` (a `ConvNP`
-        subclass that behaves as a plain `ConvNP` for likelihoods other
-        than ``"mdn-zigamma"``), so ``p_zero``/``occurrence_entropy`` are
-        available for ``"bernoulli-gamma"`` models too.
+        otherwise the CPU. An `MDNZIGammaConvNP` (exposing
+        ``p_zero``/``occurrence_entropy``/...) if the likelihood is in
+        `ZERO_INFLATED_LIKELIHOODS`, otherwise deepsensor's default
+        `ConvNP`.
 
     """
     with open(config_path) as f:
@@ -192,12 +198,14 @@ def load_wandb_model(
     if config["likelihood"] == "mdn-zigamma":
         model_args["mixture_components"] = config["mixture_components"]
         install_mdn_zigamma_likelihood(config["mixture_components"])
-    # MDNZIGammaConvNP is used for "bernoulli-gamma" too (not just "mdn-zigamma"): its
-    # _set_num_mixture_components falls back to the base ConvNP behaviour for any other
-    # likelihood, so this is a no-op for "bernoulli-gamma" beyond additionally exposing
-    # p_zero/occurrence_entropy (both acquisition functions need), which share the same
-    # SpikesSlab outer mixture as "mdn-zigamma".
-    model = MDNZIGammaConvNP(data_processor, task_loader, **model_args)
+    model: ConvNP
+    if config["likelihood"] in ZERO_INFLATED_LIKELIHOODS:
+        # "bernoulli-gamma" shares "mdn-zigamma"'s SpikesSlab outer mixture, so
+        # MDNZIGammaConvNP's p_zero/occurrence_entropy (needed by placement.py's
+        # occurrence-entropy acquisition functions) work for it too.
+        model = MDNZIGammaConvNP(data_processor, task_loader, **model_args)
+    else:
+        model = ConvNP(data_processor, task_loader, **model_args)
 
     # Load model weights
     model.model.load_state_dict(

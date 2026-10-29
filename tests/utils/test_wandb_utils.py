@@ -3,13 +3,14 @@ import os
 from types import SimpleNamespace
 from typing import ClassVar
 
+import numpy as np
 import pytest
 import torch
 from deepsensor.model.convnp import ConvNP
 from omegaconf import OmegaConf
 
 import giant_sp.utils.wandb_utils as wu
-from giant_sp.models.mdn import MDNZIGammaConvNP
+from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
 from giant_sp.utils.data import NumpyFloatValuesEncoder
 
 
@@ -156,37 +157,51 @@ class TestFetchRunFiles:
         assert [f for _, _, f in downloads] == self.FILES
 
 
+def _save_and_reload(model, tmp_path, data_processor, task_loader):
+    """Save `model` the same way as Trainer._setup_existing_wandb_run, then reload it."""
+    config_path = tmp_path / wu.MODEL_CONFIG_FILE
+    weights_path = tmp_path / "weights.pt"
+    with open(config_path, "w") as f:
+        json.dump(model.config, f, cls=NumpyFloatValuesEncoder)
+    torch.save(model.model.state_dict(), weights_path)
+    return wu.load_wandb_model(
+        data_processor, task_loader, str(config_path), str(weights_path)
+    )
+
+
+def _assert_same_weights(original, loaded):
+    original_state = original.model.state_dict()
+    loaded_state = loaded.model.state_dict()
+    assert original_state.keys() == loaded_state.keys()
+    for key, value in original_state.items():
+        torch.testing.assert_close(loaded_state[key], value.to(loaded_state[key]))
+
+
 class TestLoadWandbModel:
-    def test_round_trips_saved_config_and_weights(
-        self, tmp_path, tiny_dp_and_task_loader
+    @pytest.mark.parametrize("likelihood", ["cnp", "gnp"])
+    def test_default_likelihood_loads_as_plain_convnp(
+        self, tmp_path, tiny_dp_and_task_loader, likelihood
     ):
-        data_processor, task_loader, _ = tiny_dp_and_task_loader
+        # Non-melt variables should get deepsensor's default ConvNP, not the
+        # surface-melt-specific MDNZIGammaConvNP subclass.
+        data_processor, task_loader, dates = tiny_dp_and_task_loader
         model = ConvNP(
             data_processor,
             task_loader,
             unet_channels=(4, 4),
-            likelihood="cnp",
+            likelihood=likelihood,
             num_basis_functions=16,
         )
-        config_path = tmp_path / wu.MODEL_CONFIG_FILE
-        weights_path = tmp_path / "weights.pt"
-        # Saved the same way as Trainer._setup_existing_wandb_run.
-        with open(config_path, "w") as f:
-            json.dump(model.config, f, cls=NumpyFloatValuesEncoder)
-        torch.save(model.model.state_dict(), weights_path)
 
-        loaded = wu.load_wandb_model(
-            data_processor, task_loader, str(config_path), str(weights_path)
-        )
+        loaded = _save_and_reload(model, tmp_path, data_processor, task_loader)
 
+        assert type(loaded) is ConvNP
         assert loaded.config["num_basis_functions"] == 16
-        original_state = model.model.state_dict()
-        loaded_state = loaded.model.state_dict()
-        assert original_state.keys() == loaded_state.keys()
-        for key, value in original_state.items():
-            torch.testing.assert_close(loaded_state[key], value.to(loaded_state[key]))
+        _assert_same_weights(model, loaded)
+        task = task_loader(dates[0], context_sampling="all", target_sampling="all")
+        np.testing.assert_allclose(loaded.mean(task), model.mean(task))
 
-    def test_bernoulli_gamma_model_exposes_p_zero(
+    def test_bernoulli_gamma_loads_as_mdn_zigamma_convnp_with_p_zero(
         self, tmp_path, tiny_dp_and_task_loader
     ):
         # placement.py's occurrence-entropy acquisition functions call `p_zero` on
@@ -198,17 +213,30 @@ class TestLoadWandbModel:
             unet_channels=(4, 4),
             likelihood="bernoulli-gamma",
         )
-        config_path = tmp_path / wu.MODEL_CONFIG_FILE
-        weights_path = tmp_path / "weights.pt"
-        with open(config_path, "w") as f:
-            json.dump(model.config, f, cls=NumpyFloatValuesEncoder)
-        torch.save(model.model.state_dict(), weights_path)
 
-        loaded = wu.load_wandb_model(
-            data_processor, task_loader, str(config_path), str(weights_path)
-        )
+        loaded = _save_and_reload(model, tmp_path, data_processor, task_loader)
 
         assert isinstance(loaded, MDNZIGammaConvNP)
+        _assert_same_weights(model, loaded)
         task = task_loader(dates[0], context_sampling="all", target_sampling="all")
         p0 = loaded.p_zero(task)
         assert ((p0 >= 0) & (p0 <= 1)).all()
+
+    def test_mdn_zigamma_loads_with_mixture_components(
+        self, tmp_path, tiny_dp_and_task_loader
+    ):
+        data_processor, task_loader, _ = tiny_dp_and_task_loader
+        install_mdn_zigamma_likelihood(2)
+        model = MDNZIGammaConvNP(
+            data_processor,
+            task_loader,
+            unet_channels=(4, 4),
+            likelihood="mdn-zigamma",
+            mixture_components=2,
+        )
+
+        loaded = _save_and_reload(model, tmp_path, data_processor, task_loader)
+
+        assert isinstance(loaded, MDNZIGammaConvNP)
+        assert loaded.config["mixture_components"] == 2
+        _assert_same_weights(model, loaded)
