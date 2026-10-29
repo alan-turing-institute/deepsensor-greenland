@@ -14,6 +14,7 @@ import paretoset
 import xarray as xr
 from matplotlib.collections import PathCollection
 from matplotlib.lines import Line2D
+from numpy.typing import NDArray
 from omegaconf import DictConfig
 from scipy import ndimage
 
@@ -105,8 +106,27 @@ def coarsen_to_field(
     )
 
 
-def _chord_km(lat1, lon1, lat2, lon2) -> np.ndarray:
-    """Straight-line (chord) distance in km between points on a spherical Earth."""
+def _chord_km(
+    lat1: NDArray[np.floating],
+    lon1: NDArray[np.floating],
+    lat2: NDArray[np.floating],
+    lon2: NDArray[np.floating],
+) -> NDArray[np.float64]:
+    """Straight-line (chord) distance in km between points on a spherical Earth.
+
+    Parameters
+    ----------
+    lat1, lon1 : NDArray[np.floating]
+        Latitude/longitude (degrees) of the first set of points.
+    lat2, lon2 : NDArray[np.floating]
+        Latitude/longitude (degrees) of the second set of points, same shape
+        as (or broadcastable to) `lat1`/`lon1`.
+
+    Returns
+    -------
+    NDArray[np.float64]
+        Element-wise chord distance in km between the paired points.
+    """
     lat1, lon1, lat2, lon2 = (
         np.radians(np.asarray(a, dtype=float)) for a in (lat1, lon1, lat2, lon2)
     )
@@ -120,8 +140,20 @@ def _chord_km(lat1, lon1, lat2, lon2) -> np.ndarray:
 
 
 def km_per_grid_cell(coords_ref: xr.Dataset) -> float:
-    """Median chord distance (km, from true lat/lon) between neighbouring full-resolution cells along x and y."""
-    lat, lon = coords_ref["lat"].values, coords_ref["lon"].values  # (y, x)
+    """Median chord distance (km, from true lat/lon) between neighbouring full-resolution cells along x and y.
+
+    Parameters
+    ----------
+    coords_ref : xr.Dataset
+        Full-resolution reference grid with 2D (y, x) ``lat``/``lon`` variables.
+
+    Returns
+    -------
+    float
+        Median distance in km between adjacent grid cells.
+    """
+    lat: NDArray[np.floating] = coords_ref["lat"].values  # (y, x)
+    lon: NDArray[np.floating] = coords_ref["lon"].values
     d_x = _chord_km(lat[:, :-1], lon[:, :-1], lat[:, 1:], lon[:, 1:])
     d_y = _chord_km(lat[:-1, :], lon[:-1, :], lat[1:, :], lon[1:, :])
     return float(np.median(np.concatenate([d_x.ravel(), d_y.ravel()])))
@@ -134,8 +166,19 @@ def context_dist_km_factor(coords_ref: xr.Dataset) -> float:
     x1/x2 space, where the (integer grid-index) coords are mapped so that the
     larger of the two index ranges spans [0, 1]. So one normalised unit is
     ``max(nx, ny) - 1`` grid cells, and one grid cell is ``km_per_grid_cell``.
+
+    Parameters
+    ----------
+    coords_ref : xr.Dataset
+        Full-resolution reference grid, indexed by integer x/y, with 2D (y, x)
+        ``lat``/``lon`` variables.
+
+    Returns
+    -------
+    float
+        Kilometres per unit of normalised ContextDist distance.
     """
-    cells_per_unit = max(coords_ref.sizes["x"], coords_ref.sizes["y"]) - 1
+    cells_per_unit: int = max(coords_ref.sizes["x"], coords_ref.sizes["y"]) - 1
     return km_per_grid_cell(coords_ref) * cells_per_unit
 
 
