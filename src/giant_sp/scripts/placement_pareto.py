@@ -107,9 +107,15 @@ def coarsen_to_field(
 
 def _chord_km(lat1, lon1, lat2, lon2) -> np.ndarray:
     """Straight-line (chord) distance in km between points on a spherical Earth."""
-    lat1, lon1, lat2, lon2 = (np.radians(np.asarray(a, dtype=float)) for a in (lat1, lon1, lat2, lon2))
-    xyz1 = np.stack([np.cos(lat1) * np.cos(lon1), np.cos(lat1) * np.sin(lon1), np.sin(lat1)])
-    xyz2 = np.stack([np.cos(lat2) * np.cos(lon2), np.cos(lat2) * np.sin(lon2), np.sin(lat2)])
+    lat1, lon1, lat2, lon2 = (
+        np.radians(np.asarray(a, dtype=float)) for a in (lat1, lon1, lat2, lon2)
+    )
+    xyz1 = np.stack(
+        [np.cos(lat1) * np.cos(lon1), np.cos(lat1) * np.sin(lon1), np.sin(lat1)]
+    )
+    xyz2 = np.stack(
+        [np.cos(lat2) * np.cos(lon2), np.cos(lat2) * np.sin(lon2), np.sin(lat2)]
+    )
     return EARTH_RADIUS_KM * np.linalg.norm(xyz1 - xyz2, axis=0)
 
 
