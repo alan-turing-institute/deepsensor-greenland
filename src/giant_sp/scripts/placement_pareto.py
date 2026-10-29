@@ -269,8 +269,9 @@ def main(config: DictConfig) -> None:
         # Grid-cell distance; convert to km.
         acqfn1 = distance_to_border(acqfn0) * km_per_grid_cell(coords_ref)
     elif cost == "elevation":
+        elevation_file = placement_config.elevation_file
         # Elevation is already in the correct units.
-        elev = xr.open_dataarray("data/hirham5/h5_elevation_GRL.nc")
+        elev = xr.open_dataarray(elevation_file)
         acqfn1 = coarsen_to_field(elev, acqfn0, coords_ref)
     elif cost == "albedo":
         dates_start = placement_config.search_start_date

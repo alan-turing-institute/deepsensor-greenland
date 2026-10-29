@@ -1,6 +1,6 @@
 defaults:
-  - experiment: carra2_debug
-  - _self_
+- experiment: carra2_debug
+- _self_
 
 hydra:
   job:
@@ -14,6 +14,9 @@ placement_pareto:
 
   #distance2stations specific parameters, ignore if cost is not distance2stations
   distance2stations_file: "outputs/vloyijco/placement/ContextDist/AcqFn_ContextDist_10-iter_sseasonal_e50_sr9_weights-ep95.nc"
+
+  #elevation specific parameters, ignore if cost is not elevation
+  elevation_file: "data/hirham5/h5_elevation_GRL.nc"
 
   #albedo specific parameters, ignore if cost is not albedo
   search_start_date: "2016-01-01"
