@@ -1,7 +1,7 @@
 defaults:
-  - experiment: hirham5zarr_debug
-  - override hydra/job_logging: giant_sp
-  - _self_
+- experiment: hirham5zarr_debug
+- override hydra/job_logging: giant_sp
+- _self_
 
 hydra:
   job:
@@ -22,3 +22,4 @@ placement:
   search_mask_file: ""
   search_resolution: 18
   min_land: 0.25
+  output_dir: "outputs"

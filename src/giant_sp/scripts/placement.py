@@ -208,11 +208,12 @@ def main(config: DictConfig) -> None:
     pred_resolution = placement_config.pred_resolution
     search_mask_file = placement_config.search_mask_file
     min_land = placement_config.min_land
+    output_dir = placement_config.output_dir
 
     run_id = run_ref.split("/")[-1]
 
     # Path and files
-    output_path = f"outputs/{run_id}"
+    output_path = os.path.join(output_dir, run_id)
     savedir = os.path.join(output_path, "placement", acq_fn)
     figdir = os.path.join(output_path, "placement", "figures")
     if not os.path.exists(savedir):

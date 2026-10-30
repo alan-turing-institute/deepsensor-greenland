@@ -1,7 +1,7 @@
 defaults:
-  - experiment: hirham5zarr_debug
-  - override hydra/job_logging: giant_sp
-  - _self_
+- experiment: hirham5zarr_debug
+- override hydra/job_logging: giant_sp
+- _self_
 
 hydra:
   job:
@@ -16,3 +16,4 @@ inference:
   every: 200
   seed: 321
   plot: false
+  output_dir: "outputs"
