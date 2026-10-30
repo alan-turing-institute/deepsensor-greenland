@@ -254,10 +254,11 @@ def main(config: DictConfig) -> None:
     every = inference_config.every
     seed = inference_config.seed
     plot = inference_config.plot
+    output_dir = inference_config.output_dir
 
     # Set up output folders
     run_id = run_ref.split("/")[-1]
-    output_path = f"outputs/{run_id}"
+    output_path = os.path.join(output_dir, run_id)
     savefolder = os.path.join(output_path, "test_results")
     figfolder = os.path.join(savefolder, "figures")
     if not os.path.exists(savefolder):
