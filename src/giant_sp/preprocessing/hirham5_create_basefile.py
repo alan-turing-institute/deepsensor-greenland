@@ -194,9 +194,9 @@ def create_basefile(params: DictConfig) -> None:
 
     Reads ``GRLmask.nc``/``GRLzones.nc`` from ``params.aux_dir`` and
     ``Daily2D_GRL_<year>.nc`` (``params.start_year - 10`` to ``params.end_year``,
-    the extra 10 years only feeding the rolling means; both outputs start at
-    ``params.start_year``) from ``params.daily_dir``, both relative to
-    ``params.interim_path``.
+    the extra 10 years feeding the rolling means) from ``params.daily_dir``,
+    both relative to ``params.interim_path``. The base dataset keeps those
+    extra 10 years; the rolling means start at ``params.rolling.start_date``.
     Writes ``coords_only.zarr``, ``GRLmask.zarr``, ``GRLzones.zarr``,
     ``base_dataset_<start>_<end>.zarr`` and ``base_dataset_<start>_<end>_10yr.zarr``
     to ``<params.output_dir>/<folder>/v_<params.version:02d>``, where
@@ -276,11 +276,9 @@ def create_basefile(params: DictConfig) -> None:
     )
     logger.info("Re-structure dataset...")
     ds = build_base_dataset(ds_all, save_chunks)
-    # the 10 years before start_year are only loaded for the rolling means
-    ds_base = ds.sel(time=slice(str(params.start_year), None)).chunk(save_chunks)
     logger.info("Saving data to %s...", filepath)
     with ProgressBar():
-        ds_base.to_zarr(filepath, mode="w", consolidated=True)
+        ds.to_zarr(filepath, mode="w", consolidated=True)
 
     # %% -------------------- Create 10yr rolling averages --------------------
     outpath_roll = filepath.replace(".zarr", "_10yr.zarr")

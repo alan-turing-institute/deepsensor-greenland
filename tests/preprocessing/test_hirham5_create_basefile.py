@@ -146,8 +146,6 @@ def test_create_basefile_end_to_end(tmp_path, source, folder):
                 "preprocessing.start_year=2010",
                 "preprocessing.end_year=2011",
                 "preprocessing.drop_vars=[tsl]",
-                # start_year falls mid-chunk, so trimming leaves uneven chunks
-                "preprocessing.save_chunks.time=3",
                 "preprocessing.rolling.window=3",
                 "preprocessing.rolling.start_date=2010-01-01",
             ],
@@ -157,8 +155,8 @@ def test_create_basefile_end_to_end(tmp_path, source, folder):
 
     out_path = out_dir / folder / "v_03"
     base = xr.open_zarr(out_path / "base_dataset_2010_2011.zarr")
-    assert base.sizes == {"time": 4, "z": 5}
-    assert base["time"].values[0] == np.datetime64("2010-01-01")
+    assert base.sizes == {"time": 24, "z": 5}
+    assert base["time"].values[0] == np.datetime64("2000-01-01")
     assert "energyin" in base
     assert "tsl" not in base
     rolled = xr.open_zarr(out_path / "base_dataset_2010_2011_10yr.zarr")
