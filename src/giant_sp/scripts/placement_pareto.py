@@ -1,5 +1,6 @@
 """Main script for Pareto multi-objective experiments using acquisition and cost functions."""
 
+import glob
 import logging
 import os
 
@@ -13,6 +14,7 @@ import pandas as pd
 # src
 import paretoset
 import xarray as xr
+from deepsensor.data.processor import DataProcessor
 from matplotlib.collections import PathCollection
 from matplotlib.lines import Line2D
 from numpy.typing import NDArray
@@ -162,26 +164,83 @@ def km_per_grid_cell(coords_ref: xr.Dataset) -> float:
     return float(np.median(np.concatenate([d_x.ravel(), d_y.ravel()])))
 
 
-def context_dist_km_factor(coords_ref: xr.Dataset) -> float:
+def load_run_x1_map(run_id: str) -> tuple[float, float]:
+    """Read the training run's DataProcessor ``x1_map`` from its local W&B files.
+
+    Reads ``data_processor_config.json`` from the most recent local
+    ``wandb/run*<run_id>/files`` directory, which ``placement.py`` downloads
+    when it produces the acquisition-function file this script reads.
+
+    Parameters
+    ----------
+    run_id : str
+        W&B run id of the training run.
+
+    Returns
+    -------
+    tuple[float, float]
+        ``(x1_min, x1_max)`` of the DataProcessor's coordinate mapping.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no local copy of the run's ``data_processor_config.json`` exists.
+    """
+    candidates = sorted(
+        glob.glob(f"wandb/run*{run_id}/files/data_processor_config.json"),
+        reverse=True,
+    )
+    if not candidates:
+        raise FileNotFoundError(
+            f"No local data_processor_config.json for run {run_id!r} under "
+            "wandb/run*<run_id>/files/; run placement.py for this run first "
+            "(it downloads the run's files)."
+        )
+    x1_min, x1_max = DataProcessor(os.path.dirname(candidates[0])).x1_map
+    return float(x1_min), float(x1_max)
+
+
+def context_dist_km_factor(
+    coords_ref: xr.Dataset, x1_map: tuple[float, float]
+) -> float:
     """Factor converting ContextDist's normalised-coordinate distance to km.
 
     DeepSensor's ContextDist is a distance in the DataProcessor's normalised
-    x1/x2 space, where the (integer grid-index) coords are mapped so that the
-    larger of the two index ranges spans [0, 1]. So one normalised unit is
-    ``max(nx, ny) - 1`` grid cells, and one grid cell is ``km_per_grid_cell``.
+    x1/x2 space. The DataProcessor maps the *training data's* coords so that
+    the larger of its two coordinate ranges spans [0, 1], and records that
+    range in ``x1_map``/``x2_map`` (equal by construction). For hirham5zarr
+    the coords are integer grid indices, so one normalised unit is
+    ``x1_map[1] - x1_map[0]`` grid cells -- fewer than the full grid's
+    ``max(nx, ny) - 1`` when training was cropped to a basin -- and one grid
+    cell is ``km_per_grid_cell``.
 
     Parameters
     ----------
     coords_ref : xr.Dataset
         Full-resolution reference grid, indexed by integer x/y, with 2D (y, x)
         ``lat``/``lon`` variables.
+    x1_map : tuple[float, float]
+        The training run's DataProcessor ``x1_map`` (see `load_run_x1_map`).
 
     Returns
     -------
     float
         Kilometres per unit of normalised ContextDist distance.
+
+    Raises
+    ------
+    ValueError
+        If ``x1_map`` doesn't span a grid-index range within the full grid
+        (e.g. a run trained on projected coordinates in metres).
     """
-    cells_per_unit: int = max(coords_ref.sizes["x"], coords_ref.sizes["y"]) - 1
+    cells_per_unit = x1_map[1] - x1_map[0]
+    full_grid = max(coords_ref.sizes["x"], coords_ref.sizes["y"]) - 1
+    if not 0 < cells_per_unit <= full_grid:
+        raise ValueError(
+            f"DataProcessor coordinate range {cells_per_unit} isn't a grid-index "
+            f"range within the full grid ({full_grid} cells); was the run trained "
+            "on hirham5zarr?"
+        )
     return km_per_grid_cell(coords_ref) * cells_per_unit
 
 
@@ -231,7 +290,9 @@ def main(config: DictConfig) -> None:
 
        - ``"distance2stations"``: distance to existing stations [km], taken
          from the precomputed ``ContextDist`` acquisition-function file
-         ``distance2stations_file``;
+         ``distance2stations_file``, converted to km using the training
+         run's saved DataProcessor coordinate range (read from the local
+         ``wandb/run*<run_id>/files/``, see `load_run_x1_map`);
        - ``"distance2border"``: distance to the edge of the valid
          (non-NaN) domain [km];
        - ``"elevation"``: HIRHAM5 surface elevation [m]
@@ -290,7 +351,12 @@ def main(config: DictConfig) -> None:
     ValueError
         If ``config["data"]["source"]`` is not ``"hirham5zarr"`` (the only
         source with ``coords_only.zarr``), or if the acquisition-function name
-        parsed from ``acq_file`` or ``cost`` is not recognised.
+        parsed from ``acq_file`` or ``cost`` is not recognised; for
+        ``cost="distance2stations"``, also if the run's coordinate range isn't
+        a grid-index range (see `context_dist_km_factor`).
+    FileNotFoundError
+        For ``cost="distance2stations"``, if there's no local copy of the
+        run's ``data_processor_config.json`` (see `load_run_x1_map`).
 
     Returns
     -------
@@ -349,8 +415,8 @@ def main(config: DictConfig) -> None:
         distance2stations_file = placement_config.distance2stations_file
         acqfn = xr.open_dataarray(distance2stations_file)
         acqfn1 = acqfn.sel(iteration=0).mean(dim="time").drop_vars("iteration")
-        # ContextDist is in normalised-coordinate units; convert to km.
-        acqfn1 = acqfn1 * context_dist_km_factor(coords_ref)
+        # ContextDist is in the run's normalised-coordinate units; convert to km.
+        acqfn1 = acqfn1 * context_dist_km_factor(coords_ref, load_run_x1_map(run_id))
     elif cost == "distance2border":
         # Grid-cell distance; convert to km.
         acqfn1 = distance_to_border(acqfn0) * km_per_grid_cell(coords_ref)
