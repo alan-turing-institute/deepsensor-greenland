@@ -285,8 +285,9 @@ def main(config: DictConfig) -> None:
     Raises
     ------
     ValueError
-        If the acquisition-function name parsed from ``acq_file`` or
-        ``cost`` is not recognised.
+        If ``config["data"]["source"]`` is not ``"hirham5zarr"`` (the only
+        source with ``coords_only.zarr``), or if the acquisition-function name
+        parsed from ``acq_file`` or ``cost`` is not recognised.
 
     Returns
     -------
@@ -302,6 +303,13 @@ def main(config: DictConfig) -> None:
           ``<acq_file stem>_<cost>_pareto_combined.png``.
     """
     data_config = config.data
+    # Grid indices are reprojected via coords_only.zarr, which only the
+    # hirham5zarr source has (see placement.py).
+    if data_config.source != "hirham5zarr":
+        raise ValueError(
+            "placement_pareto.py only supports data.source='hirham5zarr' "
+            f"(needs coords_only.zarr); got {data_config.source!r}"
+        )
     data_path = data_config.data_path
     station_file = data_config.station_locations_file
     placement_config = config.placement_pareto
