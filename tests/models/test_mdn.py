@@ -442,3 +442,54 @@ class TestMDNZIGammaConvNPEndToEnd:
             model.epistemic_frac(task)
         with pytest.raises(NotImplementedError):
             model.occurrence_entropy(task)
+
+
+class TestMDNZIGammaConvNPBernoulliGamma:
+    """`p_zero`/`occurrence_entropy` also support plain `"bernoulli-gamma"` runs.
+
+    Both likelihoods share the same `SpikesSlab` outer mixture (spike log-probability
+    first, slab last -- see `neuralprocesses.dist.spikeslab.SpikesSlab`'s docstring),
+    so `p_zero` needs no likelihood-specific logic, only a relaxed guard. Methods that
+    reach into the slab's *inner* structure (`epistemic_variance`/`magnitude_variance`),
+    by contrast, must stay `"mdn-zigamma"`-only: `"bernoulli-gamma"`'s slab is a single
+    `Gamma`, with no `epistemic_var`/`aleatoric_var` split to expose.
+    """
+
+    def test_p_zero_and_occurrence_entropy_task_level(
+        self, tiny_zigamma_dp_and_task_loader
+    ):
+        data_processor, task_loader, dates, _ds = tiny_zigamma_dp_and_task_loader
+        model = MDNZIGammaConvNP(
+            data_processor,
+            task_loader,
+            unet_channels=(4, 4),
+            likelihood="bernoulli-gamma",
+        )
+        task = task_loader(dates[0], context_sampling="all", target_sampling="all")
+
+        p0 = model.p_zero(task)
+        entropy = model.occurrence_entropy(task)
+        if isinstance(p0, list):
+            p0, entropy = p0[0], entropy[0]
+
+        assert np.all(p0 >= 0.0)
+        assert np.all(p0 <= 1.0)
+        expected = -(p0 * np.log(p0) + (1 - p0) * np.log(1 - p0))
+        np.testing.assert_allclose(entropy, expected, atol=1e-6)
+
+    def test_epistemic_and_magnitude_variance_still_restricted(
+        self, tiny_zigamma_dp_and_task_loader
+    ):
+        data_processor, task_loader, dates, _ds = tiny_zigamma_dp_and_task_loader
+        model = MDNZIGammaConvNP(
+            data_processor,
+            task_loader,
+            unet_channels=(4, 4),
+            likelihood="bernoulli-gamma",
+        )
+        task = task_loader(dates[0], context_sampling="all", target_sampling="all")
+
+        with pytest.raises(NotImplementedError):
+            model.epistemic_variance(task)
+        with pytest.raises(NotImplementedError):
+            model.magnitude_variance(task)

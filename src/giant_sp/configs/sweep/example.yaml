@@ -1,0 +1,63 @@
+# W&B sweep configuration for src/giant_sp/scripts/interpolation.py.
+# https://docs.wandb.ai/models/sweeps/
+#
+# Launch with:
+#   uv run wandb sweep src/giant_sp/configs/sweep/example.yaml
+#   uv run wandb agent <entity/project/sweep_id printed by the command above>
+#
+# Use the full entity/project-qualified path (or the exact `wandb agent ...` line printed by
+# `wandb sweep`) — the bare 8-character sweep ID only resolves if a default entity/project is
+# already configured locally, otherwise `wandb agent` fails with
+# "Error: name required for project query".
+#
+# No code changes are needed to run a sweep: `wandb agent` invokes `command` below once per
+# trial, and each swept parameter name is just a dotted Hydra config key applied as a normal
+# CLI override (the same syntax as `uv run .../interpolation.py training.learning_rate=...` —
+# see README.md). `${args_no_hyphens}` expands to those overrides as `key=value` pairs (rather
+# than `--key value`, which Hydra doesn't accept). `interpolation.py` already calls
+# `wandb.init()` itself; running inside `wandb agent` makes that call join the sweep
+# automatically via environment variables, so the swept values are both what Hydra trains with
+# and what gets logged/optimized against.
+#
+# Copy this file to sweep a different experiment/parameter set — keep `experiment=` fixed to
+# pick which base config (data source, debug vs. full-scale) the sweep runs against.
+
+program: src/giant_sp/scripts/interpolation.py
+# Must match logging.wandb.project/entity in the composed Hydra config (see
+# configs/experiment/common.yaml) so runs launched by the agent land in the same project as
+# the sweep itself.
+project: present-train
+entity: turing-giant
+method: bayes
+metric:
+  name: val/loss
+  goal: minimize
+
+command:
+  - ${env}
+  - uv
+  - run
+  - ${program}
+  - experiment=carra2_debug
+  - logging.wandb.tags=[sweep]
+  - ${args_no_hyphens}
+
+parameters:
+  training.learning_rate:
+    distribution: log_uniform_values
+    min: 0.00001
+    max: 0.01
+  training.weight_decay:
+    distribution: log_uniform_values
+    min: 0.000001
+    max: 0.001
+  training.batch_size:
+    values: [1, 2, 4]
+  model.num_basis_functions:
+    values: [32, 64, 128]
+  model.unet_kernels:
+    values: [3, 5, 7]
+
+early_terminate:
+  type: hyperband
+  min_iter: 3

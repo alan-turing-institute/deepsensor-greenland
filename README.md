@@ -87,6 +87,29 @@ uv run src/giant_sp/scripts/interpolation.py --config-name=<name>.local
 Any config value can also be overridden from the command line, e.g.
 `--config-name=<name>.local training.num_epochs=5`.
 
+### Hyperparameter sweeps
+
+[W&B Sweeps](https://docs.wandb.ai/models/sweeps/) can be used to search over hyperparameters for
+`interpolation.py`. A sweep config lives under `src/giant_sp/configs/sweep/` (see
+`example.yaml`); its `parameters:` keys are dotted Hydra config keys, applied as ordinary CLI
+overrides via the `${args_no_hyphens}` command macro — no code changes are needed, since
+`interpolation.py` already calls `wandb.init()`, which joins the sweep automatically when run
+under `wandb agent`. Launch a sweep with:
+
+```bash
+uv run wandb sweep src/giant_sp/configs/sweep/example.yaml
+uv run wandb agent <entity/project/sweep_id printed by the command above>
+```
+
+Use the full `wandb agent ...` command that `wandb sweep` prints (or its
+`<entity>/<project>/<sweep_id>` argument) rather than the bare 8-character sweep ID — without an
+`entity`/`project` prefix, `wandb agent` can only resolve the sweep if a default entity/project is
+already configured locally (e.g. via `wandb init` or `WANDB_ENTITY`/`WANDB_PROJECT`), otherwise it
+fails with `Error: name required for project query`.
+
+Run multiple agents (locally or on separate machines/jobs) against the same sweep to parallelize
+the search. Copy `example.yaml` to sweep a different experiment or parameter set.
+
 ## Demo site
 
 `demo/` is a static site presenting the project. Its Data page embeds a dashboard that streams the
