@@ -97,6 +97,12 @@ W&B code shared between training and the scripts that load a trained model:
 start a run from `config["logging"]["wandb"]`; `fetch_run_files` (local `wandb/run*<id>/files`
 cache, else download) and `load_wandb_model` (rebuild `ConvNP`/`MDNZIGammaConvNP` from the saved
 config + weights) are used by `inference.py`, `placement.py` and `placement_eval.py`.
+Evaluation runs go in their own W&B project, linked to the training run both ways:
+`init_eval_run` starts one grouped under the training run's id (training run path/URL in its
+config and notes), and `link_eval_run_to_source` writes `<job_type>/<eval run id>` → its URL into
+the training run's summary (best-effort: without write access to the training project it logs a
+warning instead of failing the evaluation). `inference.py` uses
+both, behind `inference.log_wandb`.
 `MODEL_CONFIG_FILE`/`DATA_PROCESSOR_CONFIG_FILE` name the files `Trainer` writes to each run and
 the loaders read back — use these constants rather than the literal filenames. Training-loop-specific
 W&B code (resume, `wandb.watch`, checkpoint saves, metric/map logging) stays in `Trainer`.
@@ -106,7 +112,11 @@ W&B code (resume, `wandb.watch`, checkpoint saves, metric/map logging) stays in 
 - **`interpolation.py`**: trains a spatial-interpolation model end-to-end (build data
   loader → sample train/val dates → build task streams → build model → `Trainer.train()`).
 - **`inference.py`**: loads a trained model from a W&B run (`fetch_run_files` /
-  `load_wandb_model` from `utils/wandb_utils.py`) and runs/export predictions (`export_zarr`).
+  `load_wandb_model` from `utils/wandb_utils.py`) and runs/export predictions (`export_zarr`),
+  computing RMSE/MAE/mean std against the gridded truth (`utils/metrics.py`'s
+  `compute_grid_metrics`, same definitions as `placement_eval.py`) and, if
+  `inference.log_wandb`, logging them (plus plots) to a linked W&B evaluation run in
+  `inference.wandb_project`.
 - **`placement.py`**: loads a trained model from a W&B run, then runs DeepSensor's
   `GreedyAlgorithm` with a chosen acquisition function (`ContextDist`, `Stddev`,
   `MeanMarginalEntropy`, `OracleRMSE`, ...) to propose new sensor locations, saving results and a

@@ -9,6 +9,7 @@ import geopandas as gpd
 import hydra
 import numpy as np
 import pandas as pd
+import wandb
 import xarray as xr
 from deepsensor.data.processor import DataProcessor
 from deepsensor.model.pred import Prediction
@@ -17,11 +18,15 @@ from omegaconf import DictConfig
 import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
+from giant_sp.utils.config import to_plain
 from giant_sp.utils.data import context_sampling_with_delta
+from giant_sp.utils.metrics import compute_grid_metrics
 from giant_sp.utils.wandb_utils import (
     DATA_PROCESSOR_CONFIG_FILE,
     MODEL_CONFIG_FILE,
     fetch_run_files,
+    init_eval_run,
+    link_eval_run_to_source,
     load_wandb_model,
 )
 
@@ -151,6 +156,17 @@ def main(config: DictConfig) -> None:
         plot : bool
             If set, additionally saves an averaged-prediction plot and a PIT
             histogram plot.
+        log_wandb : bool
+            If set, logs this inference as a W&B run in `wandb_project`,
+            linked to the training run `run_ref` in both directions (see
+            `~giant_sp.utils.wandb_utils.init_eval_run` and
+            `~giant_sp.utils.wandb_utils.link_eval_run_to_source`): the
+            inference settings, RMSE/MAE/mean-std summary metrics, output
+            Zarr path and, if `plot` is set, both plots.
+        wandb_project : str
+            W&B project for the inference run.
+        wandb_entity : str | None
+            W&B entity for the inference run; None uses the training run's.
 
     Returns
     -------
@@ -175,6 +191,7 @@ def main(config: DictConfig) -> None:
     every = inference_config.every
     seed = inference_config.seed
     plot = inference_config.plot
+    log_wandb = inference_config.log_wandb
 
     # Set up output folders
     run_id = run_ref.split("/")[-1]
@@ -230,6 +247,21 @@ def main(config: DictConfig) -> None:
         data_processor, task_loader, model_config_file, weights_file
     )
     likelihood = model.config["likelihood"]
+
+    eval_run = None
+    if log_wandb:
+        eval_run = init_eval_run(
+            run_ref,
+            job_type="inference",
+            project=inference_config.wandb_project,
+            entity=inference_config.wandb_entity,
+            run_config={
+                "inference": to_plain(inference_config),
+                "data": to_plain(config["data"]),
+                "dataloader": to_plain(config["dataloader"]),
+                "likelihood": likelihood,
+            },
+        )
 
     # Bernoulli-Gamma/mdn-zigamma predictions are zero-inflated (non-continuous): PIT
     # needs the zero-mass probability and Gamma (mixture) parameters, not just mean/std.
@@ -450,6 +482,22 @@ def main(config: DictConfig) -> None:
             "Unknown val_set, should be one of [station, random-land, no-obs]"
         )
 
+    # Skill metrics against the gridded truth
+    pred_aligned, truth_aligned = xr.align(
+        val_pred[target_var], raw_ds[target_var], join="inner"
+    )
+    metrics = compute_grid_metrics(
+        pred_aligned["mean"], pred_aligned["std"], truth_aligned
+    )
+    logger.info("Metrics: %s", metrics)
+    if eval_run is not None:
+        eval_run.summary.update(
+            {f"{date_split}/{k}/{target_var}": v for k, v in metrics.items()}
+        )
+        eval_run.config.update(
+            {"output_zarr": os.path.join(savefolder, f"{fname}.zarr")}
+        )
+
     # Averaged prediction plots
     if plot:
         date = pd.Timestamp(dates[0])
@@ -469,6 +517,8 @@ def main(config: DictConfig) -> None:
             crs=None,
         )
         fig.savefig(os.path.join(figfolder, f"{fname}_avgpred.png"))
+        if eval_run is not None:
+            eval_run.log({"predictions/avgpred": wandb.Image(fig)})
 
         # PIT
         # Randomly select dates
@@ -493,6 +543,12 @@ def main(config: DictConfig) -> None:
         )
 
         fig.savefig(os.path.join(figfolder, f"{fname}_pit_histogram.png"))
+        if eval_run is not None:
+            eval_run.log({"predictions/pit_histogram": wandb.Image(fig)})
+
+    if eval_run is not None:
+        link_eval_run_to_source(run_ref, eval_run, job_type="inference")
+        eval_run.finish()
 
 
 if __name__ == "__main__":

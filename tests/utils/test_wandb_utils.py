@@ -99,6 +99,100 @@ class TestInitWandbRun:
         assert kwargs["notes"] == ""
 
 
+SOURCE_RUN_REF = "train-ent/train-proj/src123"
+SOURCE_RUN_URL = "https://wandb.example/train-ent/train-proj/runs/src123"
+
+
+@pytest.fixture
+def fake_source_run(monkeypatch):
+    """Make `wandb.Api().run(...)` return a fake training run; records summary writes."""
+    summary_writes: list[dict] = []
+    source_run = SimpleNamespace(
+        entity="train-ent",
+        id="src123",
+        url=SOURCE_RUN_URL,
+        summary=SimpleNamespace(update=summary_writes.append),
+    )
+    requested: list[str] = []
+
+    def fake_api():
+        def run(ref):
+            requested.append(ref)
+            return source_run
+
+        return SimpleNamespace(run=run)
+
+    monkeypatch.setattr(wu.wandb, "Api", fake_api)
+    return SimpleNamespace(requested=requested, summary_writes=summary_writes)
+
+
+class TestInitEvalRun:
+    def test_links_to_and_groups_under_training_run(
+        self, fake_wandb_init, fake_source_run
+    ):
+        wu.init_eval_run(
+            SOURCE_RUN_REF,
+            job_type="inference",
+            project="eval-proj",
+            run_config={"inference": {"val_set": "station"}},
+        )
+
+        assert fake_source_run.requested == [SOURCE_RUN_REF]
+        (kwargs,) = fake_wandb_init
+        assert kwargs["project"] == "eval-proj"
+        assert kwargs["job_type"] == "inference"
+        assert kwargs["group"] == "src123"
+        assert SOURCE_RUN_URL in kwargs["notes"]
+        assert kwargs["config"] == {
+            "source_run": SOURCE_RUN_REF,
+            "source_run_url": SOURCE_RUN_URL,
+            "inference": {"val_set": "station"},
+        }
+
+    def test_defaults_to_training_run_entity(self, fake_wandb_init, fake_source_run):
+        wu.init_eval_run(SOURCE_RUN_REF, job_type="inference", project="eval-proj")
+
+        assert fake_wandb_init[0]["entity"] == "train-ent"
+
+    def test_explicit_entity_overrides_training_run_entity(
+        self, fake_wandb_init, fake_source_run
+    ):
+        wu.init_eval_run(
+            SOURCE_RUN_REF, job_type="inference", project="eval-proj", entity="me"
+        )
+
+        assert fake_wandb_init[0]["entity"] == "me"
+
+
+class TestLinkEvalRunToSource:
+    def test_writes_eval_run_url_to_training_run_summary(self, fake_source_run):
+        eval_run = SimpleNamespace(id="ev456", url="https://wandb.example/ev456")
+
+        wu.link_eval_run_to_source(SOURCE_RUN_REF, eval_run, job_type="inference")
+
+        assert fake_source_run.requested == [SOURCE_RUN_REF]
+        assert fake_source_run.summary_writes == [
+            {"inference/ev456": "https://wandb.example/ev456"}
+        ]
+
+    def test_warns_instead_of_raising_when_write_fails(self, monkeypatch, caplog):
+        # e.g. no write access to the training run's project.
+        def denied_update(_):
+            raise RuntimeError("permission denied")
+
+        source_run = SimpleNamespace(summary=SimpleNamespace(update=denied_update))
+        monkeypatch.setattr(
+            wu.wandb, "Api", lambda: SimpleNamespace(run=lambda ref: source_run)
+        )
+        eval_run = SimpleNamespace(id="ev456", url="https://wandb.example/ev456")
+
+        with caplog.at_level("WARNING"):
+            wu.link_eval_run_to_source(SOURCE_RUN_REF, eval_run, job_type="inference")
+
+        assert "Could not link inference run ev456" in caplog.text
+        assert "permission denied" in caplog.text
+
+
 class TestFetchRunFiles:
     FILES: ClassVar[list[str]] = [
         wu.MODEL_CONFIG_FILE,

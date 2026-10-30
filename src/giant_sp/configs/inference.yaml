@@ -16,3 +16,6 @@ inference:
   every: 200
   seed: 321
   plot: false
+  log_wandb: true # Log this inference to W&B, linked to the training run (run_ref)
+  wandb_project: "present-eval" # W&B project for evaluation runs
+  wandb_entity: null # null = the training run's entity

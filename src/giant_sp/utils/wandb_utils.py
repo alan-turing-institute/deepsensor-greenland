@@ -92,6 +92,107 @@ def init_wandb_run(config: DictConfig, run_config: dict[str, Any] | None = None)
     return run
 
 
+def init_eval_run(
+    source_run_ref: str,
+    job_type: str,
+    project: str,
+    entity: str | None = None,
+    run_config: dict[str, Any] | None = None,
+) -> Run:
+    """Start a W&B run evaluating a trained model, linked to its training run.
+
+    The run is grouped under the training run's id, records the training
+    run's path and URL in its config, and links to it from its notes. See
+    `link_eval_run_to_source` for the link in the other direction.
+
+    Parameters
+    ----------
+    source_run_ref : str
+        Fully qualified W&B reference of the training run being evaluated,
+        e.g. ``"entity/project/run_id"``.
+    job_type : str
+        W&B job type of the evaluation, e.g. ``"inference"``.
+    project : str
+        W&B project to create the evaluation run in.
+    entity : str | None, optional
+        W&B entity to create the run under. Default is None, which uses the
+        training run's entity.
+    run_config : dict[str, Any] | None, optional
+        Extra entries merged into the logged run config (e.g. the script's
+        run-specific parameters). Default is None.
+
+    Returns
+    -------
+    wandb.sdk.wandb_run.Run
+        The newly started evaluation run.
+
+    """
+    source_run = wandb.Api().run(source_run_ref)
+    run = wandb.init(
+        entity=entity or source_run.entity,
+        project=project,
+        job_type=job_type,
+        group=source_run.id,
+        tags=[job_type],
+        notes=f"{job_type} of training run {source_run.url}",
+        config={
+            "source_run": source_run_ref,
+            "source_run_url": source_run.url,
+            **(run_config or {}),
+        },
+    )
+    logger.info("Initialized W&B %s run: %s", job_type, run.name)
+    logger.info("W&B URL: %s", run.url)
+    return run
+
+
+def link_eval_run_to_source(source_run_ref: str, eval_run: Run, job_type: str) -> None:
+    """Record an evaluation run's URL in its training run's summary.
+
+    Adds ``"<job_type>/<eval run id>"`` (e.g. ``"inference/abc123"``) to the
+    training run's summary, so the training run's page links to every
+    evaluation made from it. Each evaluation run gets its own key, so
+    concurrent evaluations don't overwrite each other's links.
+
+    Best-effort: if the write fails (e.g. no write access to the training
+    run's project), a warning is logged instead of raising, since the
+    evaluation run still links to the training run via `init_eval_run`.
+
+    Parameters
+    ----------
+    source_run_ref : str
+        Fully qualified W&B reference of the training run, e.g.
+        ``"entity/project/run_id"``. Writing the link needs write access to
+        its project.
+    eval_run : wandb.sdk.wandb_run.Run
+        The evaluation run, as returned by `init_eval_run`.
+    job_type : str
+        W&B job type of the evaluation, used as the summary key prefix.
+
+    """
+    # Best-effort: the evaluation run already links to the training run, so a
+    # failed write-back (typically no write access to the training project) must
+    # not fail an otherwise successful evaluation. Caught broadly because wandb's
+    # `WandbApiFailedError` lives in a private module.
+    try:
+        source_run = wandb.Api().run(source_run_ref)
+        source_run.summary.update({f"{job_type}/{eval_run.id}": eval_run.url})
+    except Exception:
+        logger.warning(
+            "Could not link %s run %s from training run %s (no write access?); "
+            "the %s run still links to the training run.",
+            job_type,
+            eval_run.id,
+            source_run_ref,
+            job_type,
+            exc_info=True,
+        )
+        return
+    logger.info(
+        "Linked %s run %s from training run %s", job_type, eval_run.id, source_run_ref
+    )
+
+
 def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
     """Download a single file logged to a Weights & Biases run.
 
