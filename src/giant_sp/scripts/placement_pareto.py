@@ -1,5 +1,6 @@
 """Main script for Pareto multi-objective experiments using acquisition and cost functions."""
 
+import logging
 import os
 
 import deepsensor.active_learning.acquisition_fns as ds_acq
@@ -20,6 +21,8 @@ from scipy import ndimage
 
 import giant_sp.utils.acquisition as gs_acq
 import giant_sp.utils.plots as myplt
+
+logger = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371.0
 
@@ -393,7 +396,9 @@ def main(config: DictConfig) -> None:
     np.save(f"{paretodir}/mask_{run_id}_{acqfn_name}_{cost}.npy", mask)
     np.save(f"{paretodir}/rank_{run_id}_{acqfn_name}_{cost}.npy", rank)
 
-    print(f"Found {mask.sum()} pareto optimal solutions with {rank.max()} ranks")
+    logger.info(
+        "Found %d pareto optimal solutions with %d ranks", mask.sum(), rank.max()
+    )
 
     # Combined scatter + spatial plot of the Pareto front
     existing_df = load_existing_stations(station_file, coords_ref)
