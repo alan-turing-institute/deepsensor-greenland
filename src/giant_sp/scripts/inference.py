@@ -167,6 +167,8 @@ def main(config: DictConfig) -> None:
             W&B project for the inference run.
         wandb_entity : str | None
             W&B entity for the inference run; None uses the training run's.
+        wandb_name : str | None
+            Display name of the inference run; None lets W&B generate one.
 
     Returns
     -------
@@ -256,6 +258,7 @@ def main(config: DictConfig) -> None:
             job_type="inference",
             project=inference_config.wandb_project,
             entity=inference_config.wandb_entity,
+            name=inference_config.wandb_name,
             run_config={
                 "inference": to_plain(inference_config),
                 "data": to_plain(config["data"]),

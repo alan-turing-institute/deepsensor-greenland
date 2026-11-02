@@ -101,8 +101,10 @@ Evaluation runs go in their own W&B project, linked to the training run both way
 `init_eval_run` starts one grouped under the training run's id (training run path/URL in its
 config and notes), and `link_eval_run_to_source` writes `<job_type>/<eval run id>` → its URL into
 the training run's summary (best-effort: without write access to the training project it logs a
-warning instead of failing the evaluation). `inference.py` uses
-both, behind `inference.log_wandb`.
+warning instead of failing the evaluation). `inference.py` and `placement_eval.py` use
+both, behind `inference.log_wandb` / `placement_eval.log_wandb` (job types `inference` /
+`placement_eval`; by default in the `turing-giant` entity's `present-eval` / `placement-eval`
+projects respectively).
 `MODEL_CONFIG_FILE`/`DATA_PROCESSOR_CONFIG_FILE` name the files `Trainer` writes to each run and
 the loaders read back — use these constants rather than the literal filenames. Training-loop-specific
 W&B code (resume, `wandb.watch`, checkpoint saves, metric/map logging) stays in `Trainer`.
@@ -123,8 +125,10 @@ W&B code (resume, `wandb.watch`, checkpoint saves, metric/map logging) stays in 
   summary plot per acquisition function.
 - **`placement_eval.py`**: loads a trained model from a W&B run plus a `placement.py` output CSV
   (`newplace_file`), then adds the proposed placements one at a time to the existing stations as
-  context, predicting over the full grid at each step and recording RMSE/MAE/mean std/NLL, saving
-  the predictions (NetCDF), metric curves (CSV) and a plot of them.
+  context, predicting over the full grid at each step and recording RMSE/MAE/mean std
+  (`compute_grid_metrics`)/NLL, saving the predictions (NetCDF), metric curves (CSV) and a plot of
+  them and, if `placement_eval.log_wandb`, logging the curves (against `n_added`, with the
+  existing-network values under `baseline/`) to a linked W&B evaluation run.
 
 These scripts all follow the same shape: parse config/CLI args → build the source-specific data
 loader → sample dates (`"seasonal"`, a Gaussian-weighted-by-day-of-year subsample, or

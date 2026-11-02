@@ -15,3 +15,7 @@ placement_eval:
   temporal_subsampling_method: "seasonal"
   temporal_subsampling_every: 50
   output_dir: "outputs"
+  log_wandb: true # Log this evaluation to W&B, linked to the training run (run_ref)
+  wandb_project: "placement-eval"
+  wandb_entity: "turing-giant" # null = the training run's entity
+  wandb_name: null # Run name (null = auto-generated)

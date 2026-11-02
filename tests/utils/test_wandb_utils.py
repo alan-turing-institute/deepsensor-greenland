@@ -163,6 +163,20 @@ class TestInitEvalRun:
 
         assert fake_wandb_init[0]["entity"] == "me"
 
+    def test_run_name_defaults_to_wandb_generated(
+        self, fake_wandb_init, fake_source_run
+    ):
+        wu.init_eval_run(SOURCE_RUN_REF, job_type="inference", project="eval-proj")
+        wu.init_eval_run(
+            SOURCE_RUN_REF,
+            job_type="placement_eval",
+            project="eval-proj",
+            name="OracleRMSE_seasonal_e50",
+        )
+
+        assert fake_wandb_init[0]["name"] is None
+        assert fake_wandb_init[1]["name"] == "OracleRMSE_seasonal_e50"
+
 
 class TestLinkEvalRunToSource:
     def test_writes_eval_run_url_to_training_run_summary(self, fake_source_run):

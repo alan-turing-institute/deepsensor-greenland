@@ -98,6 +98,7 @@ def init_eval_run(
     project: str,
     entity: str | None = None,
     run_config: dict[str, Any] | None = None,
+    name: str | None = None,
 ) -> Run:
     """Start a W&B run evaluating a trained model, linked to its training run.
 
@@ -120,6 +121,9 @@ def init_eval_run(
     run_config : dict[str, Any] | None, optional
         Extra entries merged into the logged run config (e.g. the script's
         run-specific parameters). Default is None.
+    name : str | None, optional
+        Display name of the run, e.g. to tell apart several evaluations of
+        the same training run. Default is None (a W&B-generated name).
 
     Returns
     -------
@@ -131,6 +135,7 @@ def init_eval_run(
     run = wandb.init(
         entity=entity or source_run.entity,
         project=project,
+        name=name,
         job_type=job_type,
         group=source_run.id,
         tags=[job_type],
