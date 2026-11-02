@@ -1,7 +1,9 @@
 import numpy as np
 import pytest
+import xarray as xr
 
 from giant_sp.utils.metrics import (
+    compute_grid_metrics,
     compute_pit_bernoulli_gamma,
     compute_pit_zigamma_mixture,
 )
@@ -104,3 +106,33 @@ class TestComputePitZigammaMixture:
         )
         single_pit = compute_pit_bernoulli_gamma(true, p_zero, k, scale, seed=42)
         np.testing.assert_array_almost_equal(mixture_pit, single_pit)
+
+
+def _grid(values):
+    """Wrap a (time, cell) array as a DataArray."""
+    return xr.DataArray(np.array(values, dtype=float), dims=("time", "cell"))
+
+
+class TestComputeGridMetrics:
+    def test_hand_computed_values(self):
+        truth = _grid([[0.0, 0.0], [0.0, 0.0]])
+        mean = _grid([[1.0, 3.0], [1.0, 1.0]])
+        std = _grid([[0.5, 1.5], [0.5, 1.5]])
+
+        metrics = compute_grid_metrics(mean, std, truth)
+
+        # Per-cell RMSE over time: cell 0 -> 1, cell 1 -> sqrt((9 + 1) / 2).
+        assert metrics["rmse"] == pytest.approx((1.0 + np.sqrt(5.0)) / 2)
+        assert metrics["mae"] == pytest.approx(1.5)
+        assert metrics["avgstd"] == pytest.approx(1.0)
+
+    def test_skips_points_without_truth(self):
+        # A cell outside the land mask has no truth; its (large) std and error
+        # must not count.
+        truth = _grid([[0.0, np.nan], [0.0, np.nan]])
+        mean = _grid([[2.0, 100.0], [2.0, 100.0]])
+        std = _grid([[1.0, 100.0], [1.0, 100.0]])
+
+        metrics = compute_grid_metrics(mean, std, truth)
+
+        assert metrics == pytest.approx({"rmse": 2.0, "mae": 2.0, "avgstd": 1.0})

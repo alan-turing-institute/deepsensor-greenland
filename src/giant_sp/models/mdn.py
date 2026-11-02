@@ -413,7 +413,7 @@ class MDNZIGammaConvNP(ConvNP):
         # `mixture_components` is giant_sp/`install_mdn_zigamma_likelihood`-specific
         # config, not a `neuralprocesses.construct_convgnp` argument -- pop it before
         # delegating, then restore it into `self.config` so it round-trips through
-        # `model_config.json` for later reloads (see `placement.py::load_wandb_model`).
+        # `model_config.json` for later reloads (see `utils/wandb_utils.py::load_wandb_model`).
         mixture_components = kwargs.pop("mixture_components", None)
         super().__init__(data_processor, task_loader, *args, **kwargs)
         if mixture_components is not None:

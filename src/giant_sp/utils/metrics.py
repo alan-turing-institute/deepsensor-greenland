@@ -2,6 +2,7 @@
 
 import numpy as np
 import scipy as sp
+import xarray as xr
 from numpy.typing import NDArray
 
 
@@ -119,3 +120,37 @@ def compute_pit_zigamma_mixture(
     )
     pit[~is_zero] = p_zero[~is_zero] + (1 - p_zero[~is_zero]) * slab_cdf
     return pit
+
+
+def compute_grid_metrics(
+    mean: xr.DataArray, std: xr.DataArray, truth: xr.DataArray
+) -> dict[str, float]:
+    """Summary skill metrics of gridded predictions against the gridded truth.
+
+    Uses the same definitions as ``placement_eval.py``, so the two scripts'
+    numbers are comparable. NaNs (e.g. grid cells outside the land mask) are
+    skipped.
+
+    Parameters
+    ----------
+    mean : xr.DataArray
+        Predicted mean, with a ``time`` dimension plus spatial dimensions.
+    std : xr.DataArray
+        Predicted standard deviation, same dimensions as `mean`.
+    truth : xr.DataArray
+        Ground truth, aligned with `mean` (same coordinates).
+
+    Returns
+    -------
+    dict[str, float]
+        ``"rmse"``: per-grid-cell RMSE over time, averaged over space;
+        ``"mae"``: mean absolute error over all dates and grid cells;
+        ``"avgstd"``: mean predictive std over points where `truth` is defined.
+
+    """
+    err = mean - truth
+    return {
+        "rmse": float(np.sqrt((err**2).mean(dim="time")).mean()),
+        "mae": float(np.abs(err).mean()),
+        "avgstd": float(std.where(truth.notnull()).mean()),
+    }

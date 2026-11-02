@@ -1,7 +1,5 @@
 """Main script for placement experiments using a trained ConvNP model."""
 
-import glob
-import json
 import logging
 import os
 
@@ -14,12 +12,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
-import wandb
 import xarray as xr
 from deepsensor.active_learning.algorithms import GreedyAlgorithm
-from deepsensor.data.loader import TaskLoader
 from deepsensor.data.processor import DataProcessor
-from deepsensor.model.convnp import ConvNP
 from deepsensor.train.train import set_gpu_default_device
 from omegaconf import DictConfig, OmegaConf
 
@@ -27,7 +22,6 @@ import giant_sp.utils.data as du
 import giant_sp.utils.plots as myplt
 from giant_sp.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDataLoader
 from giant_sp.data.dataloader import BaseDataLoader
-from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
 from giant_sp.utils.acquisition import (
     ExpectedEpistemicReduction,
     ExpectedMagnitudeVarianceReduction,
@@ -41,93 +35,14 @@ from giant_sp.utils.acquisition import (
     OracleOccurrenceEntropyReduction,
 )
 from giant_sp.utils.data import context_sampling_with_delta, sample_dates_by_year_chunks
-from giant_sp.utils.model import get_available_device
+from giant_sp.utils.wandb_utils import (
+    DATA_PROCESSOR_CONFIG_FILE,
+    MODEL_CONFIG_FILE,
+    fetch_run_files,
+    load_wandb_model,
+)
 
 logger = logging.getLogger(__name__)
-
-
-def download_wandb_file(run_ref: str, files_path: str, file: str) -> None:
-    """Download a single file logged to a Weights & Biases run.
-
-    Parameters
-    ----------
-    run_ref : str
-        Weights & Biases run reference, e.g. ``"entity/project/run_id"``.
-    files_path : str
-        Local directory to download the file into (passed as ``root`` to
-        the W&B download call).
-    file : str
-        Name of the file to download, relative to the run's ``files/``
-        directory.
-
-    Returns
-    -------
-    None
-        The file is downloaded to disk as a side effect; nothing is
-        returned.
-
-    """
-    api = wandb.Api()
-    therun = api.run(run_ref)
-
-    therun.file(os.path.join("files", file)).download(root=files_path, exist_ok=True)
-
-
-def load_wandb_model(
-    data_processor: DataProcessor,
-    task_loader: TaskLoader,
-    config_path: str,
-    weights_path: str,
-) -> ConvNP:
-    """Reconstruct a trained ConvNP model from a Weights & Biases run.
-
-    Builds a `ConvNP` model using the architecture recorded in the run's
-    model config, then loads its trained weights onto the CUDA device if
-    one is available, otherwise the CPU.
-
-    Parameters
-    ----------
-    data_processor : DataProcessor
-        Fitted DeepSensor data processor used to construct the model.
-    task_loader : TaskLoader
-        Task loader describing the model's context/target sets.
-    config_path : str
-        Path to the run's ``model_config.json`` file.
-    weights_path : str
-        Path to the ``.pt`` file containing the trained model weights.
-
-    Returns
-    -------
-    ConvNP
-        The reconstructed model with weights loaded from `weights_path`.
-
-    """
-    with open(config_path) as f:
-        config = json.load(f)
-
-    # Build model from config
-    model_args = {
-        "unet_channels": config["unet_channels"],
-        "unet_kernels": config["unet_kernels"],
-        "likelihood": config["likelihood"],
-    }
-
-    if config["likelihood"] == "mdn-zigamma":
-        model_args["mixture_components"] = config["mixture_components"]
-        install_mdn_zigamma_likelihood(config["mixture_components"])
-    # MDNZIGammaConvNP is used for "bernoulli-gamma" too (not just "mdn-zigamma"): its
-    # _set_num_mixture_components falls back to the base ConvNP behaviour for any other
-    # likelihood, so this is a no-op for "bernoulli-gamma" beyond additionally exposing
-    # p_zero/occurrence_entropy (both acquisition functions need), which share the same
-    # SpikesSlab outer mixture as "mdn-zigamma".
-    model = MDNZIGammaConvNP(data_processor, task_loader, **model_args)
-
-    # Load model weights
-    model.model.load_state_dict(
-        torch.load(weights_path, map_location=get_available_device())
-    )
-
-    return model
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="placement")
@@ -288,18 +203,9 @@ def main(config: DictConfig) -> None:
         )
 
     # Locate data
-    target_files = ["model_config.json", "data_processor_config.json", weights_fn]
-    try:
-        files_path = sorted(glob.glob(f"wandb/run*{run_id}/files"), reverse=True)[0]
-        if not all(os.path.exists(os.path.join(files_path, f)) for f in target_files):
-            raise IndexError
-    except IndexError:
-        root_path = os.path.join("wandb", f"run-{run_id}")
-        os.makedirs(root_path, exist_ok=True)
-        for f in target_files:
-            download_wandb_file(run_ref, root_path, f)
-        files_path = os.path.join(root_path, "files")
-    logger.info("Loading run data from: %s", files_path)
+    files_path = fetch_run_files(
+        run_ref, [MODEL_CONFIG_FILE, DATA_PROCESSOR_CONFIG_FILE, weights_fn]
+    )
 
     data_processor = DataProcessor(files_path)
     raw_ds, data_processor, task_loader = data_loader.get_dataproc_taskload(
@@ -307,7 +213,7 @@ def main(config: DictConfig) -> None:
     )
     lsm = data_loader.load_aux_ds(resolution="bedmachine")
 
-    config_file = os.path.join(files_path, "model_config.json")
+    config_file = os.path.join(files_path, MODEL_CONFIG_FILE)
     weights_file = os.path.join(files_path, weights_fn)
 
     model = load_wandb_model(data_processor, task_loader, config_file, weights_file)

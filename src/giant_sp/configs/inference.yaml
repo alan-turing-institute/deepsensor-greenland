@@ -16,4 +16,8 @@ inference:
   every: 200
   seed: 321
   plot: false
+  log_wandb: true # Log this inference to W&B, linked to the training run (run_ref)
+  wandb_project: "present-eval"
+  wandb_entity: "turing-giant" # null = the training run's entity
+  wandb_name: null # Run name (null = auto-generated)
   output_dir: "outputs"

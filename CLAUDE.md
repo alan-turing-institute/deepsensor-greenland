@@ -60,7 +60,8 @@ a loaded dataset into a DeepSensor `DataProcessor` (normalization) and `TaskLoad
 sampling) — this triple (`dataset, data_processor, task_loader`) is what every downstream script
 consumes. Which subclass to instantiate is selected at runtime from `config["data"]["source"]`
 (`"carra2"`, `"hirham5"`, `"hirham5zarr"`) — this three-way branch is duplicated verbatim across
-`scripts/interpolation.py`, `scripts/inference.py`, and `scripts/placement.py`.
+`scripts/interpolation.py`, `scripts/inference.py`, `scripts/placement.py`, and
+`scripts/placement_eval.py`.
 
 ### Model (`models/model.py`)
 
@@ -89,23 +90,53 @@ construction (`construct_circ_and_linear_time_ds`), and geospatial matching (`fi
 a `# source:` comment) are ported from
 [eschlager/MeltEmulation](https://github.com/eschlager/MeltEmulation).
 
+### W&B helpers (`utils/wandb_utils.py`)
+
+W&B code shared between training and the scripts that load a trained model:
+`wandb_enabled`/`init_wandb_run` (used by `scripts/interpolation.py` and `Trainer._init_wandb`)
+start a run from `config["logging"]["wandb"]`; `fetch_run_files` (local `wandb/run*<id>/files`
+cache, else download) and `load_wandb_model` (rebuild `ConvNP`/`MDNZIGammaConvNP` from the saved
+config + weights) are used by `inference.py`, `placement.py` and `placement_eval.py`.
+Evaluation runs go in their own W&B project, linked to the training run both ways:
+`init_eval_run` starts one grouped under the training run's id (training run path/URL in its
+config and notes), and `link_eval_run_to_source` writes `<job_type>/<eval run id>` → its URL into
+the training run's summary (best-effort: without write access to the training project it logs a
+warning instead of failing the evaluation). `inference.py` and `placement_eval.py` use
+both, behind `inference.log_wandb` / `placement_eval.log_wandb` (job types `inference` /
+`placement_eval`; by default in the `turing-giant` entity's `present-eval` / `placement-eval`
+projects respectively).
+`MODEL_CONFIG_FILE`/`DATA_PROCESSOR_CONFIG_FILE` name the files `Trainer` writes to each run and
+the loaders read back — use these constants rather than the literal filenames. Training-loop-specific
+W&B code (resume, `wandb.watch`, checkpoint saves, metric/map logging) stays in `Trainer`.
+
 ### Scripts (`scripts/`) — the runnable entry points
 
 - **`interpolation.py`**: trains a spatial-interpolation model end-to-end (build data
   loader → sample train/val dates → build task streams → build model → `Trainer.train()`).
-- **`inference.py`**: loads a trained model from a W&B run (`download_wandb_file` /
-  `load_wandb_model`) and runs/export predictions (`export_zarr`).
+- **`inference.py`**: loads a trained model from a W&B run (`fetch_run_files` /
+  `load_wandb_model` from `utils/wandb_utils.py`) and runs/export predictions (`export_zarr`),
+  computing RMSE/MAE/mean std against the gridded truth (`utils/metrics.py`'s
+  `compute_grid_metrics`, same definitions as `placement_eval.py`) and, if
+  `inference.log_wandb`, logging them (plus plots) to a linked W&B evaluation run in
+  `inference.wandb_project`.
 - **`placement.py`**: loads a trained model from a W&B run, then runs DeepSensor's
   `GreedyAlgorithm` with a chosen acquisition function (`ContextDist`, `Stddev`,
   `MeanMarginalEntropy`, `OracleRMSE`, ...) to propose new sensor locations, saving results and a
   summary plot per acquisition function.
+- **`placement_eval.py`**: loads a trained model from a W&B run plus a `placement.py` output CSV
+  (`newplace_file`), then adds the proposed placements one at a time to the existing stations as
+  context, predicting over the full grid at each step and recording RMSE/MAE/mean std
+  (`compute_grid_metrics`)/NLL, saving the predictions (NetCDF), metric curves (CSV) and a plot of
+  them and, if `placement_eval.log_wandb`, logging the curves (against `n_added`, with the
+  existing-network values under `baseline/`) to a linked W&B evaluation run.
 
-All three scripts follow the same shape: parse config/CLI args → build the source-specific data
+These scripts all follow the same shape: parse config/CLI args → build the source-specific data
 loader → sample dates (`"seasonal"`, a Gaussian-weighted-by-day-of-year subsample, or
-`"regular"`, a fixed-stride `pd.date_range`) → build station locations (snapping to nearest grid
-cell via `find_xy_for_points`, filtered by land-sea mask for `hirham5zarr` or by domain bounding
-box otherwise) → hand off to model/training/placement logic. When editing one of these code paths,
-check whether the same fix is needed in the other two scripts.
+`"regular"`, a fixed-stride `pd.date_range`; `inference.py` only supports the latter) → build
+station locations (snapping to nearest grid cell via `find_xy_for_points`, filtered by land-sea
+mask for `hirham5zarr` or by domain bounding box otherwise) → hand off to
+model/training/placement logic. When editing one of these code paths, check whether the same fix
+is needed in the other scripts.
 
 `scripts/preprocessing/hirham5_create_basefile.py` is a standalone preprocessing script (not part
 of the train/infer/place pipeline above) that builds the HIRHAM5 base NetCDF file.
@@ -171,7 +202,7 @@ predictive distribution used to evaluate precipitation-like targets.
 ### Configuration
 
 Every script is a Hydra entry point composing its config from `src/giant_sp/configs/`:
-`base.yaml`/`inference.yaml`/`placement.yaml` are the per-script entry configs (each defaulting
+`base.yaml`/`inference.yaml`/`placement.yaml`/`placement_eval.yaml` are the per-script entry configs (each defaulting
 to one `experiment`). `configs/experiment/{carra2,hirham5}{,_debug}.yaml` each hold their own
 `data`/`dataloader` section plus the `model`/`training`/`logging`/`visualization` values that
 differ for that source; scalars identical across every source (optimizer/scheduler settings,
@@ -185,9 +216,9 @@ fields that differ (paths, date ranges, epoch counts, ...). Because `hirham5zarr
 from `hirham5zarr` rather than from `hirham5_debug`, its debug-scale overrides (dates,
 `model`/`training` sizing, W&B log frequency) are a near-verbatim copy of `hirham5_debug.yaml`'s
 rather than inherited from it — keep the two in sync by hand if debug scale changes.
-`inference.yaml`/`placement.yaml` additionally carry an
-`inference:`/`placement:` section for that script's run-specific parameters (`run_ref`, `acq_fn`,
-`n_new`, ...). Config sections map directly onto the pipeline stages above: `data` (source +
+`inference.yaml`/`placement.yaml`/`placement_eval.yaml` additionally carry an
+`inference:`/`placement:`/`placement_eval:` section for that script's run-specific parameters
+(`run_ref`, `acq_fn`, `n_new`, `newplace_file`, ...). Config sections map directly onto the pipeline stages above: `data` (source +
 paths/dates), `dataloader` (sampling strategy/frequency), `model` (ConvNP architecture), `training`
 (optimizer/scheduler/checkpointing), `logging` (W&B), `visualization`.
 

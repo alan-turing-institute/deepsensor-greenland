@@ -37,13 +37,18 @@ from wandb.sdk.wandb_run import Run
 import giant_sp.utils.plots as myplt
 import giant_sp.utils.training as tu
 from giant_sp.models.model import DeepSensorModel
-from giant_sp.utils.config import to_plain
 from giant_sp.utils.data import NumpyFloatValuesEncoder
 from giant_sp.utils.model import (
     add_uncertainty_decomposition,
     compute_pred_ds,
     get_available_device,
     get_pred_DAs_taskstream,
+)
+from giant_sp.utils.wandb_utils import (
+    DATA_PROCESSOR_CONFIG_FILE,
+    MODEL_CONFIG_FILE,
+    init_wandb_run,
+    wandb_enabled,
 )
 
 logger = logging.getLogger(__name__)
@@ -162,7 +167,7 @@ class Trainer:
         self.best_stnval_loss = np.inf
 
         # Initialize wandb if enabled
-        self.use_wandb = config["logging"].get("wandb", {}).get("enabled", False)
+        self.use_wandb = wandb_enabled(config)
         self.wandb_run = wandb_run  # may be pre-initialized from the training script
 
         # Plotting settings
@@ -306,12 +311,15 @@ class Trainer:
         logger.info("W&B URL: %s", self.wandb_run.url)
 
     def _setup_existing_wandb_run(self) -> None:
-        """Configure a W&B run that was already initialized before construction.
+        """Configure an already-initialized W&B run for training.
 
-        Updates the pre-existing run's config with the model's parameter
-        count, optionally attaches `wandb.watch` to the model, creates
-        the local save directory, and saves the data-processor and model
-        configuration as JSON files locally and to W&B.
+        Used both for a run passed in at construction and for one just
+        started by :meth:`_init_wandb`. Updates the run's config with the
+        model's parameter count, optionally attaches `wandb.watch` to the
+        model, creates the local save directory, and saves the run,
+        data-processor and model configuration files locally and to W&B
+        (the latter two are what `~giant_sp.utils.wandb_utils.fetch_run_files`
+        later downloads to rebuild the model).
 
         Notes
         -----
@@ -344,18 +352,18 @@ class Trainer:
 
         logger.info("Saving data processor config")
         with open(
-            os.path.join(self.local_save_dir, "data_processor_config.json"), "w"
+            os.path.join(self.local_save_dir, DATA_PROCESSOR_CONFIG_FILE), "w"
         ) as f:
             json.dump(
                 self.model.model.data_processor.config, f, indent=4, sort_keys=False
             )
         wandb.save(
-            os.path.join(self.local_save_dir, "data_processor_config.json"),
+            os.path.join(self.local_save_dir, DATA_PROCESSOR_CONFIG_FILE),
             base_path=self.wandb_run.dir,
         )
 
         logger.info("Saving model config")
-        config_fpath = os.path.join(self.local_save_dir, "model_config.json")
+        config_fpath = os.path.join(self.local_save_dir, MODEL_CONFIG_FILE)
         with open(config_fpath, "w") as f:
             json.dump(
                 self.model.model.config,
@@ -364,19 +372,15 @@ class Trainer:
                 indent=4,
                 sort_keys=False,
             )
-        wandb.save(
-            os.path.join(self.local_save_dir, "model_config.json"),
-            base_path=self.wandb_run.dir,
-        )
+        wandb.save(config_fpath, base_path=self.wandb_run.dir)
 
     def _init_wandb(self) -> None:
         """Start a new W&B run and log initial configuration artifacts.
 
-        Creates a new run via `wandb.init` using the
-        ``config["logging"]["wandb"]`` settings, optionally attaches
-        `wandb.watch` to the model, creates the local save directory, and
-        saves the data-processor configuration as a JSON file locally and
-        to W&B.
+        Creates a new run via `~giant_sp.utils.wandb_utils.init_wandb_run`
+        using the ``config["logging"]["wandb"]`` settings, then sets it up
+        exactly as a pre-initialized run (see
+        :meth:`_setup_existing_wandb_run`).
 
         Notes
         -----
@@ -384,51 +388,8 @@ class Trainer:
         effect.
 
         """
-        assert self.model.model is not None, "model.model must be built before training"
-        wandb_config = self.config["logging"]["wandb"]
-
-        # Initialize wandb run
-        self.wandb_run = wandb.init(
-            project=wandb_config.get("project", "deepsensor-spatial-interpolation"),
-            entity=wandb_config.get("entity"),
-            name=wandb_config.get("name"),
-            tags=wandb_config.get("tags", []),
-            notes=wandb_config.get("notes", ""),
-            config={
-                "model": to_plain(self.config["model"]),
-                "training": to_plain(self.train_config),
-                "data": to_plain(self.config["data"]),
-                "model_parameters": self.model.count_parameters(),
-            },
-        )
-
-        # Watch model if enabled
-        if wandb_config.get("watch_model", True):
-            wandb.watch(
-                self.model.model.model,
-                log="all",
-                log_freq=wandb_config.get("watch_freq", 100),
-            )
-
-        self.local_save_dir = os.path.join(self.wandb_run.dir, "files")
-        os.makedirs(self.local_save_dir, exist_ok=True)
-        self._save_run_config()
-
-        logger.info("Initialized W&B run: %s", self.wandb_run.name)
-        logger.info("W&B URL: %s", self.wandb_run.url)
-
-        # Save norm params
-        logger.info("Saving data processor config")
-        with open(
-            os.path.join(self.local_save_dir, "data_processor_config.json"), "w"
-        ) as f:
-            json.dump(
-                self.model.model.data_processor.config, f, indent=4, sort_keys=False
-            )
-        wandb.save(
-            os.path.join(self.local_save_dir, "data_processor_config.json"),
-            base_path=self.wandb_run.dir,
-        )
+        self.wandb_run = init_wandb_run(self.config)
+        self._setup_existing_wandb_run()
 
     def train(
         self,
