@@ -178,7 +178,7 @@ if __name__ == "__main__":
 
     # %% -------------------- Create 10yr rolling averages --------------------
     outpath_roll = filepath.replace(".zarr", "_10yr.zarr")
-    vars_to_roll = ["tas", "rainfall", "snfall", "energyin"]
+    vars_to_roll = ["rainfall", "snfall", "energyin", "dswrad"]
 
     ds_sel = ds[vars_to_roll]
 

@@ -1,7 +1,7 @@
 defaults:
-  - experiment: hirham5zarr_debug
-  - override hydra/job_logging: giant_sp
-  - _self_
+- experiment: hirham5zarr_debug
+- override hydra/job_logging: giant_sp
+- _self_
 
 hydra:
   job:
@@ -19,3 +19,4 @@ inference:
   log_wandb: true # Log this inference to W&B, linked to the training run (run_ref)
   wandb_project: "present-eval" # W&B project for evaluation runs
   wandb_entity: null # null = the training run's entity
+  output_dir: "outputs"

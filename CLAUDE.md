@@ -231,6 +231,11 @@ YAML under `configs/experiment/` that lists the base experiment in its own `defa
 only the changed keys (same pattern as the `_debug`/`hirham5zarr` files), or point `--config-name`
 at an entirely separate top-level config (e.g. a gitignored `<name>.local.yaml` — see the README).
 
+`configs/sweep/` holds [W&B Sweep](https://docs.wandb.ai/models/sweeps/) configs (not part of the
+Hydra tree — consumed directly by the `wandb` CLI) for hyperparameter search over
+`interpolation.py`; their `parameters:` keys are dotted Hydra config keys applied as CLI overrides
+via the `${args_no_hyphens}` command macro — see `configs/sweep/example.yaml` and the README.
+
 ## Typing & docs conventions
 
 - Type hints use PEP 604 unions (`X | None`, not `Optional[X]`/`Union`).
