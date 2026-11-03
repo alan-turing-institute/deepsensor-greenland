@@ -18,11 +18,11 @@ import xarray as xr
 from dask.diagnostics import ProgressBar
 from omegaconf import DictConfig, OmegaConf
 
+from giant_sp.utils.data import ten_year_store_name
+
 logger = logging.getLogger(__name__)
 
 XarrayT = TypeVar("XarrayT", xr.Dataset, xr.DataArray)
-
-from giant_sp.utils.data import ten_year_store_name
 
 
 def flatten_spatial(obj: XarrayT, dropna: bool = True) -> XarrayT:
