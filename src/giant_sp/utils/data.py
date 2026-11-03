@@ -440,6 +440,30 @@ def normalize_lons(lon: ArrayLike) -> NDArray[np.floating]:
     return lon
 
 
+def ten_year_store_name(base_store: str) -> str:
+    """Return the 10-year rolling-average Zarr store name for a base store.
+
+    Parameters
+    ----------
+    base_store : str
+        Base Zarr store name or path, ending in ``.zarr``.
+
+    Returns
+    -------
+    str
+        ``base_store`` with its trailing ``.zarr`` replaced by ``_10yr.zarr``.
+
+    Raises
+    ------
+    ValueError
+        If ``base_store`` does not end in ``.zarr``.
+
+    """
+    if not base_store.endswith(".zarr"):
+        raise ValueError(f"Expected a .zarr store, got {base_store!r}")
+    return base_store.removesuffix(".zarr") + "_10yr.zarr"
+
+
 def load_greenland_shape(resolution: str = "10m") -> BaseGeometry:
     """Load the Greenland geometry from Natural Earth's countries dataset.
 
