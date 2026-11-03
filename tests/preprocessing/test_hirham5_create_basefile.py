@@ -128,9 +128,10 @@ def test_create_basefile_end_to_end(tmp_path, source, folder):
         }
     ).to_netcdf(aux_dir / "GRLmask.nc")
     xr.Dataset({"zones": grid["tas"]}).to_netcdf(aux_dir / "GRLzones.nc")
-    # start_year=2010 also loads the 10 years before it, for the rolling means
+    # start_year=2010 also loads the 10 years before it, for the (fixed 3652-day)
+    # rolling means, so write full daily years for every rolling window to be full
     for year in range(2000, 2012):
-        make_daily(pd.date_range(f"{year}-01-01", periods=2)).to_netcdf(
+        make_daily(pd.date_range(f"{year}-01-01", f"{year}-12-31")).to_netcdf(
             daily_dir / f"Daily2D_GRL_{year}.nc"
         )
 
@@ -146,7 +147,6 @@ def test_create_basefile_end_to_end(tmp_path, source, folder):
                 "preprocessing.start_year=2010",
                 "preprocessing.end_year=2011",
                 "preprocessing.drop_vars=[tsl]",
-                "preprocessing.rolling.window=3",
                 "preprocessing.rolling.start_date=2010-01-01",
             ],
         )
@@ -155,7 +155,8 @@ def test_create_basefile_end_to_end(tmp_path, source, folder):
 
     out_path = out_dir / folder / "v_03"
     base = xr.open_zarr(out_path / "base_dataset_2010_2011.zarr")
-    assert base.sizes == {"time": 24, "z": 5}
+    n_days = len(pd.date_range("2000-01-01", "2011-12-31"))
+    assert base.sizes == {"time": n_days, "z": 5}
     assert base["time"].values[0] == np.datetime64("2000-01-01")
     assert "energyin" in base
     assert "tsl" not in base
@@ -163,7 +164,7 @@ def test_create_basefile_end_to_end(tmp_path, source, folder):
     assert set(rolled.data_vars) == {
         f"{v}_10yr-avg" for v in ["rainfall", "snfall", "energyin", "dswrad"]
     }
-    assert rolled.sizes["time"] == 4
+    assert rolled.sizes["time"] == len(pd.date_range("2010-01-01", "2011-12-31"))
     assert not rolled["rainfall_10yr-avg"].isnull().all(dim="z").any()
     assert xr.open_zarr(out_path / "GRLmask.zarr").sizes["z"] == 5
     assert xr.open_zarr(out_path / "GRLzones.zarr").sizes["z"] == 5
