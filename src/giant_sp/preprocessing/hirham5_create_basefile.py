@@ -8,16 +8,13 @@ Created on 05.03.2024, Edited 16.07.2026
 
 import logging
 import os
-import sys
 
 import dask
 import numpy as np
 import xarray as xr
 from dask.diagnostics import ProgressBar
 
-script_dir = os.path.abspath(os.path.dirname(__file__))
-project_dir = os.path.sep.join([script_dir, "..", ".."])
-sys.path.append(os.path.sep.join([project_dir, "src"]))
+from giant_sp.utils.data import ten_year_store_name
 
 
 def setup_logging() -> None:
@@ -177,7 +174,7 @@ if __name__ == "__main__":
         ds.to_zarr(filepath, mode="w", consolidated=True)
 
     # %% -------------------- Create 10yr rolling averages --------------------
-    outpath_roll = filepath.replace(".zarr", "_10yr.zarr")
+    outpath_roll = ten_year_store_name(filepath)
     vars_to_roll = ["rainfall", "snfall", "energyin", "dswrad"]
 
     ds_sel = ds[vars_to_roll]
