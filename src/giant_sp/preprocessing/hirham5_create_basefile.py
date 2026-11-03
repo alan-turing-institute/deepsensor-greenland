@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 XarrayT = TypeVar("XarrayT", xr.Dataset, xr.DataArray)
 
+from giant_sp.utils.data import ten_year_store_name
+
 
 def flatten_spatial(obj: XarrayT, dropna: bool = True) -> XarrayT:
     """Stack the ``x``/``y`` dimensions into a single ``z`` dimension.
@@ -281,7 +283,7 @@ def create_basefile(params: DictConfig) -> None:
         ds.to_zarr(filepath, mode="w", consolidated=True)
 
     # %% -------------------- Create 10yr rolling averages --------------------
-    outpath_roll = filepath.replace(".zarr", "_10yr.zarr")
+    outpath_roll = ten_year_store_name(filepath)
     logger.info("Create 10yrs rolling mean for %s...", list(params.rolling.vars))
     means_10yr = rolling_means(
         ds,

@@ -16,6 +16,7 @@ from giant_sp.utils.data import (
     sample_dates_by_year_chunks,
     sample_land_locations,
     sample_station_locations,
+    ten_year_store_name,
 )
 
 
@@ -202,6 +203,18 @@ class TestNormalizeLons:
         lons = np.array([-170, 0, 170])
         result = normalize_lons(lons)
         np.testing.assert_array_equal(result, lons)
+
+
+class TestTenYearStoreName:
+    def test_appends_10yr_before_extension(self):
+        assert ten_year_store_name("base_dataset.zarr") == "base_dataset_10yr.zarr"
+
+    def test_only_replaces_trailing_extension(self):
+        assert ten_year_store_name("v2.zarr/base.zarr") == "v2.zarr/base_10yr.zarr"
+
+    def test_rejects_non_zarr_store(self):
+        with pytest.raises(ValueError, match=r"Expected a \.zarr store"):
+            ten_year_store_name("base_dataset.nc")
 
 
 class TestPointsInPolygons:

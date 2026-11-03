@@ -19,7 +19,10 @@ from omegaconf import DictConfig
 
 from giant_sp.utils.config import to_plain
 from giant_sp.utils.constants import region_extents
-from giant_sp.utils.data import construct_circ_and_linear_time_ds
+from giant_sp.utils.data import (
+    construct_circ_and_linear_time_ds,
+    ten_year_store_name,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1010,7 +1013,8 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         # open the 10-year average dataset and merge it with the base dataset
         if len(self.long_vars) > 0:
             ds_long = xr.open_zarr(
-                os.path.join(self.source, "base_dataset_10yr.zarr"), chunks="auto"
+                os.path.join(self.source, ten_year_store_name(self.data_pattern)),
+                chunks="auto",
             )
             ds_long = ds_long.set_index(z=["y", "x"]).unstack("z")
             ds_long = ds_long.drop_vars(["lat", "lon"])
