@@ -283,10 +283,11 @@ def create_basefile(params: DictConfig) -> None:
     # %% -------------------- Create 10yr rolling averages --------------------
     outpath_roll = filepath.replace(".zarr", "_10yr.zarr")
     logger.info("Create 10yrs rolling mean for %s...", list(params.rolling.vars))
+    rolling_window = 3652  # days (~10 years)
     means_10yr = rolling_means(
         ds,
         list(params.rolling.vars),
-        params.rolling.window,
+        rolling_window,
         params.rolling.start_date,
         save_chunks,
     )

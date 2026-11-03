@@ -25,5 +25,4 @@ preprocessing:
     ahfs: [ -140, null ]
   rolling:
     vars: [ "rainfall", "snfall", "energyin", "dswrad" ]
-    window: 3652 # days (~10 years)
     start_date: "1990-01-01" # first date with a full window
