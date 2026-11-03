@@ -18,6 +18,8 @@ import xarray as xr
 from dask.diagnostics import ProgressBar
 from omegaconf import DictConfig, OmegaConf
 
+from giant_sp.utils.data import ten_year_store_name
+
 logger = logging.getLogger(__name__)
 
 XarrayT = TypeVar("XarrayT", xr.Dataset, xr.DataArray)
@@ -281,7 +283,7 @@ def create_basefile(params: DictConfig) -> None:
         ds.to_zarr(filepath, mode="w", consolidated=True)
 
     # %% -------------------- Create 10yr rolling averages --------------------
-    outpath_roll = filepath.replace(".zarr", "_10yr.zarr")
+    outpath_roll = ten_year_store_name(filepath)
     logger.info("Create 10yrs rolling mean for %s...", list(params.rolling.vars))
     rolling_window = 3652  # days (~10 years)
     means_10yr = rolling_means(
