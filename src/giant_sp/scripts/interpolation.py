@@ -114,6 +114,8 @@ def main(config: DictConfig) -> None:
 
     # Define data loader parameters
     train_sampling = config["dataloader"]["train_sampling"]
+    train_sampling_min = config["dataloader"]["train_sampling_min"]
+    train_sampling_max = config["dataloader"]["train_sampling_max"]
     context_delta_t = config["dataloader"]["context_delta_t"]
     target_sampling = config["dataloader"]["target_sampling"]
     frequency = config["dataloader"]["frequency"]
@@ -237,14 +239,14 @@ def main(config: DictConfig) -> None:
             method="nearest",
         ).values
 
-        stn_locs_df_subset = gdf_points[gdf_points["mask_val"] == 1]
-        if stn_locs_df_subset.empty:
+        stn_locs_df = gdf_points[gdf_points["mask_val"] == 1]
+        if stn_locs_df.empty:
             raise ValueError(
                 "No station locations remain after applying the land mask/domain filter for hirham5zarr."
             )
 
         raw_stn_locs = pd.DataFrame(
-            {"lat": stn_locs_df_subset["y"], "lon": stn_locs_df_subset["x"]}
+            {"lat": stn_locs_df["y"], "lon": stn_locs_df["x"]}
         )
         stn_locs = data_processor.map_coord_array(
             raw_stn_locs.to_numpy().transpose()
@@ -296,8 +298,8 @@ def main(config: DictConfig) -> None:
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
-            min_obs=100,
-            max_obs=400,
+            min_obs=train_sampling_min,
+            max_obs=train_sampling_max,
             frequency=frequency,
             sampling=temporal_sampling_every,
             delta_factor_context=delta_factor_context,
@@ -311,8 +313,8 @@ def main(config: DictConfig) -> None:
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
-            min_obs=100,
-            max_obs=400,
+            min_obs=train_sampling_min,
+            max_obs=train_sampling_max,
             frequency=frequency,
             sampling=temporal_sampling_every,
             delta_factor_context=delta_factor_context,
@@ -327,8 +329,8 @@ def main(config: DictConfig) -> None:
         task_stream_tr = tu.TaskStreamDataset(
             task_loader,
             train_dates,
-            min_obs=100,
-            max_obs=400,
+            min_obs=train_sampling_min,
+            max_obs=train_sampling_max,
             frequency=frequency,
             sampling=temporal_sampling_every,
             delta_factor_context=delta_factor_context,
