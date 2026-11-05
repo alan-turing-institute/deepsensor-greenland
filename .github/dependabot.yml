@@ -45,4 +45,3 @@ updates:
       runtime:
         dependency-type: "production"
         update-types: ["minor", "patch"]
-
