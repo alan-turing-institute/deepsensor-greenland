@@ -245,9 +245,7 @@ def main(config: DictConfig) -> None:
                 "No station locations remain after applying the land mask/domain filter for hirham5zarr."
             )
 
-        raw_stn_locs = pd.DataFrame(
-            {"lat": stn_locs_df["y"], "lon": stn_locs_df["x"]}
-        )
+        raw_stn_locs = pd.DataFrame({"lat": stn_locs_df["y"], "lon": stn_locs_df["x"]})
         stn_locs = data_processor.map_coord_array(
             raw_stn_locs.to_numpy().transpose()
         )  # normalise to x1/x2 using data_processor
