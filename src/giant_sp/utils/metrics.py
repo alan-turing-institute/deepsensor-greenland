@@ -110,12 +110,18 @@ def compute_pit_zigamma_mixture(
     is_zero = np.abs(true) < epsilon
     pit = np.empty_like(true, dtype=float)
     pit[is_zero] = rng.uniform(0, p_zero[is_zero])
-    slab_cdf = np.sum(
-        pi[:, ~is_zero]
-        * sp.stats.gamma.cdf(
-            true[~is_zero], a=k[:, ~is_zero], scale=scale[:, ~is_zero]
+    # Model outputs are float32, so `pi` can sum to slightly more than 1 (e.g.
+    # 1 + 1e-7); clip so the slab CDF (and hence the PIT) can't round above 1.
+    slab_cdf = np.clip(
+        np.sum(
+            pi[:, ~is_zero]
+            * sp.stats.gamma.cdf(
+                true[~is_zero], a=k[:, ~is_zero], scale=scale[:, ~is_zero]
+            ),
+            axis=0,
         ),
-        axis=0,
+        0.0,
+        1.0,
     )
     pit[~is_zero] = p_zero[~is_zero] + (1 - p_zero[~is_zero]) * slab_cdf
     return pit
