@@ -220,6 +220,7 @@ def create_basefile(params: DictConfig) -> None:
     """
     folder_mapping = {
         "erai": "HIRHAM5-ERAInterim",
+        "erai_albedo": "HIRHAM5-ERAInterim-Albedo",
         "cesm2": "HIRHAM5-CESM2",
         "ecearth3": "HIRHAM5-ECEARTH3",
     }
