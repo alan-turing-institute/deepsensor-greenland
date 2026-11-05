@@ -12,7 +12,7 @@ logging:
 preprocessing:
   interim_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/interim"
   aux_dir: "AuxFiles" # relative to interim_path; holds GRLmask.nc and GRLzones.nc
-  daily_dir: "erai" # relative to interim_path; holds Daily2D_GRL_<year>.nc, accepted values are: erai, cesm2, ecearth3
+  daily_dir: "erai" # relative to interim_path; holds Daily2D_GRL_<year>.nc, accepted values are: erai, erai_albedo, cesm2, ecearth3
   output_dir: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed"
   version: 2
   start_year: 1990
