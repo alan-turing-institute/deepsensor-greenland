@@ -266,6 +266,38 @@ def construct_circ_and_linear_time_ds(dates: ArrayLike, freq: str) -> xr.Dataset
     return ds
 
 
+SEASONAL_MU_DOY = 205  # 24th of July ~ peak of melt season
+SEASONAL_SIGMA_DOY = 60
+
+
+def seasonal_doy_weights(
+    mu: float = SEASONAL_MU_DOY, sigma: float = SEASONAL_SIGMA_DOY
+) -> NDArray[np.floating]:
+    """Gaussian day-of-year weights for seasonal date sub-sampling.
+
+    Parameters
+    ----------
+    mu : float, default=SEASONAL_MU_DOY
+        Day of year with the highest weight.
+    sigma : float, default=SEASONAL_SIGMA_DOY
+        Standard deviation of the Gaussian, in days.
+
+    Returns
+    -------
+    NDArray[np.floating]
+        366 weights summing to 1, indexed by ``dayofyear - 1``, as expected by
+        `sample_dates_by_year_chunks`.
+
+    Notes
+    -----
+    Source: https://github.com/eschlager/MeltEmulation/
+
+    """
+    doy = np.arange(1, 367)  # days 1 to 366
+    gauss_weights = np.exp(-0.5 * ((doy - mu) / sigma) ** 2)
+    return gauss_weights / gauss_weights.sum()
+
+
 def sample_dates_by_year_chunks(
     weights: NDArray[np.floating],
     start_date: str | datetime.date | pd.Timestamp,

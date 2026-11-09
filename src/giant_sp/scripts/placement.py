@@ -40,7 +40,11 @@ from giant_sp.utils.acquisition import (
     OracleMagnitudeVarianceReduction,
     OracleOccurrenceEntropyReduction,
 )
-from giant_sp.utils.data import context_sampling_with_delta, sample_dates_by_year_chunks
+from giant_sp.utils.data import (
+    context_sampling_with_delta,
+    sample_dates_by_year_chunks,
+    seasonal_doy_weights,
+)
 from giant_sp.utils.model import get_available_device
 
 logger = logging.getLogger(__name__)
@@ -258,13 +262,7 @@ def main(config: DictConfig) -> None:
     if temporal_sampling_method == "seasonal":
         # source: https://github.com/eschlager/MeltEmulation/tree/main
         # temporal sub-sampling of training data
-        doy = np.arange(1, 367)  # days 1 to 366
-        mu = 205  # 24th of July ~ peak of melt season
-        sigma = 60
-        # min_weight_doy = 0.0
-        gauss_weights = np.exp(-0.5 * ((doy - mu) / sigma) ** 2)
-        # weights = min_weight_doy + (1 - min_weight_doy) * gauss_weights
-        weights_doy = gauss_weights / gauss_weights.sum()
+        weights_doy = seasonal_doy_weights()
 
         n_samples_per_year = temporal_sampling_every
 
