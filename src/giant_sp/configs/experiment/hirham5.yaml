@@ -25,6 +25,8 @@ data:
 dataloader:
   lsm_mask: true
   train_sampling: "mixed_obs"
+  train_sampling_min: 100
+  train_sampling_max: 340
   context_delta_t: [[0], [-9, -8, -7, -6, -5, -4, -3, -2, -1, 0]]
   target_sampling: "all"
   frequency: "D"
