@@ -1380,6 +1380,7 @@ dependencies = [
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "torch" },
+    { name = "uncertainty-toolbox" },
     { name = "wandb" },
 ]
 
@@ -1435,6 +1436,7 @@ requires-dist = [
     { name = "paretoset", specifier = ">=1.2.5" },
     { name = "scipy", specifier = ">=1.17.1" },
     { name = "torch", specifier = ">=2.12.1" },
+    { name = "uncertainty-toolbox", specifier = ">=0.1.1" },
     { name = "wandb", specifier = ">=0.28.0" },
 ]
 
@@ -4886,6 +4888,24 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ba/19/1b9b0e29f30c6d35cb345486df41110984ea67ae69dddbc0e8a100999493/tzdata-2026.2.tar.gz", hash = "sha256:9173fde7d80d9018e02a662e168e5a2d04f87c41ea174b139fbef642eda62d10", size = 198254, upload-time = "2026-04-24T15:22:08.651Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ce/e4/dccd7f47c4b64213ac01ef921a1337ee6e30e8c6466046018326977efd95/tzdata-2026.2-py2.py3-none-any.whl", hash = "sha256:bbe9af844f658da81a5f95019480da3a89415801f6cc966806612cc7169bffe7", size = 349321, upload-time = "2026-04-24T15:22:05.876Z" },
+]
+
+[[package]]
+name = "uncertainty-toolbox"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "matplotlib" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "scikit-learn" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/38/fc/0cd4e9fa54fef09aec94d03df79f9103aeddf2351415250629882bb2f325/uncertainty-toolbox-0.1.1.tar.gz", hash = "sha256:d9389112bd431edc8b6e44c5b12405dea8f86063ff9b79f0bb178e5ac76bcfa5", size = 656128, upload-time = "2023-01-18T02:33:16.046Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/40/d3/ec5faa64fc6b0c4c81488939439cb9c49af4e37262778d0758cb1a909c45/uncertainty_toolbox-0.1.1-py3-none-any.whl", hash = "sha256:9aebd0ab174f15a06f1c63c6172dd24ace2b7a4ba5610c3ee5a186bf5669cf24", size = 24809, upload-time = "2023-01-18T02:33:05.99Z" },
 ]
 
 [[package]]
