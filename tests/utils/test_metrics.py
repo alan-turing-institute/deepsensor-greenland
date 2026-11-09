@@ -104,3 +104,19 @@ class TestComputePitZigammaMixture:
         )
         single_pit = compute_pit_bernoulli_gamma(true, p_zero, k, scale, seed=42)
         np.testing.assert_array_almost_equal(mixture_pit, single_pit)
+
+    def test_float32_weights_summing_above_one_stay_within_unit_interval(self):
+        """Float32 model outputs can give `pi` summing to just over 1.
+
+        Regression test: with a large observation (every component CDF ~1),
+        these weights used to give a PIT of 1.00000001.
+        """
+        true = np.array([4.0])
+        p_zero = np.array([0.87], dtype=np.float32)
+        pi = np.array([[0.21973227], [0.78026783]], dtype=np.float32)
+        assert pi.astype(np.float64).sum() > 1.0
+        k = np.array([[0.06], [0.17]], dtype=np.float32)
+        scale = np.array([[0.33], [0.2]], dtype=np.float32)
+        pit = compute_pit_zigamma_mixture(true, p_zero, pi, k, scale, seed=42)
+        assert np.all(pit >= 0)
+        assert np.all(pit <= 1)
