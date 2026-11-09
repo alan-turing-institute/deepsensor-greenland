@@ -258,13 +258,13 @@ def main(config: DictConfig) -> None:
                 stn_locs_df["longitude_last_valid"], stn_locs_df["latitude_last_valid"]
             ),
         ).to_crs("epsg:3413")
-        stn_locs_df_subset = gdf_points.cx[
+        stn_locs_df = gdf_points.cx[
             truth_ds.lon[0].values : truth_ds.lon[-1].values,
             truth_ds.lat[0].values : truth_ds.lat[-1].values,
         ]
 
         raw_stn_locs = pd.DataFrame(
-            {"lat": stn_locs_df_subset.geometry.y, "lon": stn_locs_df_subset.geometry.x}
+            {"lat": stn_locs_df.geometry.y, "lon": stn_locs_df.geometry.x}
         )
         stn_locs = data_processor.map_coord_array(
             raw_stn_locs.to_numpy().transpose()
