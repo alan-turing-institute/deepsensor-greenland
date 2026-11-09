@@ -159,6 +159,13 @@ def main(config: DictConfig) -> None:
         output_dir : str
             Root directory for outputs; results go under
             ``<output_dir>/<run_id>/``.
+        search_resolution : int
+            Coarsening factor (in grid cells) of the prediction grid relative
+            to the model's native grid, matching ``placement.search_resolution``
+            used to generate ``newplace_file``. Passed to ``model.predict`` as
+            ``resolution_factor=1 / search_resolution``; the truth field is
+            regridded (nearest neighbour) onto the same grid for the metrics.
+            ``1`` predicts at native resolution.
 
     Returns
     -------
@@ -183,6 +190,8 @@ def main(config: DictConfig) -> None:
     dates_start = placement_config.search_start_date
     dates_end = placement_config.search_end_date
     output_dir = placement_config.output_dir
+    search_resolution = placement_config.search_resolution
+    resolution_factor = 1 / search_resolution
 
     weights_fn = newplace_file.split("/")[-1].split("_")[-1].replace(".csv", ".pt")
     run_id = run_ref.split("/")[-1]
@@ -395,7 +404,7 @@ def main(config: DictConfig) -> None:
             target_sampling="all",
         )
 
-        pred = model.predict(tasks, X_t=raw_ds)
+        pred = model.predict(tasks, X_t=raw_ds, resolution_factor=resolution_factor)
         mean_da = pred[target_var]["mean"]
         std_da = pred[target_var]["std"]
 
@@ -427,6 +436,14 @@ def main(config: DictConfig) -> None:
     pred_mean_all = xr.concat(pred_means, dim="iteration")
     pred_std_all = xr.concat(pred_stds, dim="iteration")
     pred_all_out = xr.Dataset({"mean": pred_mean_all, "std": pred_std_all})
+
+    # With resolution_factor != 1, DeepSensor predicts on a new (linspace) grid
+    # built by nearest-neighbour interpolation of X_t, so regrid the truth the
+    # same way for the metrics below to align with the predictions.
+    if resolution_factor != 1:
+        truth_da = truth_da.interp_like(
+            pred_all_out["mean"].isel(iteration=0, drop=True), method="nearest"
+        )
     pred_all_out.to_netcdf(
         os.path.join(
             metric_dir, newplace_file.split("/")[-1].replace(".csv", "_metrics.nc")
