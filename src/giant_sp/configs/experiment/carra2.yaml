@@ -25,6 +25,8 @@ data:
 dataloader:
   lsm_mask: true
   train_sampling: "land_obs"
+  train_sampling_min: 100
+  train_sampling_max: 400
   context_delta_t: null
   target_sampling: "all"
   frequency: "D"

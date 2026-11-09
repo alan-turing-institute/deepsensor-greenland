@@ -98,6 +98,9 @@ filterwarnings = [
   # cartopy fetches Natural Earth coastlines on first use (e.g. on a fresh CI
   # runner with no cache) and warns that it's downloading; not a failure.
   "ignore::cartopy.io.DownloadWarning",
+  # anyio's pytest plugin still imports `_pytest.python.CallSpec2`, renamed to
+  # `CallSpec` in pytest 9.2; not actionable from giant_sp.
+  "ignore:_pytest.python.CallSpec2.*:pytest.PytestRemovedIn10Warning",
 ]
 log_cli_level = "INFO"
 testpaths = [
