@@ -1,10 +1,10 @@
 """Bernoulli-Gamma diagnostics for a trained ConvNP model used for inference.
 
-Gridded counterpart of ``debug/calibration/bernoulli_gamma_diagnostics.py``: loads
-the model referenced by an inference config, predicts on a sample of dates from one
-or more date splits (e.g. ``train``/``val``/``test``) and compares the predictive
-distribution against the gridded truth. The Bernoulli part of the likelihood is
-read as melt occurrence (melt / no melt) and the Gamma part as melt amount.
+Description: loads the model referenced by an inference config, predicts on a sample
+of dates from one or more date splits (e.g. ``train``/``val``/``test``) and compares
+the predictive distribution against the gridded truth. The Bernoulli part of the
+likelihood is read as melt occurrence (melt / no melt) and the Gamma part as melt
+amount.
 
 Diagnostics written to ``<output_dir>/<run_id>/diagnostics/``:
 
