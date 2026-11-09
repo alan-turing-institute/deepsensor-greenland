@@ -482,7 +482,7 @@ class MDNZIGammaConvNP(ConvNP):
         return np.clip(frac, 0.0, 1.0)
 
     @dispatch  # type: ignore[no-redef]
-    def epistemic_frac(self, task: Task):  # noqa: F811
+    def epistemic_frac(self, task: Task) -> np.ndarray | list[np.ndarray]:  # noqa: F811
         """Fraction of total predictive variance attributable to epistemic uncertainty.
 
         Returned numpy arrays have shape ``(N_features, *N_targets)``, clipped to
@@ -514,7 +514,7 @@ class MDNZIGammaConvNP(ConvNP):
         return self._maybe_concat_multi_targets(epvar)
 
     @dispatch  # type: ignore[no-redef]
-    def epistemic_variance(self, task: Task):  # noqa: F811
+    def epistemic_variance(self, task: Task) -> np.ndarray | list[np.ndarray]:  # noqa: F811
         """Epistemic component of the total predictive variance (model/normalized units).
 
         Returned numpy arrays have shape ``(N_features, *N_targets)``.
@@ -548,7 +548,7 @@ class MDNZIGammaConvNP(ConvNP):
         return self._maybe_concat_multi_targets(p0)
 
     @dispatch  # type: ignore[no-redef]
-    def p_zero(self, task: Task):  # noqa: F811
+    def p_zero(self, task: Task) -> np.ndarray | list[np.ndarray]:  # noqa: F811
         """Predicted probability mass at exactly zero.
 
         Returned numpy arrays have shape ``(N_features, *N_targets)``.
@@ -597,7 +597,7 @@ class MDNZIGammaConvNP(ConvNP):
         return _bernoulli_entropy(p0)
 
     @dispatch  # type: ignore[no-redef]
-    def occurrence_entropy(self, task: Task):  # noqa: F811
+    def occurrence_entropy(self, task: Task) -> np.ndarray | list[np.ndarray]:  # noqa: F811
         """Bernoulli entropy of the predicted melt/no-melt occurrence probability.
 
         Returned numpy arrays have shape ``(N_features, *N_targets)``.
@@ -639,7 +639,7 @@ class MDNZIGammaConvNP(ConvNP):
         return self._maybe_concat_multi_targets(magvar)
 
     @dispatch  # type: ignore[no-redef]
-    def magnitude_variance(self, task: Task):  # noqa: F811
+    def magnitude_variance(self, task: Task) -> np.ndarray | list[np.ndarray]:  # noqa: F811
         """Epistemic variance of melt *magnitude* alone, independent of occurrence.
 
         Returned numpy arrays have shape ``(N_features, *N_targets)``.
@@ -676,7 +676,7 @@ class MDNZIGammaConvNP(ConvNP):
         return self._maybe_concat_multi_targets(magmean)
 
     @dispatch  # type: ignore[no-redef]
-    def magnitude_mean(self, task: Task):  # noqa: F811
+    def magnitude_mean(self, task: Task) -> np.ndarray | list[np.ndarray]:  # noqa: F811
         """Predicted melt magnitude, conditional on melt occurring at all.
 
         Returned numpy arrays have shape ``(N_features, *N_targets)``.
