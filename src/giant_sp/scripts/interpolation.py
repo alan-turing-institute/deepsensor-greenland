@@ -21,10 +21,13 @@ from giant_sp.models import DeepSensorModel
 from giant_sp.training import Trainer
 from giant_sp.utils.config import to_plain
 from giant_sp.utils.data import (
+    SEASONAL_MU_DOY,
+    SEASONAL_SIGMA_DOY,
     context_sampling_with_delta,
     find_xy_for_points,
     sample_dates_by_year_chunks,
     sample_land_locations,
+    seasonal_doy_weights,
 )
 
 logger = logging.getLogger(__name__)
@@ -134,18 +137,12 @@ def main(config: DictConfig) -> None:
     if temporal_sampling_method == "seasonal":
         # source: https://github.com/eschlager/MeltEmulation/tree/main
         # temporal sub-sampling of training data
-        doy = np.arange(1, 367)  # days 1 to 366
-        mu = 205  # 24th of July ~ peak of melt season
-        sigma = 60
-        # min_weight_doy = 0.0
         logger.info(
             "Subsample training dates using seasonal weighting following gaussian distribution with mu %f and sigma %f",
-            mu,
-            sigma,
+            SEASONAL_MU_DOY,
+            SEASONAL_SIGMA_DOY,
         )
-        gauss_weights = np.exp(-0.5 * ((doy - mu) / sigma) ** 2)
-        # weights = min_weight_doy + (1 - min_weight_doy) * gauss_weights
-        weights_doy = gauss_weights / gauss_weights.sum()
+        weights_doy = seasonal_doy_weights()
 
         n_samples_per_year = temporal_sampling_every
         logger.info("Sample %d dates per year", n_samples_per_year)

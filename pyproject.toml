@@ -37,6 +37,7 @@ dependencies = [
     "paretoset>=1.2.5",
     "scipy>=1.17.1",
     "torch>=2.12.1",
+    "uncertainty-toolbox>=0.1.1",
     "wandb>=0.28.0",
 ]
 
