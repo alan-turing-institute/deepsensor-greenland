@@ -5,7 +5,7 @@
 
 Sensor placement to aid location planning in Greenland, based on the [DeepSensor package](https://github.com/alan-turing-institute/deepsensor).
 
-This work is being done as part of the [GIANT project](http://giantgreenland.com/) (Greenland Ice sheet to AtlaNtic Tipping points from ice loss), funded by ARIA. We are grateful to the Danish Meterological Institute for providing the necessary data.
+This work is from the [GIANT project](http://giantgreenland.com/) funded by the Advanced Research + Invention Agency (ARIA) Forecasting Tipping Points Programme (GIANT project; SCOP-PR01-P028). We are grateful to the Danish Meterological Institute, in particular Ruth Mottram and Elke Schlager, for providing the necessary data, scripts and scientific inputs on this development.
 
 <p align="center">
   <a href="https://www.turing.ac.uk/">
