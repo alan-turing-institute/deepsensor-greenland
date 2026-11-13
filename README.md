@@ -3,7 +3,7 @@
 [![Actions Status](https://github.com/alan-turing-institute/deepsensor-greenland/workflows/CI/badge.svg)](https://github.com/alan-turing-institute/deepsensor-greenland/actions)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
-Sensor placement to aid location planning in GIANT
+Sensor placement to aid location planning in GIANT, based on the [DeepSensor package](https://github.com/alan-turing-institute/deepsensor).
 
 ## Installation
 
@@ -57,7 +57,7 @@ paths used in production) and run for only a handful of epochs, so they can run 
 without access to the full dataset — see `src/giant_sp/configs/experiment/*_debug.yaml`. Use the
 non-`_debug` name for an actual training run.
 
-The [github wiki](https://github.com/alan-turing-institute/deepsensor-greenland/wiki) has some information about the datasets and the infrastructure used in this repo.
+The [github wiki](https://github.com/alan-turing-institute/deepsensor-greenland/wiki) has some information about the datasets and the infrastructure used in this repo if you are part of the project.
 
 ### Local config overrides
 
