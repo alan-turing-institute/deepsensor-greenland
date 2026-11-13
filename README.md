@@ -154,7 +154,7 @@ button at the bottom of the dashboard (shown once a saved copy exists). If the d
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on how to contribute.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on how to contribute. For project questions, contact [GIANT@turing.ac.uk](mailto:GIANT@turing.ac.uk). 
 
 ## License
 
