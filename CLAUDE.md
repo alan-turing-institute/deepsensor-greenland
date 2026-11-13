@@ -191,6 +191,14 @@ rather than inherited from it — keep the two in sync by hand if debug scale ch
 paths/dates), `dataloader` (sampling strategy/frequency), `model` (ConvNP architecture), `training`
 (optimizer/scheduler/checkpointing), `logging` (W&B), `visualization`.
 
+Production data paths aren't written out in full: every top-level config (including the two
+preprocessing ones) selects `paths: jasmin` in its `defaults`, and `configs/paths/jasmin.yaml`
+holds the shared JASMIN root as `paths.root`. The non-debug experiments and the preprocessing
+configs build their paths from it (`"${paths.root}/..."`), so `paths.root=/elsewhere` moves them
+all; `tests/test_configs.py` checks that no `/gws/` path bypasses it. The `_debug` experiments
+keep their own local `data/...` paths. A new top-level config needs the same `paths: jasmin` line,
+and a new data path should be written relative to `${paths.root}`.
+
 Python logging for every entry point is configured by Hydra, not in the scripts: each top-level
 config (`base`/`inference`/`placement`/`placement_eval`) selects `override hydra/job_logging:
 ds_greenland` (`configs/hydra/job_logging/ds_greenland.yaml`), which logs to the console and to
