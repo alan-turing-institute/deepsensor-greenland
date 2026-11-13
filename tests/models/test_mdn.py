@@ -8,13 +8,13 @@ import torch
 import xarray as xr
 from deepsensor.data import DataProcessor, TaskLoader
 
-from giant_sp.models.mdn import (
+from ds_greenland.models.mdn import (
     GammaMixture,
     MDNZIGammaConvNP,
     _bernoulli_entropy,
     install_mdn_zigamma_likelihood,
 )
-from giant_sp.utils.metrics import compute_pit_zigamma_mixture
+from ds_greenland.utils.metrics import compute_pit_zigamma_mixture
 
 
 @pytest.fixture(scope="module")

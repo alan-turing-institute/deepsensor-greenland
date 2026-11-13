@@ -5,7 +5,7 @@ import pytest
 import xarray as xr
 from shapely.geometry import Point, Polygon
 
-from giant_sp.utils.data import (
+from ds_greenland.utils.data import (
     construct_circ_and_linear_time_ds,
     context_sampling_with_delta,
     find_lon_lat,

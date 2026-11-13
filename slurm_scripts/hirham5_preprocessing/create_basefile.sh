@@ -11,4 +11,4 @@
 #SBATCH --cpus-per-task=94
 
 # submit the code
-srun uv run src/giant_sp/preprocessing/hirham5_create_basefile.py
+srun uv run src/ds_greenland/preprocessing/hirham5_create_basefile.py

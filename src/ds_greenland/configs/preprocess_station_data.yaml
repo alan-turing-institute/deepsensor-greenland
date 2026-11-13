@@ -1,0 +1,23 @@
+defaults:
+- override hydra/job_logging: ds_greenland
+- _self_
+
+hydra:
+  job:
+    chdir: false
+
+logging:
+  log_level: "INFO"
+
+preprocessing:
+  input_file: "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/interim/AWS_sites_metadata_v401.csv"
+  # Keep stations whose date is within [start_date, end_date] (inclusive) for
+  # both columns. Set a bound to null for no bound; with both null, that column
+  # isn't filtered.
+  installation: # date_installation column
+    start_date: null
+    end_date: "2017-06-30"
+  last_valid: # date_last_valid column
+    start_date: "2016-12-31"
+    end_date: null
+  output_file: "/gws/pw/j07/aria_giant/wip/draft/acocac/deepsensor/data/greenland/station/processed/promice_locations_inst_${preprocessing.installation.start_date}_${preprocessing.installation.end_date}_valid_${preprocessing.last_valid.start_date}_${preprocessing.last_valid.end_date}.csv"

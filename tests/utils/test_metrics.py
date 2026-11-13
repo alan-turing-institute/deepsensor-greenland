@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from giant_sp.utils.metrics import (
+from ds_greenland.utils.metrics import (
     compute_pit_bernoulli_gamma,
     compute_pit_zigamma_mixture,
 )

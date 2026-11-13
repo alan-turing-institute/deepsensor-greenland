@@ -1,4 +1,4 @@
-# Contributing to giant-sp
+# Contributing to DeepSensor Greenland
 
 See the [Scientific Python Developer Guide][spc-dev-intro] for a detailed
 description of best practices for developing scientific packages.
@@ -16,8 +16,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ## Setup
 
 ```bash
-git clone https://github.com/alan-turing-institute/giant-sp
-cd giant-sp
+git clone https://github.com/alan-turing-institute/deepsensor-greenland
+cd deepsensor-greenland
 uv sync
 ```
 
@@ -53,7 +53,7 @@ uv run pytest
 With coverage:
 
 ```bash
-uv run pytest --cov=giant_sp
+uv run pytest --cov=ds_greenland
 ```
 
 ## Type checking

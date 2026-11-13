@@ -1,0 +1,8 @@
+defaults:
+  - experiment: hirham5zarr_debug
+  - override hydra/job_logging: ds_greenland
+  - _self_
+
+hydra:
+  job:
+    chdir: false

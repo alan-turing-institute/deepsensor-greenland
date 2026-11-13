@@ -2,14 +2,17 @@
 requires = ["uv_build>=0.10.9,<0.14.0"]
 build-backend = "uv_build"
 
+[tool.uv.build-backend]
+module-name = "ds_greenland"
+
 [project]
-name = "giant-sp"
+name = "deepsensor-greenland"
 version = "0.1.0"
 authors = [
   { name = "Alejandro Coca-Castro", email = "acoca@turing.ac.uk" },
   { name = "Isabel Fenton", email = "ifenton@turing.ac.uk" },
 ]
-description = " Sensor placement to aid location planning in GIANT"
+description = "Sensor placement to aid location planning in Greenland"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -60,7 +63,7 @@ lint = [
   "scipy-stubs>=1.17.1.5",
   "types-tqdm>=4.70.0.20260906",
 ]
-# Local demo site + Arraylake-backed data dashboard (`uv run python -m giant_sp.demo`).
+# Local demo site + Arraylake-backed data dashboard (`uv run python -m ds_greenland.demo`).
 demo = [
   # arraylake>=1.0 (needed for this repo's Icechunk v2 format) requires Python 3.12+.
   "arraylake>=1.3.0; python_full_version >= '3.12'",
@@ -73,10 +76,10 @@ demo = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/alan-turing-institute/giant-sp"
-"Bug Tracker" = "https://github.com/alan-turing-institute/giant-sp/issues"
-Discussions = "https://github.com/alan-turing-institute/giant-sp/discussions"
-Changelog = "https://github.com/alan-turing-institute/giant-sp/releases"
+Homepage = "https://github.com/alan-turing-institute/deepsensor-greenland"
+"Bug Tracker" = "https://github.com/alan-turing-institute/deepsensor-greenland/issues"
+Discussions = "https://github.com/alan-turing-institute/deepsensor-greenland/discussions"
+Changelog = "https://github.com/alan-turing-institute/deepsensor-greenland/releases"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -84,7 +87,7 @@ addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = [
   "error",
-  # deepsensor's `lab` dependency triggers this on import; not actionable from giant_sp.
+  # deepsensor's `lab` dependency triggers this on import; not actionable from ds_greenland.
   "ignore:numpy.core is deprecated.*:DeprecationWarning:lab",
   # netCDF4's compiled extension warns about a numpy ABI size mismatch on import.
   # Not module-scoped: CPython attributes warnings from single-phase-init C
@@ -93,13 +96,13 @@ filterwarnings = [
   # The message pattern is already specific to this exact ABI-mismatch text.
   "ignore:numpy.ndarray size changed.*:RuntimeWarning",
   # netCDF4's compiled extension does an in-place ndarray.shape assignment on
-  # write, deprecated under numpy>=2.5; not actionable from giant_sp.
+  # write, deprecated under numpy>=2.5; not actionable from ds_greenland.
   "ignore:Setting the shape on a NumPy array.*:DeprecationWarning",
   # cartopy fetches Natural Earth coastlines on first use (e.g. on a fresh CI
   # runner with no cache) and warns that it's downloading; not a failure.
   "ignore::cartopy.io.DownloadWarning",
   # anyio's pytest plugin still imports `_pytest.python.CallSpec2`, renamed to
-  # `CallSpec` in pytest 9.2; not actionable from giant_sp.
+  # `CallSpec` in pytest 9.2; not actionable from ds_greenland.
   "ignore:_pytest.python.CallSpec2.*:pytest.PytestRemovedIn10Warning",
 ]
 log_cli_level = "INFO"
@@ -108,7 +111,7 @@ testpaths = [
 ]
 
 [tool.coverage]
-run.source = ["giant_sp"]
+run.source = ["ds_greenland"]
 port.exclude_lines = [
   'pragma: no cover',
   '\.\.\.',
@@ -117,7 +120,7 @@ port.exclude_lines = [
 
 [tool.mypy]
 python_version = "3.11"
-files = ["src/giant_sp", "tests"]
+files = ["src/ds_greenland", "tests"]
 explicit_package_bases = true
 mypy_path = ["src"]
 warn_unused_ignores = true
@@ -180,7 +183,7 @@ unfixable = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["giant_sp"]
+known-first-party = ["ds_greenland"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"

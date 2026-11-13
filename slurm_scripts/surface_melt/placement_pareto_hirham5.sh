@@ -11,4 +11,4 @@
 #SBATCH --cpus-per-task=1
 
 # submit the code
-srun uv run src/giant_sp/scripts/placement_pareto.py --config-name placement_pareto.local
+srun uv run src/ds_greenland/scripts/placement_pareto.py --config-name placement_pareto.local
