@@ -107,6 +107,11 @@ uv run src/ds_greenland/scripts/interpolation.py --config-name=<name>.local
 Any config value can also be overridden from the command line, e.g.
 `--config-name=<name>.local training.num_epochs=5`.
 
+The production (non-`_debug`) data paths all sit under one root, `paths.root` in
+`src/ds_greenland/configs/paths/jasmin.yaml` (the shared data on JASMIN). To run against a copy
+of the data somewhere else, override just that, e.g. `paths.root=/path/to/my/copy`, either on the
+command line or in your `*.local.yaml`.
+
 ### Hyperparameter sweeps
 
 [W&B Sweeps](https://docs.wandb.ai/models/sweeps/) can be used to search over hyperparameters for
@@ -169,7 +174,7 @@ button at the bottom of the dashboard (shown once a saved copy exists). If the d
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on how to contribute.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on how to contribute. For project questions, contact [GIANT@turing.ac.uk](mailto:GIANT@turing.ac.uk).
 
 ## License
 

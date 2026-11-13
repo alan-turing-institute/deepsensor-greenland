@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from hydra import compose, initialize_config_dir
+from omegaconf import OmegaConf
 
 import ds_greenland
 
@@ -32,3 +33,46 @@ def test_entry_config_uses_ds_greenland_logging(
     assert job_logging.formatters.simple.format == (
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
+
+
+PATH_ROOT = "/tmp/data-root"
+PROD_EXPERIMENTS = [e for e in EXPERIMENTS if not e.endswith("_debug")]
+DATA_PATH_KEYS = ["data_path", "ancillary_path", "station_locations_file"]
+PREPROCESSING_PATH_KEYS = {
+    "hirham5_create_basefile": ["interim_path", "output_dir"],
+    "preprocess_station_data": ["input_file", "output_file"],
+}
+
+
+@pytest.mark.parametrize("experiment", PROD_EXPERIMENTS)
+@pytest.mark.parametrize("config_name", [*ENTRY_CONFIGS, "placement_pareto"])
+def test_experiment_data_paths_follow_paths_root(
+    config_name: str, experiment: str
+) -> None:
+    """Every production data path is built from `paths.root`, so overriding it moves them all."""
+    with initialize_config_dir(config_dir=str(CONFIG_DIR), version_base=None):
+        cfg = compose(
+            config_name=config_name,
+            overrides=[f"experiment={experiment}", f"paths.root={PATH_ROOT}"],
+        )
+
+    data = OmegaConf.to_container(cfg.data, resolve=True)
+    assert isinstance(data, dict)
+    for key in DATA_PATH_KEYS:
+        assert data[key].startswith(f"{PATH_ROOT}/"), key
+    assert "/gws/" not in OmegaConf.to_yaml(cfg, resolve=True)
+
+
+@pytest.mark.parametrize(("config_name", "keys"), PREPROCESSING_PATH_KEYS.items())
+def test_preprocessing_paths_follow_paths_root(
+    config_name: str, keys: list[str]
+) -> None:
+    """The preprocessing scripts' input/output paths are built from `paths.root` too."""
+    with initialize_config_dir(config_dir=str(CONFIG_DIR), version_base=None):
+        cfg = compose(config_name=config_name, overrides=[f"paths.root={PATH_ROOT}"])
+
+    preprocessing = OmegaConf.to_container(cfg.preprocessing, resolve=True)
+    assert isinstance(preprocessing, dict)
+    for key in keys:
+        assert preprocessing[key].startswith(f"{PATH_ROOT}/"), key
+    assert "/gws/" not in OmegaConf.to_yaml(cfg, resolve=True)
