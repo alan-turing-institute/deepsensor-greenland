@@ -102,7 +102,7 @@ def create_app(
                 logger.warning("dashboard warm-up failed (continuing): %s", e)
         yield
 
-    app = FastAPI(title="GIANT sensor placement demo", lifespan=lifespan)
+    app = FastAPI(title="DeepSensor Greenland demo", lifespan=lifespan)
     app.include_router(_api_router(dashboard))
     app.mount("/", _NoCacheStaticFiles(directory=site_dir, html=True), name="site")
     return app

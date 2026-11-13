@@ -1,4 +1,4 @@
-const SITE_TITLE = "GIANT Sensor Placement";
+const SITE_TITLE = "DeepSensor Greenland";
 
 const PAGES = [
   { id: "home", href: "index.html", label: "Home", sub: "Why sensor placement matters" },
