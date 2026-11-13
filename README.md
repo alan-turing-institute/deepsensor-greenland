@@ -5,6 +5,26 @@
 
 Sensor placement to aid location planning in Greenland, based on the [DeepSensor package](https://github.com/alan-turing-institute/deepsensor).
 
+This work is being done as part of the [GIANT project](http://giantgreenland.com/) (Greenland Ice sheet to AtlaNtic Tipping points from ice loss), funded by ARIA. We are grateful to the Danish Meterological Institute for providing the necessary data.
+
+<p align="center">
+  <a href="https://www.turing.ac.uk/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="demo/logos/turing_white.png">
+      <img src="demo/logos/turing_black.png" alt="The Alan Turing Institute" height="50">
+    </picture>
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="http://giantgreenland.com/"><img src="demo/logos/giant.png" alt="GIANT" height="60"></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.aria.org.uk/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="demo/logos/aria_white.png">
+      <img src="demo/logos/aria_black.jpg" alt="Advanced Research and Invention Agency (ARIA)" height="70">
+    </picture>
+  </a>
+</p>
+
 ## Installation
 
 From source:
