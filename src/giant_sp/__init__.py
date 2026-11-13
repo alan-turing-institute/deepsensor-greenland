@@ -1,4 +1,4 @@
-"""giant-sp: Sensor placement to aid location planning in GIANT."""
+"""deepsensor-greenland: Sensor placement to aid location planning in GIANT."""
 
 from __future__ import annotations
 

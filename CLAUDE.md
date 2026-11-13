@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-`giant-sp` — sensor placement to aid location planning in GIANT, built on top of
+`deepsensor-greenland` — sensor placement to aid location planning in GIANT, built on top of
 [DeepSensor](https://github.com/alan-turing-institute/deepsensor) (ConvNP models) and PyTorch.
 It trains spatial-interpolation models on gridded climate reanalysis/RCM data (CARRA2, HIRHAM5)
 plus in-situ station observations, then uses the trained model to run active-learning searches

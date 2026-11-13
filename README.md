@@ -1,6 +1,6 @@
-# giant-sp
+# DeepSensor Greenland
 
-[![Actions Status](https://github.com/alan-turing-institute/giant-sp/workflows/CI/badge.svg)](https://github.com/alan-turing-institute/giant-sp/actions)
+[![Actions Status](https://github.com/alan-turing-institute/deepsensor-greenland/workflows/CI/badge.svg)](https://github.com/alan-turing-institute/deepsensor-greenland/actions)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
 Sensor placement to aid location planning in GIANT
@@ -9,8 +9,8 @@ Sensor placement to aid location planning in GIANT
 
 From source:
 ```bash
-git clone https://github.com/alan-turing-institute/giant-sp
-cd giant-sp
+git clone https://github.com/alan-turing-institute/deepsensor-greenland
+cd deepsensor-greenland
 ```
 
 In this package, we use `uv` for our dependency management. Installation instructions can be found here: https://docs.astral.sh/uv/
@@ -57,7 +57,7 @@ paths used in production) and run for only a handful of epochs, so they can run 
 without access to the full dataset — see `src/giant_sp/configs/experiment/*_debug.yaml`. Use the
 non-`_debug` name for an actual training run.
 
-The [github wiki](https://github.com/alan-turing-institute/giant-sp/wiki) has some information about the datasets and the infrastructure used in this repo.
+The [github wiki](https://github.com/alan-turing-institute/deepsensor-greenland/wiki) has some information about the datasets and the infrastructure used in this repo.
 
 ### Local config overrides
 

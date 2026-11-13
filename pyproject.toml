@@ -73,10 +73,10 @@ demo = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/alan-turing-institute/giant-sp"
-"Bug Tracker" = "https://github.com/alan-turing-institute/giant-sp/issues"
-Discussions = "https://github.com/alan-turing-institute/giant-sp/discussions"
-Changelog = "https://github.com/alan-turing-institute/giant-sp/releases"
+Homepage = "https://github.com/alan-turing-institute/deepsensor-greenland"
+"Bug Tracker" = "https://github.com/alan-turing-institute/deepsensor-greenland/issues"
+Discussions = "https://github.com/alan-turing-institute/deepsensor-greenland/discussions"
+Changelog = "https://github.com/alan-turing-institute/deepsensor-greenland/releases"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
