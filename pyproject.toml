@@ -12,7 +12,7 @@ authors = [
   { name = "Alejandro Coca-Castro", email = "acoca@turing.ac.uk" },
   { name = "Isabel Fenton", email = "ifenton@turing.ac.uk" },
 ]
-description = "Sensor placement to aid location planning in GIANT"
+description = "Sensor placement to aid location planning in Greenland"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"

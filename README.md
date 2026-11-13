@@ -3,7 +3,7 @@
 [![Actions Status](https://github.com/alan-turing-institute/deepsensor-greenland/workflows/CI/badge.svg)](https://github.com/alan-turing-institute/deepsensor-greenland/actions)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
-Sensor placement to aid location planning in GIANT, based on the [DeepSensor package](https://github.com/alan-turing-institute/deepsensor).
+Sensor placement to aid location planning in Greenland, based on the [DeepSensor package](https://github.com/alan-turing-institute/deepsensor).
 
 ## Installation
 
