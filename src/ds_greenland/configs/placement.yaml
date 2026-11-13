@@ -1,0 +1,25 @@
+defaults:
+- experiment: hirham5zarr_debug
+- override hydra/job_logging: ds_greenland
+- _self_
+
+hydra:
+  job:
+    chdir: false
+
+placement:
+  run_ref: "acoca/giant-sp/4flbw8xy"
+  weights_filename: "best-weights-stnval.pt"
+  acq_fn: "ContextDist"
+  seed: 42
+  N_random_seeds: 2 #only used for random acquisition function, leave default for other acquisition functions
+  n_new: 10
+  search_start_date: "2016-01-01"
+  search_end_date: "2016-12-31"
+  temporal_subsampling_method: "seasonal"
+  temporal_subsampling_every: 50
+  pred_resolution: 0
+  search_mask_file: ""
+  search_resolution: 18
+  min_land: 0.25
+  output_dir: "outputs"

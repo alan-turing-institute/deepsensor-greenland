@@ -1,0 +1,28 @@
+defaults:
+- override hydra/job_logging: ds_greenland
+- _self_
+
+hydra:
+  job:
+    chdir: false
+
+logging:
+  log_level: "INFO"
+
+preprocessing:
+  interim_path: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/interim"
+  aux_dir: "AuxFiles" # relative to interim_path; holds GRLmask.nc and GRLzones.nc
+  daily_dir: "erai" # relative to interim_path; holds Daily2D_GRL_<year>.nc, accepted values are: erai, erai_albedo, cesm2, ecearth3
+  output_dir: "/gws/pw/j07/aria_giant/wip/draft/acocac/data/hirham5/processed"
+  version: 2
+  start_year: 1990
+  end_year: 2016 # inclusive
+  drop_vars: [ "tsl", "sn", "evspsbl", "gld" ]
+  load_chunks: { time: 1024, y: 64, x: 64 }
+  save_chunks: { time: 2048, z: -1 }
+  var_ranges:
+    # var: [min, max], null for no bound
+    ahfs: [ -140, null ]
+  rolling:
+    vars: [ "rainfall", "snfall", "energyin", "dswrad" ]
+    start_date: "1990-01-01" # first date with a full window

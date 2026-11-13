@@ -53,7 +53,7 @@ uv run pytest
 With coverage:
 
 ```bash
-uv run pytest --cov=giant_sp
+uv run pytest --cov=ds_greenland
 ```
 
 ## Type checking

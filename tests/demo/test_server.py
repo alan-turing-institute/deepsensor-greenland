@@ -1,8 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from giant_sp.demo.dashboard import Dashboard
-from giant_sp.demo.server import create_app
+from ds_greenland.demo.dashboard import Dashboard
+from ds_greenland.demo.server import create_app
 
 
 @pytest.fixture

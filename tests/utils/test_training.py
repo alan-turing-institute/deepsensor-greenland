@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from giant_sp.utils.training import batched, task_collate_fn
+from ds_greenland.utils.training import batched, task_collate_fn
 
 
 class TestBatched:

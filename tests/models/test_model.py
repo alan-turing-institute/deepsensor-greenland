@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from giant_sp.models.model import DeepSensorModel
+from ds_greenland.models.model import DeepSensorModel
 
 
 class TestInit:

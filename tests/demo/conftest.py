@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import zarr
 
-from giant_sp.demo.source import Snapshot
+from ds_greenland.demo.source import Snapshot
 
 
 def _add_experiment(

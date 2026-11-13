@@ -17,9 +17,9 @@ Dependency management uses [uv](https://docs.astral.sh/uv/); the project is Pyth
 ```bash
 uv sync                              # install package + dev/test/lint groups, editable
 uv run pytest                        # run tests
-uv run pytest --cov=giant_sp         # run tests with coverage
+uv run pytest --cov=ds_greenland         # run tests with coverage
 uv run pytest tests/path/to/test.py::[TestClass::]test_name   # run a single test
-uv run mypy                          # type check src/giant_sp and tests (see [tool.mypy] in pyproject.toml)
+uv run mypy                          # type check src/ds_greenland and tests (see [tool.mypy] in pyproject.toml)
 uv run pre-commit run --all-files    # ruff lint + format + generic hooks (same as CI)
 uv run ruff check src --fix          # lint only
 uv run ruff format src               # format only
@@ -32,14 +32,14 @@ Adding dependencies: `uv add <package>` (runtime), `uv add --group dev|test|lint
 
 CI (`.github/workflows/ci.yml`) runs three jobs on every push/PR: `pre-commit run --all-files`,
 `mypy`, and `pytest` across Python 3.11/3.12/3.13 (coverage uploaded from the 3.13 run). Tests live
-under `tests/`, mirroring the `src/giant_sp/` layout (`tests/data/`, `tests/models/`,
+under `tests/`, mirroring the `src/ds_greenland/` layout (`tests/data/`, `tests/models/`,
 `tests/utils/`) — new code should come with tests there.
 
 Running the actual training/inference/placement scripts requires access to the data referenced in
 the composed config (see `data.data_path`, `data.station_locations_file`, etc.) — these are not
 part of the repo and are not available in most dev environments. Each script is a
 [Hydra](https://hydra.cc/) entry point; run it with no arguments for the default experiment
-(`uv run src/giant_sp/scripts/interpolation.py`), override the experiment with
+(`uv run src/ds_greenland/scripts/interpolation.py`), override the experiment with
 `experiment=<name>` (e.g. `experiment=hirham5zarr`), or override any individual value with
 `key=value` (e.g. `training.num_epochs=5`). See "Configuration" below for how the config tree is
 organized, `--help` for the full composed config and available experiments, or `--cfg job` to
@@ -47,7 +47,7 @@ print the resolved config without running anything.
 
 ## Architecture
 
-The package (`src/giant_sp/`) is organized as a pipeline: **data loading → DeepSensor
+The package (`src/ds_greenland/`) is organized as a pipeline: **data loading → DeepSensor
 model/training → scripts that drive training, inference, and sensor placement.**
 
 ### Data loading (`data/dataloader.py`)
@@ -110,11 +110,11 @@ check whether the same fix is needed in the other two scripts.
 `scripts/preprocessing/hirham5_create_basefile.py` is a standalone preprocessing script (not part
 of the train/infer/place pipeline above) that builds the HIRHAM5 base NetCDF file.
 
-### Demo site (`demo/`, `src/giant_sp/demo/`)
+### Demo site (`demo/`, `src/ds_greenland/demo/`)
 
 `demo/` is a static presentation site (plain HTML + `nav.js`'s `<site-shell>` element). Its Data
 page iframes `demo/dashboard/`, a Plotly dashboard that reads `./api/*` from the local server in
-`src/giant_sp/demo/` (`uv run python -m giant_sp.demo`, Python 3.12+ — see the README): `source.py`
+`src/ds_greenland/demo/` (`uv run python -m ds_greenland.demo`, Python 3.12+ — see the README): `source.py`
 opens the Arraylake/Icechunk repo, `dashboard.py` discovers experiments/variables and builds
 domain-mean series and on-demand cartopy maps (cached per snapshot), and `server.py` is the FastAPI
 app serving `/dashboard/api/*` plus the static site at `/`. Its deps are the `demo` dependency
@@ -141,7 +141,7 @@ and `OUTPUT_VARIABLES` (long_name → display title for the sidebar's "Output va
 everything else is an input variable). Variables are matched on `long_name`, not key. There's no
 experiment picker — every experiment the server exposes is shown.
 
-`snapshot.py` (`python -m giant_sp.demo.snapshot`, run by hand before a demo, while online) saves an
+`snapshot.py` (`python -m ds_greenland.demo.snapshot`, run by hand before a demo, while online) saves an
 offline copy of the API to `demo/dashboard/static-api/` (git-ignored): `repo.json`, `catalog.json`,
 every series, map PNGs for `--map-variables` (default: every 2-D variable in the catalog) at `--map-freq` (default `MS`,
 the 1st of each month), each in all three colour scales (`<date>.png`, `<date>-full.png` and
@@ -170,7 +170,7 @@ predictive distribution used to evaluate precipitation-like targets.
 
 ### Configuration
 
-Every script is a Hydra entry point composing its config from `src/giant_sp/configs/`:
+Every script is a Hydra entry point composing its config from `src/ds_greenland/configs/`:
 `base.yaml`/`inference.yaml`/`placement.yaml` are the per-script entry configs (each defaulting
 to one `experiment`). `configs/experiment/{carra2,hirham5}{,_debug}.yaml` each hold their own
 `data`/`dataloader` section plus the `model`/`training`/`logging`/`visualization` values that
@@ -193,11 +193,11 @@ paths/dates), `dataloader` (sampling strategy/frequency), `model` (ConvNP archit
 
 Python logging for every entry point is configured by Hydra, not in the scripts: each top-level
 config (`base`/`inference`/`placement`/`placement_eval`) selects `override hydra/job_logging:
-giant_sp` (`configs/hydra/job_logging/giant_sp.yaml`), which logs to the console and to
+ds_greenland` (`configs/hydra/job_logging/ds_greenland.yaml`), which logs to the console and to
 `<hydra output dir>/<script>.log` at the level in `logging.log_level`. Scripts just call
 `logging.getLogger(__name__)` — don't add `logging.basicConfig` (it's a no-op once Hydra has
 configured the root logger) or `print` for progress messages. A new top-level config needs the same
-`override hydra/job_logging: giant_sp` line in its `defaults`.
+`override hydra/job_logging: ds_greenland` line in its `defaults`.
 
 To add a new experiment variant or a personal override without touching shared files, add a new
 YAML under `configs/experiment/` that lists the base experiment in its own `defaults:` and overrides
@@ -213,7 +213,7 @@ via the `${args_no_hyphens}` command macro — see `configs/sweep/example.yaml` 
 
 - Type hints use PEP 604 unions (`X | None`, not `Optional[X]`/`Union`).
 - Docstrings are NumPy-style (`Parameters`/`Returns`/`Raises`/`Attributes` sections).
-- `mypy` config (`[tool.mypy]` in `pyproject.toml`) type-checks all of `src/giant_sp` and `tests`;
+- `mypy` config (`[tool.mypy]` in `pyproject.toml`) type-checks all of `src/ds_greenland` and `tests`;
   `deepsensor` is exempted from import-following (`follow_imports = "skip"`) since it ships no
   stubs, and `tests.*` is exempted from `disallow_untyped_defs`/`disallow_untyped_decorators` since
   pytest fixtures/decorators are commonly untyped.

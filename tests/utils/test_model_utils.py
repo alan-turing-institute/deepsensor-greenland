@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 
-from giant_sp.utils.model import add_uncertainty_decomposition
+from ds_greenland.utils.model import add_uncertainty_decomposition
 
 
 class TestAddUncertaintyDecomposition:

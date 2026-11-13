@@ -6,10 +6,10 @@ import pytest
 import xarray as xr
 from hydra import compose, initialize_config_dir
 
-import giant_sp
-import giant_sp.preprocessing.hirham5_create_basefile as cb
+import ds_greenland
+import ds_greenland.preprocessing.hirham5_create_basefile as cb
 
-CONFIG_DIR = Path(giant_sp.__file__).parent / "configs"
+CONFIG_DIR = Path(ds_greenland.__file__).parent / "configs"
 VARS = ["tas", "ahfl", "ahfs", "dlwrad", "rainfall", "snfall", "dswrad", "tsl"]
 
 

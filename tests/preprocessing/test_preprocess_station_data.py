@@ -5,10 +5,10 @@ import pytest
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
-import giant_sp
-import giant_sp.preprocessing.preprocess_station_data as psd
+import ds_greenland
+import ds_greenland.preprocessing.preprocess_station_data as psd
 
-CONFIG_DIR = Path(giant_sp.__file__).parent / "configs"
+CONFIG_DIR = Path(ds_greenland.__file__).parent / "configs"
 INST = psd.INSTALLATION_COLUMN
 VALID = psd.LAST_VALID_COLUMN
 
