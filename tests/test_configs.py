@@ -9,7 +9,7 @@ from omegaconf import OmegaConf
 import ds_greenland
 
 CONFIG_DIR = Path(ds_greenland.__file__).parent / "configs"
-ENTRY_CONFIGS = ["base", "inference", "placement", "placement_eval"]
+ENTRY_CONFIGS = ["base", "inference", "placement", "placement_eval", "transfer"]
 EXPERIMENTS = sorted(
     p.stem for p in (CONFIG_DIR / "experiment").glob("*.yaml") if p.stem != "common"
 )

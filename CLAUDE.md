@@ -99,6 +99,14 @@ a `# source:` comment) are ported from
   `GreedyAlgorithm` with a chosen acquisition function (`ContextDist`, `Stddev`,
   `MeanMarginalEntropy`, `OracleRMSE`, ...) to propose new sensor locations, saving results and a
   summary plot per acquisition function.
+- **`transfer.py`**: transfer learning — fetches a pretrained run from W&B (`transfer.run_ref`),
+  rebuilds its exact architecture by passing its saved `model_config.json` (every
+  `construct_neural_process` argument, incl. `internal_density`) back to `ConvNP` (replacing the
+  experiment's `model` section), normalises the selected experiment's dataset with the pretrained
+  `DataProcessor`, checks the context/target structure matches (`check_task_loader_compatible`),
+  optionally freezes parameters by name prefix, logs a zero-shot baseline, and fine-tunes with
+  `Trainer`. It reuses `interpolation.py`'s `prepare_training_data` (dates → data → stations →
+  task streams) rather than copying it, so fixes there apply to both.
 
 All three scripts follow the same shape: parse config/CLI args → build the source-specific data
 loader → sample dates (`"seasonal"`, a Gaussian-weighted-by-day-of-year subsample, or
@@ -171,8 +179,8 @@ predictive distribution used to evaluate precipitation-like targets.
 ### Configuration
 
 Every script is a Hydra entry point composing its config from `src/ds_greenland/configs/`:
-`base.yaml`/`inference.yaml`/`placement.yaml` are the per-script entry configs (each defaulting
-to one `experiment`). `configs/experiment/{carra2,hirham5}{,_debug}.yaml` each hold their own
+`base.yaml`/`inference.yaml`/`placement.yaml`/`transfer.yaml` are the per-script entry configs
+(each defaulting to one `experiment`). `configs/experiment/{carra2,hirham5}{,_debug}.yaml` each hold their own
 `data`/`dataloader` section plus the `model`/`training`/`logging`/`visualization` values that
 differ for that source; scalars identical across every source (optimizer/scheduler settings,
 most of `logging`/`visualization`, ...) live once in `configs/experiment/common.yaml`, which
@@ -185,9 +193,9 @@ fields that differ (paths, date ranges, epoch counts, ...). Because `hirham5zarr
 from `hirham5zarr` rather than from `hirham5_debug`, its debug-scale overrides (dates,
 `model`/`training` sizing, W&B log frequency) are a near-verbatim copy of `hirham5_debug.yaml`'s
 rather than inherited from it — keep the two in sync by hand if debug scale changes.
-`inference.yaml`/`placement.yaml` additionally carry an
-`inference:`/`placement:` section for that script's run-specific parameters (`run_ref`, `acq_fn`,
-`n_new`, ...). Config sections map directly onto the pipeline stages above: `data` (source +
+`inference.yaml`/`placement.yaml`/`transfer.yaml` additionally carry an
+`inference:`/`placement:`/`transfer:` section for that script's run-specific parameters (`run_ref`,
+`acq_fn`, `n_new`, `freeze`, ...). Config sections map directly onto the pipeline stages above: `data` (source +
 paths/dates), `dataloader` (sampling strategy/frequency), `model` (ConvNP architecture), `training`
 (optimizer/scheduler/checkpointing), `logging` (W&B), `visualization`.
 
@@ -200,7 +208,7 @@ keep their own local `data/...` paths. A new top-level config needs the same `pa
 and a new data path should be written relative to `${paths.root}`.
 
 Python logging for every entry point is configured by Hydra, not in the scripts: each top-level
-config (`base`/`inference`/`placement`/`placement_eval`) selects `override hydra/job_logging:
+config (`base`/`inference`/`placement`/`placement_eval`/`transfer`) selects `override hydra/job_logging:
 ds_greenland` (`configs/hydra/job_logging/ds_greenland.yaml`), which logs to the console and to
 `<hydra output dir>/<script>.log` at the level in `logging.log_level`. Scripts just call
 `logging.getLogger(__name__)` — don't add `logging.basicConfig` (it's a no-op once Hydra has
