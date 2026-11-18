@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from giant_sp.demo.dashboard import Dashboard
-from giant_sp.demo.snapshot import map_dates, write_snapshot
+from ds_greenland.demo.dashboard import Dashboard
+from ds_greenland.demo.snapshot import map_dates, write_snapshot
 
 
 @pytest.fixture

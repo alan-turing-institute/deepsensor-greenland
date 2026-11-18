@@ -18,4 +18,4 @@
 export PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
 
 # submit the code
-srun uv run src/giant_sp/scripts/interpolation.py experiment=hirham5zarr
+srun uv run src/ds_greenland/scripts/interpolation.py experiment=hirham5zarr

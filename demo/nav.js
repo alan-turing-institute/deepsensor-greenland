@@ -1,8 +1,8 @@
-const SITE_TITLE = "GIANT Sensor Placement";
+const SITE_TITLE = "DeepSensor Greenland";
 
 const PAGES = [
   { id: "home", href: "index.html", label: "Home", sub: "Why sensor placement matters" },
-  { id: "overview", href: "overview.html", label: "Overview", sub: "What GIANT-SP does" },
+  { id: "overview", href: "overview.html", label: "Overview", sub: "What DeepSensor Greenland does" },
   { id: "data", href: "data.html", label: "Data", sub: "Explore the dataset" },
   { id: "model", href: "model.html", label: "Model", sub: "Approach & specifications" },
   { id: "results", href: "results.html", label: "Results", sub: "Proposed sensor locations" },

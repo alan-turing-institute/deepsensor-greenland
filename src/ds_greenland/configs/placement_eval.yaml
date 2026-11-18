@@ -1,0 +1,25 @@
+defaults:
+  - experiment: hirham5zarr_debug
+  - paths: jasmin
+  - override hydra/job_logging: ds_greenland
+  - _self_
+
+hydra:
+  job:
+    chdir: false
+
+placement_eval:
+  run_ref: "turing-giant/present-train/hqfaafil"
+  newplace_file: "outputs/hqfaafil/placement/OracleOccurrenceEntropyReduction/NewPlace_OracleOccurrenceEntropyReduction_10-iter_sseasonal_e50_sr9_weights-ep74.csv"
+  search_start_date: "2016-01-01"
+  search_end_date: "2016-12-31"
+  temporal_subsampling_method: "seasonal"
+  temporal_subsampling_every: 50
+  output_dir: "outputs"
+  log_wandb: true # Log this evaluation to W&B, linked to the training run (run_ref)
+  wandb_project: "placement-eval"
+  wandb_entity: "turing-giant" # null = the training run's entity
+  wandb_name: null # Run name (null = auto-generated)
+  # Prediction-grid coarsening factor; keep equal to placement.search_resolution
+  # used to produce newplace_file (passed to model.predict as resolution_factor=1/search_resolution).
+  search_resolution: 9

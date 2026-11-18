@@ -3,7 +3,7 @@ import pytest
 from deepsensor.active_learning.acquisition_fns import AcquisitionFunctionParallel
 from deepsensor.data.task import Task
 
-from giant_sp.utils.acquisition import (
+from ds_greenland.utils.acquisition import (
     ExpectedEpistemicReduction,
     ExpectedMagnitudeVarianceReduction,
     ExpectedOccurrenceEntropyReduction,

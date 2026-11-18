@@ -1,0 +1,9 @@
+defaults:
+  - experiment: hirham5zarr_debug
+  - paths: jasmin
+  - override hydra/job_logging: ds_greenland
+  - _self_
+
+hydra:
+  job:
+    chdir: false

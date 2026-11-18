@@ -3,7 +3,7 @@ import pytest
 import xarray as xr
 from deepsensor.data.processor import DataProcessor
 
-import giant_sp.scripts.placement_pareto as pp
+import ds_greenland.scripts.placement_pareto as pp
 
 
 @pytest.fixture

@@ -1,0 +1,47 @@
+# To get started with Dependabot version updates, you'll need to specify which
+# package ecosystems to update and where the package manifests are located.
+# Please see the documentation for all configuration options:
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # GitHub Actions
+  # - .github/workflows/ (checkout, setup-uv, codecov-action)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    labels: ["dependencies", "area: ci"]
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Pre-commit hooks
+  # - .pre-commit-config.yaml (pre-commit-hooks, ruff-pre-commit)
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    labels: ["dependencies", "area: ci"]
+    schedule:
+      interval: "weekly"
+    groups:
+      pre-commit:
+        patterns: ["*"]
+
+  # Python packages
+  # - pyproject.toml + uv.lock (runtime + dev/test/lint/demo groups)
+  - package-ecosystem: "uv"
+    directory: "/"
+    labels: ["dependencies"]
+    cooldown:
+      default-days: 7  # only consider packages that were released at least 7 days ago
+    schedule:
+      interval: "weekly"
+    groups:
+      # Dev tooling (pytest, mypy, ruff, pre-commit, ...) and the demo stack in one PR
+      dev-and-demo:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+      # Runtime deps' minor/patch bumps in one PR; majors (e.g. torch, deepsensor, xarray) stay separate
+      runtime:
+        dependency-type: "production"
+        update-types: ["minor", "patch"]

@@ -9,9 +9,9 @@ import torch
 from deepsensor.model.convnp import ConvNP
 from omegaconf import OmegaConf
 
-import giant_sp.utils.wandb_utils as wu
-from giant_sp.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
-from giant_sp.utils.data import NumpyFloatValuesEncoder
+import ds_greenland.utils.wandb_utils as wu
+from ds_greenland.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
+from ds_greenland.utils.data import NumpyFloatValuesEncoder
 
 
 @pytest.fixture

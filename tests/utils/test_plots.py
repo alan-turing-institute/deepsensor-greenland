@@ -5,7 +5,7 @@ import pytest
 import xarray as xr
 from cartopy.mpl.geoaxes import GeoAxes
 
-from giant_sp.utils.plots import plot_greenland_only
+from ds_greenland.utils.plots import plot_greenland_only
 
 
 @pytest.fixture

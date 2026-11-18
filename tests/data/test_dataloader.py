@@ -7,7 +7,7 @@ import pytest
 import xarray as xr
 from omegaconf import DictConfig, OmegaConf
 
-from giant_sp.data.dataloader import (
+from ds_greenland.data.dataloader import (
     BaseDataLoader,
     CARRA2DataLoader,
     HIRHAM5DataLoader,

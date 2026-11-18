@@ -5,7 +5,7 @@ from cartopy.mpl.geoaxes import GeoAxes
 from matplotlib.colors import LogNorm, Normalize
 from matplotlib.figure import Figure
 
-from giant_sp.demo.dashboard import (
+from ds_greenland.demo.dashboard import (
     EXCLUDED_EXPERIMENTS,
     EXCLUDED_VARIABLES,
     MAP_CMAPS,

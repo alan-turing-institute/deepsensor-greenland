@@ -1,5 +1,5 @@
-// The live API (served by `python -m giant_sp.demo`) and the saved copy of it
-// written by `python -m giant_sp.demo.snapshot`, which is used instead
+// The live API (served by `python -m ds_greenland.demo`) and the saved copy of it
+// written by `python -m ds_greenland.demo.snapshot`, which is used instead
 // whenever the live one can't be reached.
 const LIVE_API = "./api";
 const SAVED_API = "./static-api";
@@ -28,7 +28,7 @@ const api = {
 };
 
 // Saved map file name suffix per colour scale; must match MAP_SCALE_SUFFIXES
-// in src/giant_sp/demo/snapshot.py.
+// in src/ds_greenland/demo/snapshot.py.
 const SAVED_MAP_SUFFIXES = { shared: "", full: "-full", date: "-date" };
 
 function getJson(url, opts) {
@@ -105,8 +105,8 @@ document.addEventListener("keydown", (e) => {
 function showError(msg) {
   errorBox.textContent =
     `Failed to load data from Arraylake: ${msg}. ` +
-    "The dashboard needs the local demo server (run `uv run python -m giant_sp.demo`), " +
-    "or a saved copy (run `uv run python -m giant_sp.demo.snapshot` while online).";
+    "The dashboard needs the local demo server (run `uv run python -m ds_greenland.demo`), " +
+    "or a saved copy (run `uv run python -m ds_greenland.demo.snapshot` while online).";
   errorBox.classList.remove("hidden");
 }
 function clearError() {

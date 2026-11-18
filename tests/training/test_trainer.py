@@ -5,10 +5,10 @@ from types import SimpleNamespace
 import pytest
 from omegaconf import OmegaConf
 
-import giant_sp.training.trainer as trainer_module
-import giant_sp.utils.wandb_utils as wu
-from giant_sp.models.model import DeepSensorModel
-from giant_sp.training import Trainer
+import ds_greenland.training.trainer as trainer_module
+import ds_greenland.utils.wandb_utils as wu
+from ds_greenland.models.model import DeepSensorModel
+from ds_greenland.training import Trainer
 
 
 @pytest.fixture

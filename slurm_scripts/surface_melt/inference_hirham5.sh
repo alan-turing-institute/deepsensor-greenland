@@ -21,4 +21,4 @@ mkdir -p .logs
 export PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
 
 # submit the code
-srun uv run src/giant_sp/scripts/inference.py experiment=hirham5zarr inference.run_ref=acoca/giant-sp/4flbw8xy inference.val_set=station inference.every=1 inference.weights_filename=best-weights.pt inference.plot=true
+srun uv run src/ds_greenland/scripts/inference.py experiment=hirham5zarr inference.run_ref=acoca/giant-sp/4flbw8xy inference.val_set=station inference.every=1 inference.weights_filename=best-weights.pt inference.plot=true

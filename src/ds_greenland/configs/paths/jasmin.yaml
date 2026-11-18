@@ -1,0 +1,4 @@
+# Root of the shared data on JASMIN; every production data path in the configs is
+# built from it. Override per run with `paths.root=/other/root`, or add another
+# file in this group (e.g. `paths/local.yaml`) and select it with `paths=local`.
+root: "/gws/pw/j07/aria_giant/wip/draft/acocac"

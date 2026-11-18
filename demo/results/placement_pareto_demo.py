@@ -36,7 +36,7 @@ from matplotlib.lines import Line2D
 from matplotlib.text import Text
 from matplotlib.ticker import MaxNLocator
 
-import giant_sp.utils.plots as myplt
+import ds_greenland.utils.plots as myplt
 
 RESULTS_DIR = Path(__file__).resolve().parent / "pareto"
 OUTPUT_DIR = Path(__file__).resolve().parents[1] / "images" / "pareto"
