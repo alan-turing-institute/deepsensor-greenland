@@ -78,7 +78,12 @@ compute statistics.
 `config["model"]` dict (architecture: `unet_channels`, `unet_kernels`, `likelihood`,
 `num_basis_functions`, ...). It only handles model construction/parameter counting; actual
 training and prediction logic live elsewhere (`training/trainer.py`, `utils/model.py`) and largely
-bypass this wrapper by calling the underlying `ConvNP` directly.
+bypass this wrapper by calling the underlying `ConvNP` directly. The exception is checkpoints:
+always save/load weights with `DeepSensorModel.save_model`/`load_model`, never
+`torch.save(model.model.state_dict())`. `models/film.py`'s FiLM adapters (used by `transfer.py`'s
+`method: film`) add parameters to the UNet, and `save_model` folds them into the convolutions they
+follow (`folded_state_dict`), so every checkpoint stays a plain `ConvNP` state dict that a model
+rebuilt from `model_config.json` (`inference.py`, `placement.py`, chained transfers) can load.
 
 ### Training (`training/trainer.py`, `utils/training.py`)
 
@@ -114,7 +119,9 @@ a `# source:` comment) are ported from
   `construct_neural_process` argument, incl. `internal_density`) back to `ConvNP` (replacing the
   experiment's `model` section), normalises the selected experiment's dataset with the pretrained
   `DataProcessor`, checks the context/target structure matches (`check_task_loader_compatible`),
-  optionally freezes parameters by name prefix, logs a zero-shot baseline, and fine-tunes with
+  sets what to train per `transfer.method` (`prepare_for_fine_tuning`: `full` = every parameter
+  except optional name-prefix `freeze`s; `film` = freeze everything and train only FiLM layers
+  added to the UNet, see `models/film.py`), logs a zero-shot baseline, and fine-tunes with
   `Trainer`. It reuses `interpolation.py`'s `prepare_training_data` (dates → data → stations →
   task streams) rather than copying it, so fixes there apply to both.
 

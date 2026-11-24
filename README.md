@@ -70,9 +70,21 @@ The new dataset's experiment must have the same variable structure (`data.contex
 `data.target_var_IDs`, `dataloader.context_delta_t`) as the pretrained run's; its `model` section is
 ignored in favour of the pretrained architecture. Before fine-tuning, the pretrained model's loss on
 the new validation data is logged to the W&B run summary as `zero_shot/val_loss` (and
-`zero_shot/stnval_loss`), as a baseline. See `src/ds_greenland/configs/transfer.yaml` for the other
-options (freezing layers, refitting the normalisation). The fine-tuned model is saved to a new W&B
-run in the same format as `interpolation.py`'s.
+`zero_shot/stnval_loss`), as a baseline.
+
+`transfer.method` chooses how the model is adapted: `full` (the default) fine-tunes every parameter,
+optionally keeping the layers listed in `transfer.freeze` fixed; `film` freezes every pretrained
+parameter and trains only [FiLM](https://arxiv.org/abs/1709.07871) layers (a per-channel scale and
+shift) added after each UNet convolution:
+
+```bash
+uv run src/ds_greenland/scripts/transfer.py experiment=<new dataset experiment> transfer.run_ref=<path to wandb run> transfer.method=film
+```
+
+See `src/ds_greenland/configs/transfer.yaml` for the other options (e.g. refitting the
+normalisation). Either way, the fine-tuned model is saved to a new W&B run in the same format as
+`interpolation.py`'s: FiLM layers are folded into the convolutions they follow when checkpoints are
+saved, so `inference.py`/`placement.py` load them like any other run.
 
 Run any script with `--help` to see the available experiments and the full composed config, or
 `--cfg job` to print the resolved config without running anything. See [CLAUDE.md](CLAUDE.md) for

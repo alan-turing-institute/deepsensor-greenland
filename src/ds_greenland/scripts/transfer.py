@@ -2,9 +2,12 @@
 
 Loads a model trained by ``interpolation.py`` from its W&B run, rebuilds it with
 exactly the pretrained architecture, and keeps training it on the dataset of the
-selected ``experiment``. The run is saved to W&B in the same format as
-``interpolation.py``'s, so ``inference.py``/``placement.py`` (and this script, to
-chain transfers) can load the fine-tuned model from its new run.
+selected ``experiment``, either fine-tuning all of its parameters (optionally
+keeping some layers frozen) or only FiLM layers added to its UNet
+(``transfer.method``). The run is saved to W&B in the same format as
+``interpolation.py``'s (FiLM layers are folded into the weights they modulate),
+so ``inference.py``/``placement.py`` (and this script, to chain transfers) can
+load the fine-tuned model from its new run.
 """
 
 import glob
@@ -26,6 +29,7 @@ from deepsensor.train import set_gpu_default_device
 from omegaconf import DictConfig, OmegaConf, open_dict
 
 from ds_greenland.models import DeepSensorModel
+from ds_greenland.models.film import add_film_layers
 from ds_greenland.scripts.inference import download_wandb_file
 from ds_greenland.scripts.interpolation import prepare_training_data
 from ds_greenland.training import Trainer
@@ -35,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 MODEL_CONFIG_FILE = "model_config.json"
 DATA_PROCESSOR_CONFIG_FILE = "data_processor_config.json"
+TRANSFER_METHODS = ("full", "film")
 
 
 def fetch_pretrained_files(run_ref: str, weights_filename: str) -> str:
@@ -189,6 +194,76 @@ def freeze_parameters(module: torch.nn.Module, prefixes: Sequence[str]) -> list[
     return frozen
 
 
+def check_transfer_method(method: str, freeze: Sequence[str]) -> None:
+    """Check the fine-tuning method and its options are valid together.
+
+    Parameters
+    ----------
+    method : str
+        Fine-tuning method, one of `TRANSFER_METHODS` (see
+        `prepare_for_fine_tuning`).
+    freeze : Sequence[str]
+        Parameter-name prefixes to freeze (see `freeze_parameters`).
+
+    Raises
+    ------
+    ValueError
+        If `method` is unknown, or `freeze` is given with ``"film"`` (which
+        already freezes every pretrained parameter).
+
+    """
+    if method not in TRANSFER_METHODS:
+        raise ValueError(
+            f"Unknown transfer method {method!r}; expected one of {TRANSFER_METHODS}"
+        )
+    if method == "film" and freeze:
+        raise ValueError(
+            "transfer.freeze only applies to method 'full': method 'film' already "
+            f"freezes every pretrained parameter (got freeze={list(freeze)})"
+        )
+
+
+def prepare_for_fine_tuning(
+    module: torch.nn.Module, method: str, freeze: Sequence[str]
+) -> None:
+    """Choose which parameters fine-tuning trains.
+
+    Parameters
+    ----------
+    module : torch.nn.Module
+        The pretrained model's torch module (``ConvNP.model``), with its
+        weights already loaded.
+    method : str
+        ``"full"`` trains every parameter except those under `freeze`.
+        ``"film"`` freezes every pretrained parameter and adds identity FiLM
+        layers after the UNet's convolutions (see
+        `ds_greenland.models.film.add_film_layers`), so only those train.
+    freeze : Sequence[str]
+        Parameter-name prefixes to freeze with ``"full"`` (see
+        `freeze_parameters`). Must be empty with ``"film"``.
+
+    Raises
+    ------
+    ValueError
+        For the reasons `check_transfer_method`, `freeze_parameters` and
+        `add_film_layers` raise.
+
+    """
+    check_transfer_method(method, freeze)
+    if method == "film":
+        module.requires_grad_(False)
+        film_convs = add_film_layers(module)
+        logger.info(
+            "Froze every pretrained parameter and added FiLM layers after %d UNet "
+            "convolutions: %s",
+            len(film_convs),
+            film_convs,
+        )
+    elif freeze:
+        frozen = freeze_parameters(module, freeze)
+        logger.info("Froze %d parameter tensors under %s", len(frozen), list(freeze))
+
+
 def mean_task_loss(model: ConvNP, tasks: Sequence[Task]) -> float:
     """Mean normalised loss over `tasks`, as `Trainer` computes its validation loss.
 
@@ -219,9 +294,9 @@ def main(config: DictConfig) -> None:
     Fetches the pretrained run's model config, data processor and weights
     from W&B; builds the training/validation tasks for the selected
     experiment's dataset, normalised with the pretrained data processor; then
-    rebuilds the pretrained model, loads its weights, optionally freezes some
-    of its layers and logs its zero-shot validation loss, and fine-tunes it
-    with `Trainer.train`.
+    rebuilds the pretrained model, loads its weights, sets which parameters
+    to train (all but some frozen layers, or only added FiLM layers) and logs
+    its zero-shot validation loss, and fine-tunes it with `Trainer.train`.
 
     Parameters
     ----------
@@ -239,8 +314,13 @@ def main(config: DictConfig) -> None:
             If false, normalise the new dataset with the pretrained run's
             variable statistics. If true, fit them on the new dataset instead
             (the coordinate normalisation is always the pretrained run's).
+        method : str
+            ``"full"`` (fine-tune every parameter not under `freeze`) or
+            ``"film"`` (train only FiLM layers added to the UNet); see
+            `prepare_for_fine_tuning`.
         freeze : list[str]
-            Parameter-name prefixes to freeze (see `freeze_parameters`).
+            Parameter-name prefixes to freeze with ``method: full`` (see
+            `freeze_parameters`).
         zero_shot_eval : bool
             If set, log the pretrained model's loss on the new validation
             tasks before fine-tuning, as a baseline.
@@ -255,14 +335,21 @@ def main(config: DictConfig) -> None:
     ------
     ValueError
         If the new dataset's structure doesn't match the pretrained model's
-        (see `check_task_loader_compatible`), if a freeze prefix matches no
-        parameters, or for any of the reasons `prepare_training_data` raises.
+        (see `check_task_loader_compatible`), for any of the reasons
+        `prepare_for_fine_tuning` raises (e.g. an unknown method, or a freeze
+        prefix matching no parameters), or for any of the reasons
+        `prepare_training_data` raises.
 
     """
     transfer_config = config["transfer"]
     run_ref = transfer_config["run_ref"]
     weights_fn = transfer_config["weights_filename"]
+    # Defaulted so standalone configs written before `method` existed keep working.
+    method = transfer_config.get("method", "full")
+    freeze = list(transfer_config["freeze"])
     resume = config["training"].get("resume", False)
+    # Fail on a bad method before spending time on W&B and data loading.
+    check_transfer_method(method, freeze)
 
     # Fetch the pretrained run first: its architecture replaces the experiment's
     # `model` section, which W&B records below and `Trainer` reads.
@@ -349,10 +436,7 @@ def main(config: DictConfig) -> None:
     model = model_wrapper.build_model(data.data_processor, data.task_loader)
     model_wrapper.load_model(os.path.join(files_path, weights_fn))
 
-    freeze = list(transfer_config["freeze"])
-    if freeze:
-        frozen = freeze_parameters(model.model, freeze)
-        logger.info("Froze %d parameter tensors under %s", len(frozen), freeze)
+    prepare_for_fine_tuning(model.model, method, freeze)
     logger.info("Trainable model parameters: %d", model_wrapper.count_parameters())
 
     # When resuming, `Trainer` replaces these weights with the run's last checkpoint.

@@ -8,6 +8,10 @@ hydra:
   job:
     chdir: false
 
+training:
+  learning_rate: 0.00003 #3e-5 for fine-tuning, FiLM layers might need a higher learning rate, e.g. 0.0001
+  num_epochs: 10
+
 # Fine-tunes the pretrained model below on the dataset of the selected `experiment`. The
 # experiment's `model` section is ignored (the pretrained architecture is used instead), but its
 # data.context_var_IDs/target_var_IDs and dataloader.context_delta_t must have the same structure
@@ -19,8 +23,15 @@ transfer:
   # false: normalise the new data with the pretrained run's statistics; true: fit them on the new
   # data (the coordinate normalisation is always the pretrained run's)
   refit_normalisation: false
-  # Parameter-name prefixes to keep fixed, e.g. "decoder.links.0.before_turn_layers" (UNet
-  # downsampling path), "decoder.links.0.after_turn_layers" (upsampling path),
-  # "decoder.links.0.final_linear" (output layer). Empty = fine-tune everything.
+  # How to fine-tune:
+  # - "full": train every parameter, except those under `freeze`.
+  # - "film": freeze every pretrained parameter and train only FiLM layers (a per-channel scale and
+  #   shift, starting at the identity) added after each UNet convolution — a small fraction of the
+  #   parameters. Needs a plain UNet (conv_arch "unet"). Checkpoints fold the FiLM layers into the
+  #   convolutions, so they load like any other run's (inference.py, placement.py, chained transfers).
+  method: full
+  # With method "full": parameter-name prefixes to keep fixed, e.g.
+  # "decoder.links.0.before_turn_layers" (UNet downsampling path), "decoder.links.0.after_turn_layers"
+  # (upsampling path), "decoder.links.0.final_linear" (output layer). Empty = fine-tune everything.
   freeze: []
   zero_shot_eval: true # Log the pretrained model's loss on the new validation tasks first

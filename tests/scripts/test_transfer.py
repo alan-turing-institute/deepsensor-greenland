@@ -211,6 +211,102 @@ class TestFreezeParameters:
         assert not changed & frozen
 
 
+class TestCheckTransferMethod:
+    @pytest.mark.parametrize(
+        ("method", "freeze"), [("full", []), ("full", [UNET_DOWN]), ("film", [])]
+    )
+    def test_accepts_valid_combinations(self, method, freeze):
+        tr.check_transfer_method(method, freeze)
+
+    def test_rejects_unknown_method(self):
+        with pytest.raises(ValueError, match="Unknown transfer method 'lora'"):
+            tr.check_transfer_method("lora", [])
+
+    def test_rejects_freeze_with_film(self):
+        with pytest.raises(ValueError, match="only applies to method 'full'"):
+            tr.check_transfer_method("film", [UNET_DOWN])
+
+
+class TestPrepareForFineTuning:
+    def test_full_leaves_the_model_as_it_is_by_default(self, pretrained_run):
+        _, model = pretrained_run
+        before = {n: p.requires_grad for n, p in model.model.named_parameters()}
+
+        tr.prepare_for_fine_tuning(model.model, "full", [])
+
+        after = {n: p.requires_grad for n, p in model.model.named_parameters()}
+        assert after == before
+
+    def test_full_freezes_given_prefixes(self, pretrained_run):
+        _, model = pretrained_run
+        before = {n: p.requires_grad for n, p in model.model.named_parameters()}
+
+        tr.prepare_for_fine_tuning(model.model, "full", [UNET_DOWN])
+
+        for name, param in model.model.named_parameters():
+            expected = before[name] and not name.startswith(f"{UNET_DOWN}.")
+            assert param.requires_grad is expected, name
+
+    def test_film_trains_only_film_layers(self, pretrained_run):
+        _, model = pretrained_run
+
+        tr.prepare_for_fine_tuning(model.model, "film", [])
+
+        trainable = {n for n, p in model.model.named_parameters() if p.requires_grad}
+        assert trainable
+        assert all(".film." in n for n in trainable)
+        assert all(
+            not p.requires_grad
+            for n, p in model.model.named_parameters()
+            if ".film." not in n
+        )
+
+    def test_film_rejects_freeze_before_changing_the_model(self, pretrained_run):
+        _, model = pretrained_run
+        before = {n: p.requires_grad for n, p in model.model.named_parameters()}
+
+        with pytest.raises(ValueError, match="only applies to method 'full'"):
+            tr.prepare_for_fine_tuning(model.model, "film", [UNET_DOWN])
+
+        after = {n: p.requires_grad for n, p in model.model.named_parameters()}
+        assert after == before
+
+    def test_film_fine_tuned_checkpoint_loads_into_rebuilt_model(
+        self, pretrained_run, tiny_dp_and_task_loader
+    ):
+        files_path, _ = pretrained_run
+        data_processor, task_loader, dates = tiny_dp_and_task_loader
+        model = _rebuild(files_path, data_processor, task_loader)
+        tr.prepare_for_fine_tuning(model.model, "film", [])
+        pretrained = {n: p.detach().clone() for n, p in model.model.named_parameters()}
+        # Built over every parameter, with weight decay, as `Trainer` builds it.
+        optimizer = torch.optim.Adam(
+            model.model.parameters(), lr=0.1, weight_decay=0.0001
+        )
+        task = task_loader(dates[0], context_sampling=10, target_sampling="all")
+
+        train_epoch_with_dataloader(model, [task_collate_fn([task])], optimizer)
+
+        changed = {
+            n
+            for n, p in model.model.named_parameters()
+            if not torch.equal(p, pretrained[n])
+        }
+        assert changed
+        assert all(".film." in n for n in changed)
+
+        # Saved as `Trainer` saves checkpoints, then loaded as `inference.py`/a
+        # chained transfer would: into a model rebuilt from `model_config.json`.
+        wrapper = DeepSensorModel(OmegaConf.create({"model": {}}))
+        wrapper.model = model
+        wrapper.save_model(str(files_path / "weights.pt"))
+        reloaded = _rebuild(files_path, data_processor, task_loader)
+
+        assert tr.mean_task_loss(reloaded, [task]) == pytest.approx(
+            tr.mean_task_loss(model, [task]), rel=1e-5
+        )
+
+
 class TestMeanTaskLoss:
     def test_is_mean_of_task_losses_without_tracking_gradients(
         self, pretrained_run, tiny_dp_and_task_loader

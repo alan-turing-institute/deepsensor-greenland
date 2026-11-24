@@ -10,6 +10,7 @@ from deepsensor.data import DataProcessor, Task, TaskLoader
 from deepsensor.model import ConvNP
 from omegaconf import DictConfig
 
+from ds_greenland.models.film import folded_state_dict, load_folded_state_dict
 from ds_greenland.models.mdn import MDNZIGammaConvNP, install_mdn_zigamma_likelihood
 from ds_greenland.utils.config import to_plain
 from ds_greenland.utils.model import get_available_device
@@ -140,6 +141,10 @@ class DeepSensorModel:
     def save_model(self, filepath: str) -> None:
         """Save the model's state dict to disk.
 
+        Any FiLM layers (see `ds_greenland.models.film`) are folded into the
+        convolutions they follow, so the checkpoint is always a plain
+        ``ConvNP`` state dict, loadable by a model built from the same config.
+
         Parameters
         ----------
         filepath : str
@@ -155,10 +160,14 @@ class DeepSensorModel:
             raise ValueError("No model to save")
 
         logger.info("Saving model to %s", filepath)
-        torch.save(self.model.model.state_dict(), filepath)
+        torch.save(folded_state_dict(self.model.model), filepath)
 
     def load_model(self, filepath: str) -> None:
         """Load a model checkpoint's state dict from disk.
+
+        If the model has FiLM layers (see `ds_greenland.models.film`), the
+        checkpoint's weights are loaded into the convolutions and the FiLM
+        layers are reset to the identity (see `load_folded_state_dict`).
 
         Parameters
         ----------
@@ -177,7 +186,7 @@ class DeepSensorModel:
 
         logger.info("Loading model from %s", filepath)
         model_state_dict = torch.load(filepath, map_location=get_available_device())
-        self.model.model.load_state_dict(model_state_dict)
+        load_folded_state_dict(self.model.model, model_state_dict)
 
     def predict(self, task: Task, num_samples: int = 1) -> Any:
         """Make predictions with uncertainty quantification.

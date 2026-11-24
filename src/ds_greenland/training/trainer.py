@@ -22,7 +22,6 @@ import deepsensor.plot as dsplt
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import torch
 import torch.optim as optim
 import wandb
 import xarray as xr
@@ -42,7 +41,6 @@ from ds_greenland.utils.data import NumpyFloatValuesEncoder
 from ds_greenland.utils.model import (
     add_uncertainty_decomposition,
     compute_pred_ds,
-    get_available_device,
     get_pred_DAs_taskstream,
 )
 
@@ -261,8 +259,10 @@ class Trainer:
         Reinitializes the W&B run identified by
         ``config["training"]["wandb_run_id"]`` in resume mode, recreates
         the local save directory, and loads the model weights saved as
-        ``"files/last-weights.pt"`` in that run into
-        ``self.model.model.model``.
+        ``"files/last-weights.pt"`` in that run with
+        `DeepSensorModel.load_model` (for a model with FiLM layers, this
+        folds the FiLM layers learnt so far into the convolutions and
+        restarts them from the identity; the model's output is unchanged).
 
         Notes
         -----
@@ -297,10 +297,8 @@ class Trainer:
         logger.info("Loading model weights of epoch %03d...", self.latest_model_epoch)
         weights_file = wandb.restore("files/last-weights.pt")
         assert weights_file is not None, "wandb.restore did not find the weights file"
-        assert self.model.model is not None, "model.model must be built before training"
-        self.model.model.model.load_state_dict(
-            torch.load(weights_file.name, map_location=get_available_device())
-        )
+        # Through the wrapper, which also handles models with FiLM layers.
+        self.model.load_model(weights_file.name)
 
         logger.info("Restore W&B run: %s", self.wandb_run.name)
         logger.info("W&B URL: %s", self.wandb_run.url)
@@ -614,9 +612,8 @@ class Trainer:
 
             # Periodic checkpointing
             if (ep + 1) % self.train_config.get("save_checkpoint_every", 10) == 0:
-                torch.save(
-                    model.model.state_dict(),
-                    os.path.join(self.local_save_dir, f"weights-ep{ep:02}.pt"),
+                self.model.save_model(
+                    os.path.join(self.local_save_dir, f"weights-ep{ep:02}.pt")
                 )
                 if self.use_wandb:
                     assert self.wandb_run is not None
@@ -669,7 +666,7 @@ class Trainer:
                     weights_path = os.path.join(
                         self.local_save_dir, "best-weights-stnval.pt"
                     )
-                    torch.save(model.model.state_dict(), weights_path)
+                    self.model.save_model(weights_path)
                     if self.use_wandb:
                         assert wandb.run is not None
                         assert self.wandb_run is not None
@@ -753,9 +750,8 @@ class Trainer:
                         )
 
                 # Save last checkpoint weights
-                torch.save(
-                    model.model.state_dict(),
-                    os.path.join(self.local_save_dir, "last-weights.pt"),
+                self.model.save_model(
+                    os.path.join(self.local_save_dir, "last-weights.pt")
                 )
                 wandb.save(
                     os.path.join(self.local_save_dir, "last-weights.pt"),
@@ -763,10 +759,7 @@ class Trainer:
                 )
 
         # Save final model weights
-        torch.save(
-            model.model.state_dict(),
-            os.path.join(self.local_save_dir, "final-weights.pt"),
-        )
+        self.model.save_model(os.path.join(self.local_save_dir, "final-weights.pt"))
 
         if self.use_wandb:
             assert self.wandb_run is not None
