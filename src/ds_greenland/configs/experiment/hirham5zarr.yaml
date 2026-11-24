@@ -15,3 +15,7 @@ data:
 
 dataloader:
   context_delta_t: [[0], [-9, -8, -7, -6, -5, -4, -3, -2, -1, 0], [0]]
+  # Read the sampled dates (plus the days context_delta_t reaches back to) into memory once,
+  # rather than re-reading the stores' ~2048-day chunks for every task. Needs roughly
+  # 0.5 MB per variable per day loaded; set false to keep the data lazy.
+  load_into_memory: true

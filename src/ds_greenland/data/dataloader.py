@@ -4,6 +4,7 @@ import glob
 import json
 import logging
 import os
+import warnings
 from collections.abc import Hashable, Sequence
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -27,6 +28,41 @@ from ds_greenland.utils.data import (
 logger = logging.getLogger(__name__)
 
 cache_dir = ".datacache"
+
+# Dask chunks for the HIRHAM5 base/10-year Zarr stores, which are written in chunks
+# of 2048 days x every land point (`save_chunks` in configs/hirham5_create_basefile.yaml).
+# Keeping every land point (`z`) in one dask chunk means each stored chunk is
+# decompressed once per piece rather than once per slice of `z` (`chunks="auto"`
+# split `z` in two), and 256-day pieces line up with the stored chunks in time while
+# staying small enough to read in parallel and to skip the days a run doesn't use.
+# Loading 20 dates' tasks into memory from the HIRHAM5-ECEARTH3 v_04 store took 48 s
+# this way, against 85 s with "auto", 165 s with the stored chunks as-is, and 135 s
+# opening the stored chunks and splitting them afterwards.
+HIRHAM5_ZARR_CHUNKS: dict[str, int] = {"time": 256, "z": -1}
+
+
+def open_hirham5_store(path: str) -> xr.Dataset:
+    """Open a HIRHAM5 base/10-year Zarr store in `HIRHAM5_ZARR_CHUNKS` pieces.
+
+    Parameters
+    ----------
+    path : str
+        Path to the Zarr store.
+
+    Returns
+    -------
+    xarray.Dataset
+        The lazily opened store.
+
+    """
+    with warnings.catch_warnings():
+        # The pieces split the stored chunks along `time` on purpose (see above).
+        warnings.filterwarnings(
+            "ignore",
+            message="The specified chunks separate the stored chunks",
+            category=UserWarning,
+        )
+        return xr.open_zarr(path, chunks=HIRHAM5_ZARR_CHUNKS)
 
 
 class BaseDataLoader:
@@ -883,6 +919,10 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
     ----------
     ancils_path : str
         Path to the directory containing ancillary files.
+    load_into_memory : bool
+        Whether :meth:`get_dataproc_taskload` loads the selected dates'
+        context/target data into memory, from
+        ``config["dataloader"]["load_into_memory"]`` (default ``False``).
     basin_x, basin_y : xarray.DataArray
         ``x``/``y`` coordinate arrays covering the bounding box of
         ``self.basin``. Only set if ``self.basin is not None``.
@@ -901,6 +941,9 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         """
         super().__init__(config)
         self.ancils_path: str = config["data"]["ancillary_path"]
+        self.load_into_memory: bool = config["dataloader"].get(
+            "load_into_memory", False
+        )
         self.train_start: str = config["data"]["train_start"]
         self.val_end: str = config["data"]["val_end"]
         if self.basin is not None:
@@ -962,7 +1005,7 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         if any(isinstance(el, list) for el in self.context_vars):
             self.variables = [var for group in self.context_vars for var in group]
 
-        ds = xr.open_zarr(os.path.join(self.source, self.data_pattern), chunks="auto")
+        ds = open_hirham5_store(os.path.join(self.source, self.data_pattern))
 
         ds = ds.set_index(z=["y", "x"]).unstack("z")
         ds = ds.drop_vars(["lat", "lon"])
@@ -1012,9 +1055,8 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
 
         # open the 10-year average dataset and merge it with the base dataset
         if len(self.long_vars) > 0:
-            ds_long = xr.open_zarr(
-                os.path.join(self.source, ten_year_store_name(self.data_pattern)),
-                chunks="auto",
+            ds_long = open_hirham5_store(
+                os.path.join(self.source, ten_year_store_name(self.data_pattern))
             )
             ds_long = ds_long.set_index(z=["y", "x"]).unstack("z")
             ds_long = ds_long.drop_vars(["lat", "lon"])
@@ -1103,6 +1145,11 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
         method (used for the target-bearing group, e.g. snow melt) and the
         remaining group with the default method; otherwise all context
         variables are normalised together with the default method.
+
+        If ``self.load_into_memory`` is set, the task loader's context/target
+        data (only `dates`, plus the days the context time offsets reach back
+        to) is loaded into memory before returning, so building tasks doesn't
+        read from the stores again. The returned raw dataset stays lazy.
 
         Parameters
         ----------
@@ -1214,5 +1261,15 @@ class HIRHAM5ZarrDataLoader(BaseDataLoader):
             task_loader = TaskLoader(
                 context=context, target=ds_target, context_delta_t=flat_context_delta_t
             )
+            if self.load_into_memory:
+                # The stores' chunks span ~2048 days, so building each task
+                # lazily re-reads and decompresses them for every date. Reading
+                # the selected dates once up front makes building a task an
+                # in-memory operation.
+                logger.info(
+                    "Loading the selected dates' context/target data into memory..."
+                )
+                task_loader.load_dask()
+                logger.info("Loaded")
 
         return raw_ds, data_processor, task_loader

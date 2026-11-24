@@ -1,10 +1,13 @@
+import copy
 import json
+from collections.abc import Iterable
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+from deepsensor.data.loader import TaskLoader
 from omegaconf import DictConfig, OmegaConf
 
 from ds_greenland.data.dataloader import (
@@ -296,3 +299,148 @@ class TestFeaturizeVars:
 
         assert "var_anm" in result.data_vars
         assert dict(result.chunks) == {"time": (2, 1), "y": (1, 1), "x": (1, 1)}
+
+
+def _write_hirham5_zarr_stores(path: Path, n_days: int = 600) -> pd.DatetimeIndex:
+    """Write tiny HIRHAM5-style base, 10-year-average and mask stores under `path`.
+
+    Each store is stacked over a `z` (land point) dimension with `y`/`x`
+    coordinates and `lat`/`lon` variables, like the real ones, and the time
+    series are chunked in 512 days so a run spans several stored chunks.
+    """
+    time = pd.date_range("2020-01-01T12:00", periods=n_days, freq="D")
+    y = np.array([11.0, 10.0])
+    x = np.array([0.0, 1.0, 2.0])
+    rng = np.random.default_rng(0)
+
+    def stacked(data_vars: dict[str, tuple]) -> xr.Dataset:
+        latlon = (("y", "x"), np.zeros((len(y), len(x))))
+        ds = xr.Dataset(
+            data_vars, coords={"y": y, "x": x, "lat": latlon, "lon": latlon}
+        )
+        return ds.stack(z=("y", "x")).reset_index("z")
+
+    def series() -> tuple:
+        values = rng.random((n_days, len(y), len(x))).astype("float32")
+        return (("time", "y", "x"), values)
+
+    base = stacked({"snmel": series(), "dswrad": series()}).assign_coords(time=time)
+    base.chunk({"time": 512, "z": -1}).to_zarr(path / "base.zarr", zarr_format=2)
+    long = stacked({"dswrad_10yr-avg": series()}).assign_coords(time=time)
+    long.chunk({"time": 512, "z": -1}).to_zarr(path / "base_10yr.zarr", zarr_format=2)
+    mask = stacked({"glacGRL": (("y", "x"), np.array([[1, 1, 0], [1, 0, 1]]))})
+    mask.to_zarr(path / "GRLmask.zarr", zarr_format=2)
+    return time
+
+
+def _make_zarr_config(path: Path, load_into_memory: bool) -> DictConfig:
+    return OmegaConf.create(
+        {
+            "data": {
+                "data_path": str(path),
+                "data_pattern": "base.zarr",
+                "ancillary_path": str(path),
+                "region": "greenland",
+                "basin": None,
+                "context_var_IDs": [["snmel_abs"], ["dswrad_abs"], ["dswrad_10yr-avg"]],
+                "target_var_IDs": "snmel_abs",
+                "train_start": "2020-01-01",
+                "train_end": "2020-12-31",
+                "val_start": "2021-01-01",
+                "val_end": "2021-08-01",
+            },
+            "dataloader": {
+                "lsm_mask": False,
+                "frequency": "D",
+                "context_delta_t": [[0], [-1, 0], [0]],
+                "load_into_memory": load_into_memory,
+            },
+        }
+    )
+
+
+def _data_vars(datasets: Iterable[xr.Dataset | xr.DataArray]) -> list[xr.DataArray]:
+    """Every data array in a TaskLoader context/target list (of Datasets/DataArrays)."""
+    return [
+        da
+        for ds in datasets
+        for da in (ds.data_vars.values() if isinstance(ds, xr.Dataset) else [ds])
+    ]
+
+
+class TestHirham5ZarrStoreChunks:
+    def test_reads_time_in_aligned_pieces(self, tmp_path):
+        _write_hirham5_zarr_stores(tmp_path, n_days=600)
+        loader = HIRHAM5ZarrDataLoader(_make_zarr_config(tmp_path, False))
+
+        ds = loader.load_ds()
+
+        # 256-day pieces, which tile the 512-day stored chunks exactly.
+        for var in ["snmel_abs", "dswrad_abs", "dswrad_10yr-avg"]:
+            assert ds[var].chunks[0] == (256, 256, 88), var
+
+
+class TestHirham5ZarrLoadIntoMemory:
+    """Test `load_into_memory` with an already-fitted data processor.
+
+    That's how transfer.py, inference.py and placement.py use the loader. Fitting
+    a new processor loads the data it fits on anyway, since DeepSensor's
+    DataProcessor calls `.load()` to compute its statistics.
+    """
+
+    STORE_VARS = frozenset({"snmel_abs", "dswrad_abs", "dswrad_10yr-avg"})
+
+    @pytest.fixture
+    def dates(self, tmp_path):
+        time = _write_hirham5_zarr_stores(tmp_path)
+        return list(time[[100, 300, 550]].values)
+
+    @pytest.fixture
+    def data_processor(self, tmp_path, dates):
+        loader = HIRHAM5ZarrDataLoader(_make_zarr_config(tmp_path, False))
+        _, data_processor, _ = loader.get_dataproc_taskload(dates=dates)
+        return data_processor
+
+    def _task_loader(self, tmp_path, dates, data_processor, load_into_memory):
+        loader = HIRHAM5ZarrDataLoader(_make_zarr_config(tmp_path, load_into_memory))
+        return loader.get_dataproc_taskload(
+            dates=dates, data_processor=copy.deepcopy(data_processor)
+        )
+
+    def _from_stores(self, task_loader: TaskLoader) -> list[xr.DataArray]:
+        """Return the context/target arrays read from the stores (not the aux features)."""
+        arrays = [
+            da
+            for da in _data_vars([*task_loader.context, *task_loader.target])
+            if da.name in self.STORE_VARS
+        ]
+        assert {da.name for da in arrays} == self.STORE_VARS
+        return arrays
+
+    def test_loads_store_data_when_enabled(self, tmp_path, dates, data_processor):
+        raw_ds, _, task_loader = self._task_loader(
+            tmp_path, dates, data_processor, True
+        )
+
+        for da in self._from_stores(task_loader):
+            assert da.chunks is None, da.name
+        assert raw_ds["snmel_abs"].chunks is not None
+
+    def test_keeps_store_data_lazy_when_disabled(self, tmp_path, dates, data_processor):
+        _, _, task_loader = self._task_loader(tmp_path, dates, data_processor, False)
+
+        for da in self._from_stores(task_loader):
+            assert da.chunks is not None, da.name
+
+    def test_builds_the_same_tasks(self, tmp_path, dates, data_processor):
+        _, _, lazy = self._task_loader(tmp_path, dates, data_processor, False)
+        _, _, loaded = self._task_loader(tmp_path, dates, data_processor, True)
+
+        for date in dates:
+            tasks = [
+                task_loader(date, context_sampling="all", target_sampling="all")
+                for task_loader in (lazy, loaded)
+            ]
+            for key in ["Y_c", "Y_t"]:
+                for lazy_y, loaded_y in zip(tasks[0][key], tasks[1][key], strict=True):
+                    np.testing.assert_array_equal(lazy_y, loaded_y)
