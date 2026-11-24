@@ -62,6 +62,16 @@ consumes. Which subclass to instantiate is selected at runtime from `config["dat
 (`"carra2"`, `"hirham5"`, `"hirham5zarr"`) — this three-way branch is duplicated verbatim across
 `scripts/interpolation.py`, `scripts/inference.py`, and `scripts/placement.py`.
 
+The HIRHAM5 Zarr stores are written in chunks of 2048 days × every land point (`save_chunks` in
+`configs/hirham5_create_basefile.yaml`), so per-date reads are expensive: a lazily built task
+re-reads and decompresses those chunks (~80 s per task). `HIRHAM5ZarrDataLoader` therefore opens
+them via `open_hirham5_store` in `HIRHAM5_ZARR_CHUNKS` (256-day pieces, all of `z` — measured
+fastest; see the comment there), and with `dataloader.load_into_memory` (on in `hirham5zarr.yaml`)
+`get_dataproc_taskload` loads the task loader's selected dates into memory once. This matters when
+a fitted `DataProcessor` is passed in (`transfer.py`, `inference.py`, `placement.py`): fitting a
+new one already loads the data it fits on, since DeepSensor's `DataProcessor` calls `.load()` to
+compute statistics.
+
 ### Model (`models/model.py`)
 
 `DeepSensorModel` wraps a DeepSensor `ConvNP`, built from a `DataProcessor` + `TaskLoader` and a
