@@ -500,8 +500,8 @@ def new_placements_plot_xy(
 
 def plot_greenland_only(
     gris_data: xr.DataArray,
-    newplace_df: pd.DataFrame,
-    existing_df: pd.DataFrame,
+    newplace_df: pd.DataFrame | None = None,
+    existing_df: pd.DataFrame | None = None,
     ax: GeoAxes | None = None,
     masked: bool = True,
     ocean_color: str | None = "white",
@@ -522,13 +522,14 @@ def plot_greenland_only(
     ----------
     gris_data : xarray.DataArray
         2D field (e.g. ``lat``/``lon`` or ``y``/``x``) to plot.
-    newplace_df : pandas.DataFrame
+    newplace_df : pandas.DataFrame or None, default None
         New placement locations, indexed as ``(lat, lon)`` pairs (row order
         matches ``.values``), plotted as red ``"+"`` markers (unless
         restyled via `newplace_kwargs`) and annotated with ``index + 1``.
-    existing_df : pandas.DataFrame
+        If None, no new placements are drawn.
+    existing_df : pandas.DataFrame or None, default None
         Existing placement locations, indexed as ``(lat, lon)`` pairs,
-        plotted as black ``"x"`` markers.
+        plotted as black ``"x"`` markers. If None, none are drawn.
     ax : cartopy.mpl.geoaxes.GeoAxes or None, default None
         Axis to plot on. If None, a new figure and
         :class:`~cartopy.crs.NorthPolarStereo` axis are created.
@@ -542,9 +543,7 @@ def plot_greenland_only(
         If True, draw latitude/longitude gridlines.
     pcolormesh_kwargs : dict[str, Any] or None, default None
         Extra keyword arguments forwarded to ``ax.pcolormesh`` (e.g.
-        ``cmap``, ``vmin``, ``vmax``). Must be provided (unpacked with
-        ``**``), so a plain call without this argument will raise a
-        ``TypeError``.
+        ``cmap``, ``vmin``, ``vmax``). None uses matplotlib's defaults.
     newplace_kwargs : dict[str, Any] or None, default None
         Extra keyword arguments forwarded to the new-placements
         ``ax.scatter`` call (e.g. ``marker``, ``c``, ``s``, ``edgecolors``),
@@ -632,43 +631,44 @@ def plot_greenland_only(
             linestyle="--",
         )
 
-    ax.scatter(
-        *newplace_df.values.T[::-1],
-        transform=data_crs,
-        **{
-            "marker": "+",
-            "s": 3**2,
-            "c": "r",
-            "zorder": 5,
-            "label": "New placements",
-            **(newplace_kwargs or {}),
-        },
-    )
-    ax.scatter(
-        *existing_df.values.T[::-1],
-        transform=data_crs,
-        marker="x",
-        s=3**2,
-        c="k",
-        zorder=5,
-        label="Existing placements",
-    )
-
-    # annotate new placements with their row index
-    for row_idx, (lat_val, lon_val) in zip(
-        newplace_df.index, newplace_df.values, strict=True
-    ):
-        ax.text(
-            lon_val,
-            lat_val,
-            str(row_idx + 1),
+    if newplace_df is not None:
+        ax.scatter(
+            *newplace_df.values.T[::-1],
             transform=data_crs,
-            color="r",
-            fontsize=6,
-            fontweight="bold",
-            zorder=6,
-            ha="left",
-            va="bottom",
+            **{
+                "marker": "+",
+                "s": 3**2,
+                "c": "r",
+                "zorder": 5,
+                "label": "New placements",
+                **(newplace_kwargs or {}),
+            },
+        )
+        # annotate new placements with their row index
+        for row_idx, (lat_val, lon_val) in zip(
+            newplace_df.index, newplace_df.values, strict=True
+        ):
+            ax.text(
+                lon_val,
+                lat_val,
+                str(row_idx + 1),
+                transform=data_crs,
+                color="r",
+                fontsize=6,
+                fontweight="bold",
+                zorder=6,
+                ha="left",
+                va="bottom",
+            )
+    if existing_df is not None:
+        ax.scatter(
+            *existing_df.values.T[::-1],
+            transform=data_crs,
+            marker="x",
+            s=3**2,
+            c="k",
+            zorder=5,
+            label="Existing placements",
         )
 
     pcm = ax.pcolormesh(
@@ -679,12 +679,73 @@ def plot_greenland_only(
         shading="auto",
         rasterized=True,
         zorder=4,
-        # Note: raises TypeError if pcolormesh_kwargs is left as None (the
-        # default); every current caller always passes a dict.
-        **pcolormesh_kwargs,  # type: ignore[arg-type]
+        **(pcolormesh_kwargs or {}),
     )
 
     return ax, pcm
+
+
+def grid_metric_maps_plot(
+    maps: xr.Dataset,
+    units: str = "mm w.e. day$^{-1}$",
+    value_lims: dict[str, tuple[float | None, float | None]] | None = None,
+) -> Figure:
+    """Plot per-grid-cell RMSE, MAE and average predictive std side by side.
+
+    Each panel is a Greenland map (see `plot_greenland_only`) with its own
+    colour bar and its spatial mean in the title. By default each colour
+    scale runs from 0 to the map's maximum; fixed limits can be set per
+    metric via `value_lims`, with an arrow on the colour bar where the data
+    goes beyond them.
+
+    Parameters
+    ----------
+    maps : xarray.Dataset
+        ``"rmse"``, ``"mae"`` and ``"avgstd"`` maps, as returned by
+        :func:`ds_greenland.utils.metrics.compute_grid_metric_maps`, with 2D
+        geographic ``lon``/``lat`` coordinates.
+    units : str, default "mm w.e. day$^{-1}$"
+        Units of the maps, shown in the colour bar labels.
+    value_lims : dict[str, tuple[float or None, float or None]] or None, default None
+        Fixed ``(min, max)`` colour limits keyed by metric name (e.g.
+        ``{"rmse": (0, 5)}``); either end may be None to keep the default
+        there. Metrics not listed use the default (0 to the maximum).
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The figure with the three maps.
+
+    """
+    panels = {
+        "rmse": ("RMSE", "viridis"),
+        "mae": ("MAE", "viridis"),
+        "avgstd": ("Average std", "magma"),
+    }
+    fig, axes = plt.subplots(
+        1,
+        len(panels),
+        figsize=(15, 7),
+        subplot_kw={"projection": ccrs.NorthPolarStereo(central_longitude=-40)},
+        layout="constrained",
+    )
+    for ax, (name, (label, cmap)) in zip(axes, panels.items(), strict=True):
+        da = maps[name]
+        vmin, vmax, extend = _get_value_limits(
+            0.0, float(da.max()), (value_lims or {}).get(name)
+        )
+        ax, pcm = plot_greenland_only(
+            da, ax=ax, pcolormesh_kwargs={"cmap": cmap, "vmin": vmin, "vmax": vmax}
+        )
+        fig.colorbar(
+            pcm,
+            ax=ax,
+            orientation="horizontal",
+            extend=extend,
+            label=f"{label} ({units})",
+        )
+        ax.set_title(f"{label} (mean {float(da.mean()):.2f})")
+    return fig
 
 
 def _get_value_limits(
