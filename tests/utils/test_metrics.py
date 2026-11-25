@@ -3,9 +3,13 @@ import pytest
 import xarray as xr
 
 from ds_greenland.utils.metrics import (
+    compute_grid_metric_maps,
     compute_grid_metrics,
     compute_pit_bernoulli_gamma,
     compute_pit_zigamma_mixture,
+    grid_cell_areas,
+    melt_extent_km2,
+    total_mass_gt,
 )
 
 
@@ -152,3 +156,67 @@ class TestComputeGridMetrics:
         metrics = compute_grid_metrics(mean, std, truth)
 
         assert metrics == pytest.approx({"rmse": 2.0, "mae": 2.0, "avgstd": 1.0})
+
+
+class TestComputeGridMetricMaps:
+    def test_hand_computed_values(self):
+        truth = _grid([[0.0, 0.0], [0.0, 0.0]])
+        mean = _grid([[1.0, 3.0], [1.0, 1.0]])
+        std = _grid([[0.5, 1.5], [0.5, 1.5]])
+
+        maps = compute_grid_metric_maps(mean, std, truth)
+
+        np.testing.assert_allclose(maps["rmse"], [1.0, np.sqrt(5.0)])
+        np.testing.assert_allclose(maps["mae"], [1.0, 2.0])
+        np.testing.assert_allclose(maps["avgstd"], [0.5, 1.5])
+
+    def test_spatial_mean_rmse_matches_compute_grid_metrics(self):
+        rng = np.random.default_rng(0)
+        truth, mean, std = (_grid(rng.random((5, 4))) for _ in range(3))
+
+        maps = compute_grid_metric_maps(mean, std, truth)
+
+        assert float(maps["rmse"].mean()) == pytest.approx(
+            compute_grid_metrics(mean, std, truth)["rmse"]
+        )
+
+
+def _lonlat_grid(lons, lats):
+    lon2d, lat2d = np.meshgrid(lons, lats)
+    dims = ("y", "x")
+    return xr.DataArray(lon2d, dims=dims), xr.DataArray(lat2d, dims=dims)
+
+
+class TestGridCellAreas:
+    def test_one_degree_cell_matches_spherical_area(self):
+        lon, lat = _lonlat_grid([-41.0, -40.0, -39.0], [71.0, 72.0, 73.0])
+
+        area = grid_cell_areas(lon, lat)
+
+        # Spherical 1x1 degree cell centred on 72N (cartopy uses the WGS84
+        # ellipsoid, hence the 1% tolerance).
+        r = 6_371_000.0
+        expected = (
+            r**2
+            * np.deg2rad(1.0)
+            * (np.sin(np.deg2rad(72.5)) - np.sin(np.deg2rad(71.5)))
+        )
+        assert area.dims == ("y", "x")
+        assert float(area[1, 1]) == pytest.approx(expected, rel=0.01)
+
+
+class TestMeltTotals:
+    @pytest.fixture
+    def cell_area(self):
+        return xr.DataArray(np.full(2, 1e6), dims="cell")  # 1 km² cells
+
+    def test_total_mass_gt(self, cell_area):
+        melt = _grid([[2.0, 0.0], [np.nan, 4.0]])  # mm w.e., NaN skipped
+
+        # (2 + 4) mm w.e. x 1e6 m² = 6e6 kg = 6e-6 Gt
+        assert total_mass_gt(melt, cell_area) == pytest.approx(6e-6)
+
+    def test_melt_extent_is_mean_daily_area_above_threshold(self, cell_area):
+        melt = _grid([[2.0, 0.5], [3.0, 5.0]])  # day 1: 1 cell melts, day 2: 2
+
+        assert melt_extent_km2(melt, cell_area) == pytest.approx(1.5)
