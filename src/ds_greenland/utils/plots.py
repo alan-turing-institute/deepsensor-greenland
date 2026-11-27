@@ -22,6 +22,7 @@ from cartopy.feature import ShapelyFeature
 from cartopy.mpl.geoaxes import GeoAxes
 from deepsensor.data.processor import DataProcessor
 from deepsensor.data.task import Task
+from matplotlib import colormaps
 from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
 from matplotlib.colors import ListedColormap, TwoSlopeNorm
@@ -384,15 +385,38 @@ def PIT_histogram(
     return fig, ax
 
 
-def hexbin_parity_plot(x: ArrayLike, y: ArrayLike) -> tuple[Figure, Axes]:
+def hexbin_parity_plot(
+    x: ArrayLike,
+    y: ArrayLike,
+    color_threshold: float = 1e5,
+    units: str | None = None,
+    totals_gt: tuple[float, float] | None = None,
+    title: str | None = None,
+) -> tuple[Figure, Axes]:
     """Plot a hexbin parity (predicted vs. true) diagram with a 1:1 line.
+
+    Follows MeltEmulation's ``plot_pred_vs_target_density``
+    (https://github.com/eschlager/MeltEmulation/): bins holding more than
+    `color_threshold` points (e.g. the many zero-melt points) are drawn in
+    black and left out of the colour scale, so it resolves the rest, and the
+    RMSE and MAE (pooled over all points) are written in the lower-right
+    corner.
 
     Parameters
     ----------
     x : array-like
-        True values, plotted on the x-axis.
+        True values, plotted on the x-axis. Flattened; pairs where `x` or `y`
+        is NaN are skipped.
     y : array-like
-        Predicted values, plotted on the y-axis.
+        Predicted values, plotted on the y-axis, same size as `x`.
+    color_threshold : float, default 1e5
+        Bin count above which bins are drawn in black.
+    units : str or None, default None
+        Units of the values, added to the axis labels.
+    totals_gt : tuple[float, float] or None, default None
+        ``(true, predicted)`` totals in Gt, written in the upper-left corner.
+    title : str or None, default None
+        Title of the plot.
 
     Returns
     -------
@@ -401,24 +425,55 @@ def hexbin_parity_plot(x: ArrayLike, y: ArrayLike) -> tuple[Figure, Axes]:
         ratio and a black bisecting (1:1) line.
 
     """
-    # Plot
+    true_vals = np.asarray(x, dtype=float).ravel()
+    pred_vals = np.asarray(y, dtype=float).ravel()
+    valid = ~(np.isnan(true_vals) | np.isnan(pred_vals))
+    true_vals, pred_vals = true_vals[valid], pred_vals[valid]
+
     fig, ax = plt.subplots()
-    # hb = ax.hexbin(x, y, bins='log')
-    gridsize = 50
     hb = ax.hexbin(
-        x,
-        y,
-        gridsize=gridsize,
+        true_vals,
+        pred_vals,
+        gridsize=50,
         bins="log",
-        cmap="RdYlBu_r",
+        cmap=colormaps["RdYlBu_r"].with_extremes(over="black"),
         linewidths=(0,),  # type: ignore[arg-type]
         mincnt=1,
         vmin=1,
     )
-    fig.colorbar(hb, ax=ax, label="counts")
-    ax.set_xlabel("True")
-    ax.set_ylabel("Pred.")
-    ax.grid()
+    # Scale the colours to the bins up to the threshold; those above are
+    # drawn in the colormap's "over" colour (black).
+    counts = np.asarray(hb.get_array())
+    above = counts > color_threshold
+    if above.any():
+        below = counts[~above]
+        hb.set_clim(vmin=1, vmax=below.max() if below.size else color_threshold)
+    fig.colorbar(
+        hb,
+        ax=ax,
+        extend="max" if above.any() else "neither",
+        label=f"bin count (≤ {int(color_threshold)})",
+    )
+    suffix = f" ({units})" if units else ""
+    ax.set_xlabel(f"True{suffix}")
+    ax.set_ylabel(f"Pred.{suffix}")
+    if title:
+        ax.set_title(title)
+
+    err = pred_vals - true_vals
+    _corner_text(
+        ax,
+        [f"RMSE: {np.sqrt(np.mean(err**2)):.2f}", f"MAE: {np.mean(np.abs(err)):.2f}"],
+    )
+    if totals_gt is not None:
+        ax.text(
+            0.02,
+            0.98,
+            f"True: {totals_gt[0]:,.0f} Gt\nPred.: {totals_gt[1]:,.0f} Gt",
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+        )
 
     # Manage limits and aspect ratio
     lims = [
@@ -426,7 +481,7 @@ def hexbin_parity_plot(x: ArrayLike, y: ArrayLike) -> tuple[Figure, Axes]:
         np.max([ax.get_xlim(), ax.get_ylim()]),  # maxes of both axes
     ]
     # Plot bisecting 1:1 line
-    ax.plot(lims, lims, "k-", alpha=0.75, linewidth=0.1, zorder=1)
+    ax.plot(lims, lims, "k-", alpha=0.4, zorder=0)
     ax.set_aspect("equal")
     ax.set_xlim(lims)  # type: ignore[arg-type]
     ax.set_ylim(lims)  # type: ignore[arg-type]

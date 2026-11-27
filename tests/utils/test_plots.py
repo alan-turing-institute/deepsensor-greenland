@@ -9,6 +9,7 @@ from matplotlib.collections import QuadMesh
 from ds_greenland.utils.plots import (
     comparison_map_plot,
     grid_metric_maps_plot,
+    hexbin_parity_plot,
     plot_greenland_only,
 )
 
@@ -207,4 +208,34 @@ class TestComparisonMapPlot:
         assert _first_mesh(fig.axes[0]).get_clim() == (0, 29)
         assert _first_mesh(fig.axes[1]).get_clim() == (10, 39)
         assert len(fig.axes) == 4 + 4  # maps + true, pred, residual, std bars
+        plt.close(fig)
+
+
+class TestHexbinParityPlot:
+    def test_skips_nans_and_shows_rmse_and_mae(self):
+        x = [0.0, 1.0, 2.0, np.nan]
+        y = [1.0, 2.0, 3.0, 5.0]
+        fig, ax = hexbin_parity_plot(x, y)
+        assert ax.texts[0].get_text() == "RMSE: 1.00\nMAE: 1.00"
+        assert (ax.get_xlabel(), ax.get_ylabel()) == ("True", "Pred.")
+        assert ax.collections[0].colorbar.extend == "neither"
+        plt.close(fig)
+
+    def test_bins_above_threshold_are_left_out_of_the_colour_scale(self):
+        rng = np.random.default_rng(0)
+        x = np.concatenate([np.zeros(100), rng.random(50) * 10])  # 100 zeros
+        fig, ax = hexbin_parity_plot(x, x, color_threshold=50)
+        hb = ax.collections[0]
+        assert hb.get_clim()[1] < 50
+        assert hb.colorbar.extend == "max"
+        assert hb.colorbar.ax.get_ylabel() == "bin count (≤ 50)"
+        plt.close(fig)
+
+    def test_units_totals_and_title(self):
+        fig, ax = hexbin_parity_plot(
+            [0.0, 1.0], [0.0, 1.0], units="mm", totals_gt=(757.2, 816.0), title="2016"
+        )
+        assert (ax.get_xlabel(), ax.get_ylabel()) == ("True (mm)", "Pred. (mm)")
+        assert ax.texts[1].get_text() == "True: 757 Gt\nPred.: 816 Gt"
+        assert ax.get_title() == "2016"
         plt.close(fig)
