@@ -6,7 +6,11 @@ import xarray as xr
 from cartopy.mpl.geoaxes import GeoAxes
 from matplotlib.collections import QuadMesh
 
-from ds_greenland.utils.plots import grid_metric_maps_plot, plot_greenland_only
+from ds_greenland.utils.plots import (
+    comparison_map_plot,
+    grid_metric_maps_plot,
+    plot_greenland_only,
+)
 
 
 @pytest.fixture
@@ -130,4 +134,57 @@ class TestGridMetricMapsPlot:
         assert rmse.get_clim() == (0, 10.0)
         assert rmse.colorbar.extend == "max"
         assert mae.get_clim() == (0, 14.5)  # unlisted metric keeps the default
+        plt.close(fig)
+
+
+def _first_mesh(ax):
+    return next(c for c in ax.collections if isinstance(c, QuadMesh))
+
+
+class TestComparisonMapPlot:
+    def test_single_date_panels_and_residual_stats(self, greenland_field):
+        fig = comparison_map_plot(
+            greenland_field, greenland_field + 1, xr.full_like(greenland_field, 0.5)
+        )
+        maps = fig.axes[:4]
+        assert [ax.get_title() for ax in maps] == [
+            "True",
+            "Predicted",
+            "Residual (pred. - true)",
+            "Std",
+        ]
+        assert maps[2].texts[0].get_text() == "RMSE: 1.00\nMAE: 1.00\nMBE: 1.00"
+        plt.close(fig)
+
+    def test_time_dimension_maps_totals_and_mean_std(self, greenland_field):
+        two_days = xr.concat([greenland_field, greenland_field], dim="time")
+        fig = comparison_map_plot(two_days, two_days, two_days)
+        true_mesh = _first_mesh(fig.axes[0])
+        assert true_mesh.get_clim() == (0, 58)  # 2 x max of 29
+        assert true_mesh.colorbar.ax.get_xlabel() == "mm w.e."
+        assert fig.axes[3].get_title() == "Average std"
+        assert _first_mesh(fig.axes[3]).get_clim() == (0, 29)
+        plt.close(fig)
+
+    def test_melt_extent_from_cell_areas(self, greenland_field):
+        cell_area = xr.full_like(greenland_field, 1e6)  # 1 km² cells
+        fig = comparison_map_plot(
+            greenland_field, greenland_field, greenland_field, cell_area=cell_area
+        )
+        # Values 2..29 are above the 1 mm/day threshold: 28 cells.
+        assert fig.axes[0].texts[0].get_text() == "ME: 28 km$^2$"
+        plt.close(fig)
+
+    def test_residual_max_clips_the_scale_and_marks_min_and_max(self, greenland_field):
+        offset = np.where(np.arange(30).reshape(5, 6) % 2, 3.0, -2.0)
+        fig = comparison_map_plot(
+            greenland_field,
+            greenland_field + offset,
+            greenland_field,
+            residual_max=1.0,
+        )
+        cbar = _first_mesh(fig.axes[2]).colorbar
+        assert cbar.extend == "both"
+        markers = [line.get_color() for line in cbar.ax.lines]
+        assert markers == ["blue", "red"]
         plt.close(fig)

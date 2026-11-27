@@ -10,6 +10,7 @@ from typing import Any, Literal, cast
 
 import cartopy.crs as ccrs
 import cartopy.feature as cf
+import colorcet as cc
 import deepsensor.plot as dsplt
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
@@ -23,7 +24,10 @@ from deepsensor.data.processor import DataProcessor
 from deepsensor.data.task import Task
 from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
+from matplotlib.colors import ListedColormap, TwoSlopeNorm
 from matplotlib.figure import Figure
+from matplotlib.ticker import MaxNLocator
+from matplotlib.transforms import ScaledTranslation
 from numpy.typing import ArrayLike, NDArray
 
 from ds_greenland.utils.data import (
@@ -35,6 +39,7 @@ from ds_greenland.utils.data import (
 from ds_greenland.utils.metrics import (
     compute_pit_bernoulli_gamma,
     compute_pit_zigamma_mixture,
+    melt_extent_km2,
 )
 
 
@@ -745,6 +750,219 @@ def grid_metric_maps_plot(
             label=f"{label} ({units})",
         )
         ax.set_title(f"{label} (mean {float(da.mean()):.2f})")
+    return fig
+
+
+def _corner_text(ax: Axes, lines: list[str]) -> None:
+    """Write `lines` in the lower-right corner of `ax`, first line on top."""
+    if lines:
+        ax.text(
+            1.0,
+            0.0,
+            "\n".join(lines),
+            transform=ax.transAxes,
+            ha="right",
+            va="bottom",
+            zorder=7,
+        )
+
+
+def comparison_map_plot(
+    true: xr.DataArray,
+    pred: xr.DataArray,
+    std: xr.DataArray,
+    title: str = "",
+    units: str = "mm w.e. day$^{-1}$",
+    total_units: str = "mm w.e.",
+    cell_area: xr.DataArray | None = None,
+    melt_threshold: float = 1.0,
+    value_lim: tuple[float | None, float | None] | None = None,
+    residual_max: float | None = None,
+    std_max: float | None = None,
+    join_colorbar: bool = False,
+) -> Figure:
+    """Plot true | predicted | residual | std maps for one date or a period.
+
+    Ported from MeltEmulation's ``plot_map``
+    (https://github.com/eschlager/MeltEmulation/), with an extra panel for
+    the predictive std.
+
+    - True and predicted share a colormap; by default each colour scale runs
+      over its own map's min to max (or over both maps' combined range with
+      `join_colorbar`), and `value_lim` fixes it.
+    - The residual (predicted - true) is on a ``seismic`` scale symmetric
+      about 0, up to the largest absolute residual (or `residual_max`). Blue
+      and red markers above its colour bar show the residual's min and max.
+    - Text in the lower-right corners: median and IQR of the values above
+      `melt_threshold` (if more than 100 of them) and the melt extent (if
+      `cell_area` is given) on the true and predicted maps; RMSE, MAE and
+      MBE on the residual map.
+
+    If the inputs have a ``time`` dimension, the true, predicted and
+    residual maps show totals over time (in `total_units`) and the std map
+    its mean over time; the corner statistics are always computed from the
+    daily values (RMSE etc. pooled over every date and grid cell), as in
+    ``plot_map``.
+
+    Parameters
+    ----------
+    true, pred, std : xarray.DataArray
+        Ground truth, predicted mean and predicted std, on the same grid
+        with 2D geographic ``lon``/``lat`` coordinates, either 2D (one
+        date) or with a ``time`` dimension. `std` is masked to where `true`
+        is defined.
+    title : str, default ""
+        Figure title (e.g. the date).
+    units : str, default "mm w.e. day$^{-1}$"
+        Units of the daily values.
+    total_units : str, default "mm w.e."
+        Units of the totals over time, used when the inputs have a ``time``
+        dimension.
+    cell_area : xarray.DataArray or None, default None
+        Cell areas in m² (see :func:`ds_greenland.utils.metrics.grid_cell_areas`),
+        used for the melt extent. If None, no melt extent is shown.
+    melt_threshold : float, default 1.0
+        Value above which a cell counts as melting, for the median, IQR and
+        melt extent.
+    value_lim : tuple[float or None, float or None] or None, default None
+        Fixed ``(min, max)`` colour limits for the true and predicted maps;
+        either end may be None to keep the data's own there.
+    residual_max : float or None, default None
+        Fixed maximum absolute value of the residual colour scale.
+    std_max : float or None, default None
+        Fixed maximum of the std colour scale (otherwise its max; it always
+        starts at 0).
+    join_colorbar : bool, default False
+        If True, the true and predicted maps share one colour bar.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The figure with the four maps.
+
+    """
+    std = std.where(true.notnull())
+    daily_true, daily_pred = true, pred
+    if "time" in true.dims:
+        true = true.sum(dim="time", skipna=False)
+        pred = pred.sum(dim="time", skipna=False)
+        std = std.mean(dim="time")
+        map_units, std_label = total_units, "Average std"
+    else:
+        map_units, std_label = units, "Std"
+
+    fig, axes = plt.subplots(
+        1,
+        4,
+        figsize=(16, 6),
+        subplot_kw={"projection": ccrs.NorthPolarStereo(central_longitude=-40)},
+        layout="constrained",
+    )
+    ax_true, ax_pred, ax_res, ax_std = axes
+
+    # True and predicted
+    cmap = ListedColormap(cc.linear_kryw_5_100_c67[::-1])
+    ranges = [
+        (float(true.min()), float(true.max())),
+        (float(pred.min()), float(pred.max())),
+    ]
+    if join_colorbar:
+        joint = (min(r[0] for r in ranges), max(r[1] for r in ranges))
+        ranges = [joint, joint]
+    meshes = []
+    for ax, da, label, (lo, hi) in zip(
+        (ax_true, ax_pred), (true, pred), ("True", "Predicted"), ranges, strict=True
+    ):
+        vmin, vmax, extend = _get_value_limits(lo, hi, value_lim)
+        _, pcm = plot_greenland_only(
+            da, ax=ax, pcolormesh_kwargs={"cmap": cmap, "vmin": vmin, "vmax": vmax}
+        )
+        ax.set_title(label)
+        meshes.append((pcm, extend))
+    if join_colorbar:
+        pcm, extend = meshes[0]
+        fig.colorbar(
+            pcm,
+            ax=[ax_true, ax_pred],
+            orientation="horizontal",
+            extend=extend,
+            label=map_units,
+        )
+    else:
+        for ax, (pcm, extend) in zip((ax_true, ax_pred), meshes, strict=True):
+            fig.colorbar(
+                pcm, ax=ax, orientation="horizontal", extend=extend, label=map_units
+            )
+
+    # Residual
+    residual = pred - true
+    res_min, res_max = float(residual.min()), float(residual.max())
+    absdiff = (
+        max(abs(res_min), abs(res_max), 0.1) if residual_max is None else residual_max
+    )
+    margin = 0.02 * 2 * absdiff
+    norm = TwoSlopeNorm(vmin=-absdiff - margin, vcenter=0, vmax=absdiff + margin)
+    _, pcm = plot_greenland_only(
+        residual, ax=ax_res, pcolormesh_kwargs={"cmap": "seismic", "norm": norm}
+    )
+    ax_res.set_title("Residual (pred. - true)")
+    _, _, extend = _get_value_limits(res_min, res_max, (-absdiff, absdiff))
+    cbar = fig.colorbar(
+        pcm, ax=ax_res, orientation="horizontal", extend=extend, label=map_units
+    )
+    cbar.locator = MaxNLocator(nbins=5)
+    cbar.update_ticks()
+    # Mark the residual's min (largest under-prediction, blue) and max
+    # (largest over-prediction, red) just above the colour bar.
+    above_bar = cbar.ax.get_xaxis_transform() + ScaledTranslation(
+        0, 5 / 72, fig.dpi_scale_trans
+    )
+    for value, color in ((res_min, "blue"), (res_max, "red")):
+        cbar.ax.plot(
+            np.clip(value, norm.vmin, norm.vmax),
+            1.0,
+            marker="v",
+            markersize=8,
+            color=color,
+            transform=above_bar,
+            clip_on=False,
+        )
+
+    # Std
+    vmin, vmax, extend = _get_value_limits(0.0, float(std.max()), (None, std_max))
+    _, pcm = plot_greenland_only(
+        std, ax=ax_std, pcolormesh_kwargs={"cmap": "magma", "vmin": vmin, "vmax": vmax}
+    )
+    ax_std.set_title(std_label)
+    fig.colorbar(pcm, ax=ax_std, orientation="horizontal", extend=extend, label=units)
+
+    # Corner statistics, from the daily values
+    for ax, daily in ((ax_true, daily_true), (ax_pred, daily_pred)):
+        values = np.asarray(daily).ravel()
+        melting = values[values > melt_threshold]  # NaNs compare False
+        lines = []
+        if melting.size > 100:
+            lines += [
+                f"med: {np.median(melting):.2f}",
+                f"IQR: {sp.stats.iqr(melting):.2f}",
+            ]
+        if cell_area is not None:
+            extent = melt_extent_km2(daily, cell_area, melt_threshold)
+            lines.append(f"ME: {extent:,.0f} km$^2$")
+        _corner_text(ax, lines)
+    t, p = np.asarray(daily_true).ravel(), np.asarray(daily_pred).ravel()
+    err = (p - t)[~(np.isnan(t) | np.isnan(p))]
+    _corner_text(
+        ax_res,
+        [
+            f"RMSE: {np.sqrt(np.mean(err**2)):.2f}",
+            f"MAE: {np.mean(np.abs(err)):.2f}",
+            f"MBE: {np.mean(err):.2f}",
+        ],
+    )
+
+    if title:
+        fig.suptitle(title)
     return fig
 
 
