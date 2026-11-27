@@ -750,6 +750,7 @@ def grid_metric_maps_plot(
             label=f"{label} ({units})",
         )
         ax.set_title(f"{label} (mean {float(da.mean()):.2f})")
+        ax.set_axis_off()
     return fig
 
 
@@ -779,7 +780,7 @@ def comparison_map_plot(
     value_lim: tuple[float | None, float | None] | None = None,
     residual_max: float | None = None,
     std_max: float | None = None,
-    join_colorbar: bool = False,
+    join_colorbar: bool = True,
 ) -> Figure:
     """Plot true | predicted | residual | std maps for one date or a period.
 
@@ -787,9 +788,10 @@ def comparison_map_plot(
     (https://github.com/eschlager/MeltEmulation/), with an extra panel for
     the predictive std.
 
-    - True and predicted share a colormap; by default each colour scale runs
-      over its own map's min to max (or over both maps' combined range with
-      `join_colorbar`), and `value_lim` fixes it.
+    - True and predicted share a colormap. By default they also share one
+      colour scale and colour bar, over both maps' combined min to max; with
+      ``join_colorbar=False`` each has its own colour bar, over its own
+      map's min to max. `value_lim` fixes the scale(s).
     - The residual (predicted - true) is on a ``seismic`` scale symmetric
       about 0, up to the largest absolute residual (or `residual_max`). Blue
       and red markers above its colour bar show the residual's min and max.
@@ -832,8 +834,9 @@ def comparison_map_plot(
     std_max : float or None, default None
         Fixed maximum of the std colour scale (otherwise its max; it always
         starts at 0).
-    join_colorbar : bool, default False
-        If True, the true and predicted maps share one colour bar.
+    join_colorbar : bool, default True
+        If True, the true and predicted maps share one colour scale and one
+        colour bar; if False, each has its own scale and colour bar.
 
     Returns
     -------
@@ -859,6 +862,8 @@ def comparison_map_plot(
         layout="constrained",
     )
     ax_true, ax_pred, ax_res, ax_std = axes
+    for ax in axes:
+        ax.set_axis_off()
 
     # True and predicted
     cmap = ListedColormap(cc.linear_kryw_5_100_c67[::-1])
@@ -887,6 +892,9 @@ def comparison_map_plot(
             orientation="horizontal",
             extend=extend,
             label=map_units,
+            # Spanning two maps, half the length keeps it the same size as
+            # the single-map colour bars, centred under both maps.
+            shrink=0.5,
         )
     else:
         for ax, (pcm, extend) in zip((ax_true, ax_pred), meshes, strict=True):
@@ -918,7 +926,7 @@ def comparison_map_plot(
         0, 5 / 72, fig.dpi_scale_trans
     )
     for value, color in ((res_min, "blue"), (res_max, "red")):
-        cbar.ax.plot(
+        (marker,) = cbar.ax.plot(
             np.clip(value, norm.vmin, norm.vmax),
             1.0,
             marker="v",
@@ -927,6 +935,9 @@ def comparison_map_plot(
             transform=above_bar,
             clip_on=False,
         )
+        # Leave the markers out of the layout, so this colour bar sits at the
+        # same height as the others.
+        marker.set_in_layout(False)
 
     # Std
     vmin, vmax, extend = _get_value_limits(0.0, float(std.max()), (None, std_max))

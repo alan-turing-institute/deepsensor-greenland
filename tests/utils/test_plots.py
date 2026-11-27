@@ -188,3 +188,23 @@ class TestComparisonMapPlot:
         markers = [line.get_color() for line in cbar.ax.lines]
         assert markers == ["blue", "red"]
         plt.close(fig)
+
+    def test_true_and_pred_share_one_scale_and_colorbar_by_default(
+        self, greenland_field
+    ):
+        fig = comparison_map_plot(
+            greenland_field, greenland_field + 10, greenland_field
+        )
+        true_mesh, pred_mesh = _first_mesh(fig.axes[0]), _first_mesh(fig.axes[1])
+        assert true_mesh.get_clim() == pred_mesh.get_clim() == (0, 39)
+        assert len(fig.axes) == 4 + 3  # maps + true/pred, residual, std bars
+        plt.close(fig)
+
+    def test_separate_scales_and_colorbars(self, greenland_field):
+        fig = comparison_map_plot(
+            greenland_field, greenland_field + 10, greenland_field, join_colorbar=False
+        )
+        assert _first_mesh(fig.axes[0]).get_clim() == (0, 29)
+        assert _first_mesh(fig.axes[1]).get_clim() == (10, 39)
+        assert len(fig.axes) == 4 + 4  # maps + true, pred, residual, std bars
+        plt.close(fig)
