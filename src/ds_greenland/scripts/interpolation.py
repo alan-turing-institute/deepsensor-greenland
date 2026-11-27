@@ -9,7 +9,6 @@ import hydra
 import numpy as np
 import pandas as pd
 import torch
-import wandb
 import xarray as xr
 from deepsensor.train import set_gpu_default_device
 from omegaconf import DictConfig, OmegaConf
@@ -19,13 +18,13 @@ from ds_greenland.data import CARRA2DataLoader, HIRHAM5DataLoader, HIRHAM5ZarrDa
 from ds_greenland.data.dataloader import BaseDataLoader
 from ds_greenland.models import DeepSensorModel
 from ds_greenland.training import Trainer
-from ds_greenland.utils.config import to_plain
 from ds_greenland.utils.data import (
     context_sampling_with_delta,
     find_xy_for_points,
     sample_dates_by_year_chunks,
     sample_land_locations,
 )
+from ds_greenland.utils.wandb_utils import init_wandb_run, wandb_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -64,24 +63,10 @@ def main(config: DictConfig) -> None:
 
     # Initialize W&B early to track the full run (data loading, model build, training)
     wandb_run = None
-    use_wandb = config["logging"].get("wandb", {}).get("enabled", False)
+    use_wandb = wandb_enabled(config)
     resume = config["training"].get("resume", False)
     if use_wandb and not resume:
-        wandb_cfg = config["logging"]["wandb"]
-        wandb_run = wandb.init(
-            project=wandb_cfg.get("project", "deepsensor-spatial-interpolation"),
-            entity=wandb_cfg.get("entity"),
-            name=wandb_cfg.get("name"),
-            tags=wandb_cfg.get("tags", []),
-            notes=wandb_cfg.get("notes", ""),
-            config={
-                "model": to_plain(config["model"]),
-                "training": to_plain(config["training"]),
-                "data": to_plain(config["data"]),
-            },
-        )
-        logger.info("Initialized W&B run: %s", wandb_run.name)
-        logger.info("W&B URL: %s", wandb_run.url)
+        wandb_run = init_wandb_run(config)
 
     logger.info(
         "Active devices before updating default: %s", torch.get_default_device()

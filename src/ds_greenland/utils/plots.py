@@ -10,6 +10,7 @@ from typing import Any, Literal, cast
 
 import cartopy.crs as ccrs
 import cartopy.feature as cf
+import colorcet as cc
 import deepsensor.plot as dsplt
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
@@ -21,9 +22,13 @@ from cartopy.feature import ShapelyFeature
 from cartopy.mpl.geoaxes import GeoAxes
 from deepsensor.data.processor import DataProcessor
 from deepsensor.data.task import Task
+from matplotlib import colormaps
 from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
+from matplotlib.colors import ListedColormap, TwoSlopeNorm
 from matplotlib.figure import Figure
+from matplotlib.ticker import MaxNLocator
+from matplotlib.transforms import ScaledTranslation
 from numpy.typing import ArrayLike, NDArray
 
 from ds_greenland.utils.data import (
@@ -35,6 +40,7 @@ from ds_greenland.utils.data import (
 from ds_greenland.utils.metrics import (
     compute_pit_bernoulli_gamma,
     compute_pit_zigamma_mixture,
+    melt_extent_km2,
 )
 
 
@@ -379,15 +385,38 @@ def PIT_histogram(
     return fig, ax
 
 
-def hexbin_parity_plot(x: ArrayLike, y: ArrayLike) -> tuple[Figure, Axes]:
+def hexbin_parity_plot(
+    x: ArrayLike,
+    y: ArrayLike,
+    color_threshold: float = 1e5,
+    units: str | None = None,
+    totals_gt: tuple[float, float] | None = None,
+    title: str | None = None,
+) -> tuple[Figure, Axes]:
     """Plot a hexbin parity (predicted vs. true) diagram with a 1:1 line.
+
+    Follows MeltEmulation's ``plot_pred_vs_target_density``
+    (https://github.com/eschlager/MeltEmulation/): bins holding more than
+    `color_threshold` points (e.g. the many zero-melt points) are drawn in
+    black and left out of the colour scale, so it resolves the rest, and the
+    RMSE and MAE (pooled over all points) are written in the lower-right
+    corner.
 
     Parameters
     ----------
     x : array-like
-        True values, plotted on the x-axis.
+        True values, plotted on the x-axis. Flattened; pairs where `x` or `y`
+        is NaN are skipped.
     y : array-like
-        Predicted values, plotted on the y-axis.
+        Predicted values, plotted on the y-axis, same size as `x`.
+    color_threshold : float, default 1e5
+        Bin count above which bins are drawn in black.
+    units : str or None, default None
+        Units of the values, added to the axis labels.
+    totals_gt : tuple[float, float] or None, default None
+        ``(true, predicted)`` totals in Gt, written in the upper-left corner.
+    title : str or None, default None
+        Title of the plot.
 
     Returns
     -------
@@ -396,24 +425,55 @@ def hexbin_parity_plot(x: ArrayLike, y: ArrayLike) -> tuple[Figure, Axes]:
         ratio and a black bisecting (1:1) line.
 
     """
-    # Plot
+    true_vals = np.asarray(x, dtype=float).ravel()
+    pred_vals = np.asarray(y, dtype=float).ravel()
+    valid = ~(np.isnan(true_vals) | np.isnan(pred_vals))
+    true_vals, pred_vals = true_vals[valid], pred_vals[valid]
+
     fig, ax = plt.subplots()
-    # hb = ax.hexbin(x, y, bins='log')
-    gridsize = 50
     hb = ax.hexbin(
-        x,
-        y,
-        gridsize=gridsize,
+        true_vals,
+        pred_vals,
+        gridsize=50,
         bins="log",
-        cmap="RdYlBu_r",
+        cmap=colormaps["RdYlBu_r"].with_extremes(over="black"),
         linewidths=(0,),  # type: ignore[arg-type]
         mincnt=1,
         vmin=1,
     )
-    fig.colorbar(hb, ax=ax, label="counts")
-    ax.set_xlabel("True")
-    ax.set_ylabel("Pred.")
-    ax.grid()
+    # Scale the colours to the bins up to the threshold; those above are
+    # drawn in the colormap's "over" colour (black).
+    counts = np.asarray(hb.get_array())
+    above = counts > color_threshold
+    if above.any():
+        below = counts[~above]
+        hb.set_clim(vmin=1, vmax=below.max() if below.size else color_threshold)
+    fig.colorbar(
+        hb,
+        ax=ax,
+        extend="max" if above.any() else "neither",
+        label=f"bin count (≤ {int(color_threshold)})",
+    )
+    suffix = f" ({units})" if units else ""
+    ax.set_xlabel(f"True{suffix}")
+    ax.set_ylabel(f"Pred.{suffix}")
+    if title:
+        ax.set_title(title)
+
+    err = pred_vals - true_vals
+    _corner_text(
+        ax,
+        [f"RMSE: {np.sqrt(np.mean(err**2)):.2f}", f"MAE: {np.mean(np.abs(err)):.2f}"],
+    )
+    if totals_gt is not None:
+        ax.text(
+            0.02,
+            0.98,
+            f"True: {totals_gt[0]:,.0f} Gt\nPred.: {totals_gt[1]:,.0f} Gt",
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+        )
 
     # Manage limits and aspect ratio
     lims = [
@@ -421,7 +481,7 @@ def hexbin_parity_plot(x: ArrayLike, y: ArrayLike) -> tuple[Figure, Axes]:
         np.max([ax.get_xlim(), ax.get_ylim()]),  # maxes of both axes
     ]
     # Plot bisecting 1:1 line
-    ax.plot(lims, lims, "k-", alpha=0.75, linewidth=0.1, zorder=1)
+    ax.plot(lims, lims, "k-", alpha=0.4, zorder=0)
     ax.set_aspect("equal")
     ax.set_xlim(lims)  # type: ignore[arg-type]
     ax.set_ylim(lims)  # type: ignore[arg-type]
@@ -500,8 +560,8 @@ def new_placements_plot_xy(
 
 def plot_greenland_only(
     gris_data: xr.DataArray,
-    newplace_df: pd.DataFrame,
-    existing_df: pd.DataFrame,
+    newplace_df: pd.DataFrame | None = None,
+    existing_df: pd.DataFrame | None = None,
     ax: GeoAxes | None = None,
     masked: bool = True,
     ocean_color: str | None = "white",
@@ -522,13 +582,14 @@ def plot_greenland_only(
     ----------
     gris_data : xarray.DataArray
         2D field (e.g. ``lat``/``lon`` or ``y``/``x``) to plot.
-    newplace_df : pandas.DataFrame
+    newplace_df : pandas.DataFrame or None, default None
         New placement locations, indexed as ``(lat, lon)`` pairs (row order
         matches ``.values``), plotted as red ``"+"`` markers (unless
         restyled via `newplace_kwargs`) and annotated with ``index + 1``.
-    existing_df : pandas.DataFrame
+        If None, no new placements are drawn.
+    existing_df : pandas.DataFrame or None, default None
         Existing placement locations, indexed as ``(lat, lon)`` pairs,
-        plotted as black ``"x"`` markers.
+        plotted as black ``"x"`` markers. If None, none are drawn.
     ax : cartopy.mpl.geoaxes.GeoAxes or None, default None
         Axis to plot on. If None, a new figure and
         :class:`~cartopy.crs.NorthPolarStereo` axis are created.
@@ -542,9 +603,7 @@ def plot_greenland_only(
         If True, draw latitude/longitude gridlines.
     pcolormesh_kwargs : dict[str, Any] or None, default None
         Extra keyword arguments forwarded to ``ax.pcolormesh`` (e.g.
-        ``cmap``, ``vmin``, ``vmax``). Must be provided (unpacked with
-        ``**``), so a plain call without this argument will raise a
-        ``TypeError``.
+        ``cmap``, ``vmin``, ``vmax``). None uses matplotlib's defaults.
     newplace_kwargs : dict[str, Any] or None, default None
         Extra keyword arguments forwarded to the new-placements
         ``ax.scatter`` call (e.g. ``marker``, ``c``, ``s``, ``edgecolors``),
@@ -632,43 +691,44 @@ def plot_greenland_only(
             linestyle="--",
         )
 
-    ax.scatter(
-        *newplace_df.values.T[::-1],
-        transform=data_crs,
-        **{
-            "marker": "+",
-            "s": 3**2,
-            "c": "r",
-            "zorder": 5,
-            "label": "New placements",
-            **(newplace_kwargs or {}),
-        },
-    )
-    ax.scatter(
-        *existing_df.values.T[::-1],
-        transform=data_crs,
-        marker="x",
-        s=3**2,
-        c="k",
-        zorder=5,
-        label="Existing placements",
-    )
-
-    # annotate new placements with their row index
-    for row_idx, (lat_val, lon_val) in zip(
-        newplace_df.index, newplace_df.values, strict=True
-    ):
-        ax.text(
-            lon_val,
-            lat_val,
-            str(row_idx + 1),
+    if newplace_df is not None:
+        ax.scatter(
+            *newplace_df.values.T[::-1],
             transform=data_crs,
-            color="r",
-            fontsize=6,
-            fontweight="bold",
-            zorder=6,
-            ha="left",
-            va="bottom",
+            **{
+                "marker": "+",
+                "s": 3**2,
+                "c": "r",
+                "zorder": 5,
+                "label": "New placements",
+                **(newplace_kwargs or {}),
+            },
+        )
+        # annotate new placements with their row index
+        for row_idx, (lat_val, lon_val) in zip(
+            newplace_df.index, newplace_df.values, strict=True
+        ):
+            ax.text(
+                lon_val,
+                lat_val,
+                str(row_idx + 1),
+                transform=data_crs,
+                color="r",
+                fontsize=6,
+                fontweight="bold",
+                zorder=6,
+                ha="left",
+                va="bottom",
+            )
+    if existing_df is not None:
+        ax.scatter(
+            *existing_df.values.T[::-1],
+            transform=data_crs,
+            marker="x",
+            s=3**2,
+            c="k",
+            zorder=5,
+            label="Existing placements",
         )
 
     pcm = ax.pcolormesh(
@@ -679,12 +739,297 @@ def plot_greenland_only(
         shading="auto",
         rasterized=True,
         zorder=4,
-        # Note: raises TypeError if pcolormesh_kwargs is left as None (the
-        # default); every current caller always passes a dict.
-        **pcolormesh_kwargs,  # type: ignore[arg-type]
+        **(pcolormesh_kwargs or {}),
     )
 
     return ax, pcm
+
+
+def grid_metric_maps_plot(
+    maps: xr.Dataset,
+    units: str = "mm w.e. day$^{-1}$",
+    value_lims: dict[str, tuple[float | None, float | None]] | None = None,
+) -> Figure:
+    """Plot per-grid-cell RMSE, MAE and average predictive std side by side.
+
+    Each panel is a Greenland map (see `plot_greenland_only`) with its own
+    colour bar and its spatial mean in the title. By default each colour
+    scale runs from 0 to the map's maximum; fixed limits can be set per
+    metric via `value_lims`, with an arrow on the colour bar where the data
+    goes beyond them.
+
+    Parameters
+    ----------
+    maps : xarray.Dataset
+        ``"rmse"``, ``"mae"`` and ``"avgstd"`` maps, as returned by
+        :func:`ds_greenland.utils.metrics.compute_grid_metric_maps`, with 2D
+        geographic ``lon``/``lat`` coordinates.
+    units : str, default "mm w.e. day$^{-1}$"
+        Units of the maps, shown in the colour bar labels.
+    value_lims : dict[str, tuple[float or None, float or None]] or None, default None
+        Fixed ``(min, max)`` colour limits keyed by metric name (e.g.
+        ``{"rmse": (0, 5)}``); either end may be None to keep the default
+        there. Metrics not listed use the default (0 to the maximum).
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The figure with the three maps.
+
+    """
+    panels = {
+        "rmse": ("RMSE", "viridis"),
+        "mae": ("MAE", "viridis"),
+        "avgstd": ("Average std", "magma"),
+    }
+    fig, axes = plt.subplots(
+        1,
+        len(panels),
+        figsize=(15, 7),
+        subplot_kw={"projection": ccrs.NorthPolarStereo(central_longitude=-40)},
+        layout="constrained",
+    )
+    for ax, (name, (label, cmap)) in zip(axes, panels.items(), strict=True):
+        da = maps[name]
+        vmin, vmax, extend = _get_value_limits(
+            0.0, float(da.max()), (value_lims or {}).get(name)
+        )
+        ax, pcm = plot_greenland_only(
+            da, ax=ax, pcolormesh_kwargs={"cmap": cmap, "vmin": vmin, "vmax": vmax}
+        )
+        fig.colorbar(
+            pcm,
+            ax=ax,
+            orientation="horizontal",
+            extend=extend,
+            label=f"{label} ({units})",
+        )
+        ax.set_title(f"{label} (mean {float(da.mean()):.2f})")
+        ax.set_axis_off()
+    return fig
+
+
+def _corner_text(ax: Axes, lines: list[str]) -> None:
+    """Write `lines` in the lower-right corner of `ax`, first line on top."""
+    if lines:
+        ax.text(
+            1.0,
+            0.0,
+            "\n".join(lines),
+            transform=ax.transAxes,
+            ha="right",
+            va="bottom",
+            zorder=7,
+        )
+
+
+def comparison_map_plot(
+    true: xr.DataArray,
+    pred: xr.DataArray,
+    std: xr.DataArray,
+    title: str = "",
+    units: str = "mm w.e. day$^{-1}$",
+    total_units: str = "mm w.e.",
+    cell_area: xr.DataArray | None = None,
+    melt_threshold: float = 1.0,
+    value_lim: tuple[float | None, float | None] | None = None,
+    residual_max: float | None = None,
+    std_max: float | None = None,
+    join_colorbar: bool = True,
+) -> Figure:
+    """Plot true | predicted | residual | std maps for one date or a period.
+
+    Ported from MeltEmulation's ``plot_map``
+    (https://github.com/eschlager/MeltEmulation/), with an extra panel for
+    the predictive std.
+
+    - True and predicted share a colormap. By default they also share one
+      colour scale and colour bar, over both maps' combined min to max; with
+      ``join_colorbar=False`` each has its own colour bar, over its own
+      map's min to max. `value_lim` fixes the scale(s).
+    - The residual (predicted - true) is on a ``seismic`` scale symmetric
+      about 0, up to the largest absolute residual (or `residual_max`). Blue
+      and red markers above its colour bar show the residual's min and max.
+    - Text in the lower-right corners: median and IQR of the values above
+      `melt_threshold` (if more than 100 of them) and the melt extent (if
+      `cell_area` is given) on the true and predicted maps; RMSE, MAE and
+      MBE on the residual map.
+
+    If the inputs have a ``time`` dimension, the true, predicted and
+    residual maps show totals over time (in `total_units`) and the std map
+    its mean over time; the corner statistics are always computed from the
+    daily values (RMSE etc. pooled over every date and grid cell), as in
+    ``plot_map``.
+
+    Parameters
+    ----------
+    true, pred, std : xarray.DataArray
+        Ground truth, predicted mean and predicted std, on the same grid
+        with 2D geographic ``lon``/``lat`` coordinates, either 2D (one
+        date) or with a ``time`` dimension. `std` is masked to where `true`
+        is defined.
+    title : str, default ""
+        Figure title (e.g. the date).
+    units : str, default "mm w.e. day$^{-1}$"
+        Units of the daily values.
+    total_units : str, default "mm w.e."
+        Units of the totals over time, used when the inputs have a ``time``
+        dimension.
+    cell_area : xarray.DataArray or None, default None
+        Cell areas in m² (see :func:`ds_greenland.utils.metrics.grid_cell_areas`),
+        used for the melt extent. If None, no melt extent is shown.
+    melt_threshold : float, default 1.0
+        Value above which a cell counts as melting, for the median, IQR and
+        melt extent.
+    value_lim : tuple[float or None, float or None] or None, default None
+        Fixed ``(min, max)`` colour limits for the true and predicted maps;
+        either end may be None to keep the data's own there.
+    residual_max : float or None, default None
+        Fixed maximum absolute value of the residual colour scale.
+    std_max : float or None, default None
+        Fixed maximum of the std colour scale (otherwise its max; it always
+        starts at 0).
+    join_colorbar : bool, default True
+        If True, the true and predicted maps share one colour scale and one
+        colour bar; if False, each has its own scale and colour bar.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The figure with the four maps.
+
+    """
+    std = std.where(true.notnull())
+    daily_true, daily_pred = true, pred
+    if "time" in true.dims:
+        true = true.sum(dim="time", skipna=False)
+        pred = pred.sum(dim="time", skipna=False)
+        std = std.mean(dim="time")
+        map_units, std_label = total_units, "Average std"
+    else:
+        map_units, std_label = units, "Std"
+
+    fig, axes = plt.subplots(
+        1,
+        4,
+        figsize=(16, 6),
+        subplot_kw={"projection": ccrs.NorthPolarStereo(central_longitude=-40)},
+        layout="constrained",
+    )
+    ax_true, ax_pred, ax_res, ax_std = axes
+    for ax in axes:
+        ax.set_axis_off()
+
+    # True and predicted
+    cmap = ListedColormap(cc.linear_kryw_5_100_c67[::-1])
+    ranges = [
+        (float(true.min()), float(true.max())),
+        (float(pred.min()), float(pred.max())),
+    ]
+    if join_colorbar:
+        joint = (min(r[0] for r in ranges), max(r[1] for r in ranges))
+        ranges = [joint, joint]
+    meshes = []
+    for ax, da, label, (lo, hi) in zip(
+        (ax_true, ax_pred), (true, pred), ("True", "Predicted"), ranges, strict=True
+    ):
+        vmin, vmax, extend = _get_value_limits(lo, hi, value_lim)
+        _, pcm = plot_greenland_only(
+            da, ax=ax, pcolormesh_kwargs={"cmap": cmap, "vmin": vmin, "vmax": vmax}
+        )
+        ax.set_title(label)
+        meshes.append((pcm, extend))
+    if join_colorbar:
+        pcm, extend = meshes[0]
+        fig.colorbar(
+            pcm,
+            ax=[ax_true, ax_pred],
+            orientation="horizontal",
+            extend=extend,
+            label=map_units,
+            # Spanning two maps, half the length keeps it the same size as
+            # the single-map colour bars, centred under both maps.
+            shrink=0.5,
+        )
+    else:
+        for ax, (pcm, extend) in zip((ax_true, ax_pred), meshes, strict=True):
+            fig.colorbar(
+                pcm, ax=ax, orientation="horizontal", extend=extend, label=map_units
+            )
+
+    # Residual
+    residual = pred - true
+    res_min, res_max = float(residual.min()), float(residual.max())
+    absdiff = (
+        max(abs(res_min), abs(res_max), 0.1) if residual_max is None else residual_max
+    )
+    margin = 0.02 * 2 * absdiff
+    norm = TwoSlopeNorm(vmin=-absdiff - margin, vcenter=0, vmax=absdiff + margin)
+    _, pcm = plot_greenland_only(
+        residual, ax=ax_res, pcolormesh_kwargs={"cmap": "seismic", "norm": norm}
+    )
+    ax_res.set_title("Residual (pred. - true)")
+    _, _, extend = _get_value_limits(res_min, res_max, (-absdiff, absdiff))
+    cbar = fig.colorbar(
+        pcm, ax=ax_res, orientation="horizontal", extend=extend, label=map_units
+    )
+    cbar.locator = MaxNLocator(nbins=5)
+    cbar.update_ticks()
+    # Mark the residual's min (largest under-prediction, blue) and max
+    # (largest over-prediction, red) just above the colour bar.
+    above_bar = cbar.ax.get_xaxis_transform() + ScaledTranslation(
+        0, 5 / 72, fig.dpi_scale_trans
+    )
+    for value, color in ((res_min, "blue"), (res_max, "red")):
+        (marker,) = cbar.ax.plot(
+            np.clip(value, norm.vmin, norm.vmax),
+            1.0,
+            marker="v",
+            markersize=8,
+            color=color,
+            transform=above_bar,
+            clip_on=False,
+        )
+        # Leave the markers out of the layout, so this colour bar sits at the
+        # same height as the others.
+        marker.set_in_layout(False)
+
+    # Std
+    vmin, vmax, extend = _get_value_limits(0.0, float(std.max()), (None, std_max))
+    _, pcm = plot_greenland_only(
+        std, ax=ax_std, pcolormesh_kwargs={"cmap": "magma", "vmin": vmin, "vmax": vmax}
+    )
+    ax_std.set_title(std_label)
+    fig.colorbar(pcm, ax=ax_std, orientation="horizontal", extend=extend, label=units)
+
+    # Corner statistics, from the daily values
+    for ax, daily in ((ax_true, daily_true), (ax_pred, daily_pred)):
+        values = np.asarray(daily).ravel()
+        melting = values[values > melt_threshold]  # NaNs compare False
+        lines = []
+        if melting.size > 100:
+            lines += [
+                f"med: {np.median(melting):.2f}",
+                f"IQR: {sp.stats.iqr(melting):.2f}",
+            ]
+        if cell_area is not None:
+            extent = melt_extent_km2(daily, cell_area, melt_threshold)
+            lines.append(f"ME: {extent:,.0f} km$^2$")
+        _corner_text(ax, lines)
+    t, p = np.asarray(daily_true).ravel(), np.asarray(daily_pred).ravel()
+    err = (p - t)[~(np.isnan(t) | np.isnan(p))]
+    _corner_text(
+        ax_res,
+        [
+            f"RMSE: {np.sqrt(np.mean(err**2)):.2f}",
+            f"MAE: {np.mean(np.abs(err)):.2f}",
+            f"MBE: {np.mean(err):.2f}",
+        ],
+    )
+
+    if title:
+        fig.suptitle(title)
+    return fig
 
 
 def _get_value_limits(
